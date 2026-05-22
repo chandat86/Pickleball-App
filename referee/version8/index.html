@@ -1873,38 +1873,55 @@ function showApp() {
   // Manager không thấy tab quản lý giải
   if (ROLE === 'manager') document.getElementById('nav-tourn').style.display = 'none';
 
-  // Tải dữ liệu nền một lần để cache
+  // ── TỐI ƯU: Khôi phục từ localStorage để render instant (không cần GAS) ──
+  try {
+    const lsT = localStorage.getItem('pb_adm_T');
+    const lsM = localStorage.getItem('pb_adm_M');
+    const lsR = localStorage.getItem('pb_adm_R');
+    if (lsT) { _T = JSON.parse(lsT); populateTournamentDropdowns(); }
+    if (lsM) { _M = JSON.parse(lsM); dedupM(); }
+    if (lsR) buildDkFromResults(JSON.parse(lsR));
+    if (_T.length || _M.length) _renderDashFromLocal('', '', '');
+  } catch(e) {}
+
+  // Tải dữ liệu nền một lần để cache (GAS fetch nền)
   prefetchAll();
   // Bắt đầu realtime refresh 30s dashboard + 8s live scores
+  // ── TỐI ƯU: tách 2 timer ──
+  // Timer 1: live scores mỗi 8s (nhẹ, chỉ đọc LiveScore sheet)
+  // Timer 2: dashboard full mỗi 60s (nặng hơn, đọc nhiều sheet)
+  // → live data realtime, dashboard không spam GAS
   _dtimer = setInterval(() => {
-    if (_curPage==='dashboard') {
-      // Nếu lỗi >5 lần liên tiếp → giảm tần suất retry xuống 2 phút (không spam)
-      if (_failCount > 5) return;
-      loadDash();
-    }
-  }, 30000); // Auto-refresh 30s
+    if (_curPage === 'dashboard' && _failCount <= 5) loadDash();
+  }, 60000); // Full dashboard refresh mỗi 60s
   startLivePolling();
 }
 
 // ── Live polling: cập nhật _lK + _liveScores mỗi 8 giây ──
-// Dùng batch endpoint: 1 request thay vì 1 request riêng
+// Chỉ fetch LiveScore (nhẹ) — không gọi dashboard API nặng
 function startLivePolling() {
   if (_liveTimer) return;
   _liveTimer = setInterval(async () => {
     try {
-      if (!GS) return;
-      // Manager: chỉ poll giải mình. Admin: poll giải đang xem (hoặc tất cả nếu chưa chọn)
+      if (!GS || _failCount > 3) return;
       const giaiName = ROLE === 'manager'
         ? (_resolveGiaiName(MY_GIAI) || MY_GIAI)
         : (_curTourn ? String(_curTourn[1]||'') : '');
-      const ld = await gGet({ action:'live', code:'all', giai: giaiName });
-      const rows = ld.rows?.slice(1) || [];
-      // Chỉ lấy row 'playing' (bỏ 'finished') 
+      const ld = await gGet({ action:'live', code:'all', giai: giaiName }, 8000);
+      const rows = ld?.rows?.slice(1) || [];
       _buildLiveFromRows(rows);
-      // Re-render chỉ khi đang xem bảng đấu
+      // Re-render live card nếu đang ở dashboard (không reload toàn bộ)
+      if (_curPage === 'dashboard') {
+        const giaiId   = document.getElementById('dash-giai').value;
+        const gnFilter = giaiId ? ((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
+        const ndFilter = document.getElementById('dash-nd')?.value  || '';
+        const bgFilter = document.getElementById('dash-bang')?.value|| '';
+        _renderDashFromLocal(gnFilter, ndFilter, bgFilter);
+      }
       if (_curPage === 'tournaments' && _curNd && _curTourn) {
         renderBangList(_curGiaiId||'', _curNd);
       }
+      if (_curPage === 'bracket' && _bkGiai && _bkNd) bkRender();
     } catch(e) {}
   }, 8000);
 }
@@ -1919,7 +1936,7 @@ function doLogout() {
 //  PREFETCH — tải nền 1 lần, sau đó dùng cache
 // ════════════════════════════════════════════════════════════════
 const _cache = {}; // { key: { ts, data } }
-const CACHE_TTL = 90000; // 90s — đủ mới cho dữ liệu giải
+const CACHE_TTL = 120000; // 120s — giảm số lần hit GAS
 
 function cacheGet(key) {
   const c = _cache[key];
@@ -2009,74 +2026,87 @@ async function _retryConnect() {
 async function prefetchAll() {
   _prefetchFailed = false;
   const giaiParam = ROLE === 'manager' ? MY_GIAI : '';
+
+  // ── TỐI ƯU: Render ngay từ cache nếu có (zero wait) ──
+  // User thấy dữ liệu ngay lập tức, GAS fetch chạy nền
+  const hasCachedData = _T.length > 0 || _M.length > 0;
+  if (hasCachedData) {
+    populateTournamentDropdowns();
+    loadDash(); // render từ cache trước
+  }
+
   try {
-    // Thử BATCH trước (GAS v8+). Nếu GAS cũ chưa support → fallback 4 request song song
-    let tRes={}, mRes={}, rRes={}, lRes={};
+    // ── 1 request batch duy nhất: tournaments + matches + results + live ──
+    // GAS v12 hỗ trợ batch → chỉ 1 round-trip thay vì 4
     const batch = await gGet({
       action: 'batch',
       actions: 'tournaments,matches,results,live',
       code: 'all',
       giai: giaiParam
-    }).catch(() => null);
+    }, 15000).catch(() => null); // timeout 15s cho batch (nhiều data hơn)
 
+    let tRes={}, mRes={}, rRes={}, lRes={};
     if (batch && (batch.tournaments || batch.matches)) {
-      // GAS v8 đã deploy → dùng batch data
       tRes = batch.tournaments || {};
       mRes = batch.matches     || {};
       rRes = batch.results     || {};
       lRes = batch.live        || {};
     } else {
-      // Fallback: GAS cũ (v7-) → gọi song song như cũ
-      console.warn('[prefetch] Batch không khả dụng, dùng fallback 4 requests');
+      // Fallback: gọi song song 4 requests (GAS cũ chưa có batch)
+      console.warn('[prefetch] Batch không khả dụng, dùng fallback song song');
       const [t2, m2, r2, l2] = await Promise.all([
-        gGet({ action: 'tournaments' }).catch(() => ({})),
-        gGet({ action: 'matches', giai: giaiParam }).catch(() => ({})),
-        gGet({ action: 'results', giai: giaiParam }).catch(() => ({})),
-        gGet({ action: 'live', code: 'all', giai: giaiParam }).catch(() => ({}))
+        gGet({ action: 'tournaments' }, 10000).catch(() => ({})),
+        gGet({ action: 'matches', giai: giaiParam }, 10000).catch(() => ({})),
+        gGet({ action: 'results', giai: giaiParam }, 10000).catch(() => ({})),
+        gGet({ action: 'live', code: 'all', giai: giaiParam }, 10000).catch(() => ({}))
       ]);
       tRes = t2; mRes = m2; rRes = r2; lRes = l2;
     }
 
-    // Tournaments
+    // Xử lý data nhận về
     if (tRes.rows?.length) {
       _T = tRes.rows.slice(1);
       cacheSet('tournaments', _T);
     }
-    // Matches
     if (mRes.rows?.length > 1) {
       const allRows = normalizeMatchRows(mRes.rows.slice(1));
       _M = allRows;
-      // Cache by giaiParam AND by each unique giaiName in the data
-      // This prevents duplicate loads in loadMatchesCache
       cacheSet('matches_' + giaiParam, allRows);
       const giaiNames = [...new Set(allRows.map(r => String(r[0]||'')).filter(Boolean))];
       giaiNames.forEach(gn => {
-        const giaiRows = allRows.filter(r => String(r[0]||'') === gn);
-        cacheSet('matches_' + gn, giaiRows);
+        cacheSet('matches_' + gn, allRows.filter(r => String(r[0]||'') === gn));
       });
     }
-    // Results → build _dK, _dkScores ngay
     if (rRes.rows?.length > 1) {
       buildDkFromResults(rRes.rows.slice(1));
       cacheSet('results_' + giaiParam, rRes.rows.slice(1));
     }
-    // Live → build _lK, _liveScores ngay (chỉ lấy 'playing', bỏ 'finished')
     if (lRes.rows?.length > 1) {
       _buildLiveFromRows(lRes.rows.slice(1));
     }
 
     populateTournamentDropdowns();
     if (document.getElementById('tv-list')) renderTournCards(_T);
-    _showGasOk(); // Ẩn error bar khi kết nối thành công
+    _showGasOk();
     if (_curPage === 'bracket') bkInit();
-    dedupM(); // Safety net: loại bỏ duplicate
+    dedupM();
+    // ── Lưu vào localStorage để lần sau render instant ──
+    try {
+      if (_T.length) localStorage.setItem('pb_adm_T', JSON.stringify(_T));
+      if (_M.length) localStorage.setItem('pb_adm_M', JSON.stringify(_M));
+      // Lưu _R (KetQua rows) cho buildDkFromResults
+      const cachedR2 = cacheGet('results_' + (ROLE==='manager'?MY_GIAI:''));
+      if (cachedR2?.length) localStorage.setItem('pb_adm_R', JSON.stringify(cachedR2));
+    } catch(e) {}
     console.log('[prefetch] OK — T:', _T.length, 'M:', _M.length,
       'done:', _dkBangCode.size, 'live:', _lK.size);
   } catch(e) {
     _prefetchFailed = true;
     const isTimeout = (e.message||'').includes('timeout');
     _showGasError(isTimeout ? '⏱ GAS phản hồi chậm — thử lại sau' : 'Không kết nối được GAS. Kiểm tra URL deploy');
+    if (!hasCachedData) { loadDash(); return; }
   }
+  // Render lại sau khi có data mới từ GAS
   loadDash();
 }
 
@@ -2093,7 +2123,14 @@ function nav(p) {
   window.scrollTo(0, 0);
   clearInterval(_dtimer);
   const loaders = {
-    dashboard: () => { loadDash(); _dtimer = setInterval(() => { if(_failCount<=5) loadDash(); }, 30000); },
+    dashboard: () => {
+      // Render từ cache ngay lập tức (0ms), rồi fetch GAS nền
+      const giaiId = document.getElementById('dash-giai').value;
+      const gn = giaiId ? ((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
+      if (_M.length || _dK.size) _renderDashFromLocal(gn, '', '');
+      loadDash();
+      _dtimer = setInterval(() => { if(_failCount<=5) loadDash(); }, 60000);
+    },
     tournaments: loadTournaments,
     standings: () => {},
     bracket:   () => { bkInit(); },
@@ -2112,27 +2149,28 @@ function nav(p) {
 }
 
 async function updateLiveScores() {
-  if (!GS || _failCount > 3) return; // Stop polling khi GAS đang offline
+  if (!GS || _failCount > 3) return;
   try {
-    const giai = ROLE === 'manager' ? MY_GIAI : '';
-    const d = await gGet({ action: 'live', code: 'all', giai });
-    if (!d.rows?.length) return;
-    // Chỉ lấy row 'playing' (bỏ 'finished')
+    const giai = ROLE === 'manager' ? MY_GIAI : (_curTourn ? String(_curTourn[1]||'') : '');
+    const d = await gGet({ action: 'live', code: 'all', giai }, 8000);
+    if (!d?.rows?.length) return;
     _buildLiveFromRows(d.rows.slice(1));
-    // Re-render nếu đang ở trang liên quan
+    if (_curPage === 'dashboard') {
+      const giaiId = document.getElementById('dash-giai').value;
+      const gn = giaiId ? ((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
+      _renderDashFromLocal(gn, document.getElementById('dash-nd')?.value||'', document.getElementById('dash-bang')?.value||'');
+    }
     if (_curPage === 'tournaments' && document.getElementById('tv-nd')?.style.display !== 'none') {
       renderBangList(_curGiaiId||'', _curNd||'');
     }
-    if (_curPage === 'bracket' && _bkGiai && _bkNd) {
-      bkRender(); // Cập nhật trạng thái live trên cây thi đấu
-    }
+    if (_curPage === 'bracket' && _bkGiai && _bkNd) bkRender();
   } catch(e) { /* silent */ }
 }
 
 // ════════════════════════════════════════════════════════════════
 //  GAS HELPERS
 // ════════════════════════════════════════════════════════════════
-async function gGet(p, timeout=25000) {
+async function gGet(p, timeout=12000) {
   const qs = Object.entries(p).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   // KHÔNG dùng custom header (gây CORS preflight, GAS không hỗ trợ)
   // Dùng _t=timestamp để bust cache thay thế
@@ -2275,6 +2313,156 @@ function getBangs(giai, nd) {
 // ════════════════════════════════════════════════════════════════
 //  DASHBOARD
 // ════════════════════════════════════════════════════════════════
+// ── Render Dashboard nhanh từ local state (_M, _dK, _lK, _liveScores) ──
+// Gọi TRƯỚC khi fetch GAS → user thấy dữ liệu ngay, không chờ network
+function _renderDashFromLocal(giaiName, nd, bang) {
+  try {
+    // Filter _M theo giải/nd/bang
+    const filteredM = _M.filter(m =>
+      (!giaiName || String(m[0]||'') === giaiName) &&
+      (!nd       || String(m[1]||'') === nd) &&
+      (!bang     || String(m[2]||'') === bang)
+    );
+    if (!filteredM.length) return; // Chưa có data → bỏ qua
+
+    const total  = filteredM.length;
+    const doneM  = filteredM.filter(m => isMatchDone(m)).length;
+    const liveM  = filteredM.filter(m => !isMatchDone(m) && _lK.has(`${m[1]}|${m[2]}|${m[3]}`)).length;
+    const pendM  = total - doneM - liveM;
+
+    // Cập nhật stat cards
+    const sTotal = document.getElementById('s-total');
+    const sDone  = document.getElementById('s-done');
+    const sLive  = document.getElementById('s-live');
+    if (sTotal) sTotal.textContent = total;
+    if (sDone)  sDone.textContent  = doneM;
+    if (sLive)  sLive.textContent  = liveM;
+
+    // Progress bar nếu đang xem filter
+    const filterGiaiId = document.getElementById('dash-giai').value;
+    const hasFilter = filterGiaiId || nd || bang;
+    if (hasFilter) {
+      document.getElementById('dash-view-all').style.display    = 'none';
+      document.getElementById('dash-view-filter').style.display = '';
+      const progEl = document.getElementById('dash-prog-live');
+      if (progEl) progEl.textContent = liveM;
+      const sumEl = document.getElementById('dash-filter-summary');
+      if (sumEl) sumEl.textContent =
+        `${total} trận · ✅${doneM} · ⚡${liveM} · ⬜${pendM}`;
+      // Live card (filter view)
+      const liveCard2 = document.getElementById('dash-live-card');
+      const liveWrap2 = document.getElementById('dash-live-wrap2');
+      const liveInFilter = filteredM.filter(m => !isMatchDone(m) && _lK.has(`${m[1]}|${m[2]}|${m[3]}`));
+      if (liveCard2 && liveWrap2) {
+        const badge = document.getElementById('dash-live-badge');
+        if (liveInFilter.length) {
+          if (badge) badge.textContent = liveInFilter.length + ' trận';
+          liveCard2.style.borderColor = 'rgba(245,158,11,.25)';
+          liveCard2.style.background  = 'rgba(245,158,11,.07)';
+          liveWrap2.innerHTML = _renderLiveTable(liveInFilter);
+        } else {
+          if (badge) badge.textContent = '';
+          liveCard2.style.borderColor = 'var(--bdr)';
+          liveCard2.style.background  = 'var(--bg2)';
+          liveWrap2.innerHTML = '<div class="empty"><div class="ei">📡</div><p style="font-size:12px">Chưa có trận đang thi đấu</p></div>';
+        }
+      }
+      // Match table
+      const mw = document.getElementById('dash-match-wrap');
+      if (mw) mw.innerHTML = _renderMatchTable(filteredM);
+    } else {
+      document.getElementById('dash-view-all').style.display    = '';
+      document.getElementById('dash-view-filter').style.display = 'none';
+      // Live wrap (all view)
+      const lw = document.getElementById('live-wrap');
+      if (lw && _lK.size > 0) {
+        const liveMs = filteredM.filter(m => !isMatchDone(m) && _lK.has(`${m[1]}|${m[2]}|${m[3]}`));
+        if (liveMs.length) liveWrap2Fill(liveMs);
+      }
+    }
+  } catch(e) { console.warn('[_renderDashFromLocal]', e); }
+}
+
+// Helper: fill live-wrap từ _M + _liveScores (không cần liveDetail từ GAS)
+function liveWrap2Fill(liveMs) {
+  const lw = document.getElementById('live-wrap');
+  if (!lw) return;
+  // Build fake liveDetail từ _M + _liveScores
+  const fakeLiveDetail = liveMs.map(m => {
+    const lk = `${m[1]}|${m[2]}|${m[3]}`;
+    const ls = _liveScores[lk] || {};
+    const scoreKey = `${String(m[0]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
+    return {
+      key: lk, giai: String(m[0]||''), nd: String(m[1]||''),
+      bang: String(m[2]||''), code: String(m[3]||''),
+      teamA: ls.teamA || String(m[4]||''), scoreA: ls.scoreA,
+      teamB: ls.teamB || String(m[7]||''), scoreB: ls.scoreB,
+      game: ls.game || 'Game 1', court: String(m[8]||''),
+      referee: _dkScores[scoreKey]?.referee || '',
+    };
+  });
+  // Dùng lại render logic của live-wrap
+  const byG = {};
+  fakeLiveDetail.forEach(r => {
+    const g=r.giai||'—', nd=r.nd||'—', bg=r.bang||'—';
+    if (!byG[g]) byG[g]={};
+    if (!byG[g][nd]) byG[g][nd]={};
+    if (!byG[g][nd][bg]) byG[g][nd][bg]=[];
+    byG[g][nd][bg].push(r);
+  });
+  let html = '<div style="display:flex;flex-direction:column;gap:12px">';
+  Object.keys(byG).forEach(g => Object.keys(byG[g]).forEach(nd => Object.keys(byG[g][nd]).forEach(bg => {
+    const ms = byG[g][nd][bg];
+    const rows = ms.map(r => {
+      const sA=r.scoreA??'—', sB=r.scoreB??'—';
+      const leadA=typeof sA==='number'&&typeof sB==='number'&&sA>sB;
+      const leadB=typeof sA==='number'&&typeof sB==='number'&&sB>sA;
+      const gl=String(r.game||'Game 1').replace(/game\s*/i,'Game ').trim();
+      return `<tr style="border-left:3px solid var(--or);background:rgba(245,158,11,.04)">
+        <td style="text-align:center;font-family:var(--mo);font-weight:900;color:var(--ac);white-space:nowrap;padding:10px 12px">
+          <div class="lbdg" style="display:inline-flex;margin-bottom:4px"><div class="ldot"></div>LIVE</div>
+          <div>${r.code||''}</div>
+        </td>
+        <td style="white-space:nowrap;font-weight:${leadA?700:500};color:${leadA?'var(--tx)':'var(--tx2)'};padding:10px 12px;font-size:12.5px">${r.teamA||'—'}</td>
+        <td style="text-align:center;padding:10px 8px">
+          <span style="display:inline-flex;align-items:center;gap:8px;font-family:var(--mo);font-weight:900;font-size:22px;background:rgba(245,158,11,.1);border-radius:8px;padding:4px 14px">
+            <span style="color:${leadA?'#16a34a':'var(--or)'}">${sA}</span>
+            <span style="color:var(--tx3);font-size:14px;font-weight:400">–</span>
+            <span style="color:${leadB?'#16a34a':'var(--or)'}">${sB}</span>
+          </span>
+          <div style="font-size:10px;color:var(--tx3);margin-top:3px">${gl}</div>
+        </td>
+        <td style="white-space:nowrap;font-weight:${leadB?700:500};color:${leadB?'var(--tx)':'var(--tx2)'};padding:10px 12px;font-size:12.5px">${r.teamB||'—'}</td>
+        <td style="text-align:center;font-size:12px;color:var(--ac2);white-space:nowrap;padding:10px 12px">${r.court||'—'}</td>
+        <td style="text-align:center;font-size:12px;color:var(--tx2);white-space:nowrap;padding:10px 12px">${r.referee||'—'}</td>
+      </tr>`;
+    }).join('');
+    html += `<div style="border:1.5px solid rgba(245,158,11,.3);border-radius:12px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,88,12,.08));padding:10px 16px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;border-bottom:1px solid rgba(245,158,11,.2)">
+        <span style="font-size:11px;font-weight:700;color:var(--or);background:rgba(245,158,11,.15);border-radius:20px;padding:3px 10px">${g}</span>
+        <span style="color:var(--tx3);font-size:11px">›</span>
+        <span style="font-size:11px;font-weight:700;color:var(--ac2)">${nd}</span>
+        <span style="color:var(--tx3);font-size:11px">›</span>
+        <span style="font-size:11px;font-weight:700;color:var(--ac)">Bảng ${bg}</span>
+        <span class="bdg bw" style="font-size:10px;margin-left:4px;animation:pulse 1.2s infinite">⚡ ${ms.length} LIVE</span>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:rgba(245,158,11,.07)">
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;white-space:nowrap;border-bottom:1px solid var(--bdr)">TRẬN</th>
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;border-bottom:1px solid var(--bdr)">ĐỘI A</th>
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;border-bottom:1px solid var(--bdr)">TỈ SỐ</th>
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;border-bottom:1px solid var(--bdr)">ĐỘI B</th>
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;border-bottom:1px solid var(--bdr)">SÂN</th>
+          <th style="text-align:center;padding:8px 12px;color:var(--tx3);font-weight:600;font-size:11px;border-bottom:1px solid var(--bdr)">TRỌNG TÀI</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  })));
+  html += '</div>';
+  lw.innerHTML = html;
+}
+
 async function loadDash() {
   const btn = document.getElementById('dash-rf'); if(btn) btn.textContent = '⏳ ...';
   if (!GS) {
@@ -2282,47 +2470,52 @@ async function loadDash() {
     toast('Chưa nhập URL GAS — vào Cài đặt để kết nối', 'er');
     return;
   }
-  const giaiId = document.getElementById('dash-giai').value;
-  // Gửi tên giải (giaiName) vì GAS lưu tên trong sheet, không phải mã
+  const giaiId   = document.getElementById('dash-giai').value;
   const giaiName = giaiId ? ((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
-  const nd   = document.getElementById('dash-nd')?.value   || '';
-  const bang = document.getElementById('dash-bang')?.value || '';
+  const nd       = document.getElementById('dash-nd')?.value   || '';
+  const bang     = document.getElementById('dash-bang')?.value || '';
+
+  // ── TỐI ƯU: Render ngay từ local state nếu có data ──────────────
+  // Không cần đợi GAS — user thấy kết quả gần như tức thì
+  const hasLocalData = _M.length > 0 || _dK.size > 0;
+  if (hasLocalData) {
+    _renderDashFromLocal(giaiName, nd, bang);
+    if(btn) btn.textContent = '↻ Làm mới';
+  }
+
   try {
-    // Tải song song: dashboard summary + matches của giải được chọn
-    const cKeyM = 'matches_' + (giaiName || '');
+    // ── Batch request: dashboard + live (nhẹ hơn gọi riêng) ──
+    // dashboard trả summary/liveDetail/categories/recentResults
+    // live trả realtime scores cho polling
+    const cKeyM   = 'matches_' + (giaiName || '');
     const cachedM = cacheGet(cKeyM);
+
+    // Chỉ fetch matches từ GAS nếu chưa cache
     const matchPromise = (!cachedM && giaiName)
-      ? gGet({ action:'matches', giai: giaiName }).catch(() => ({}))
+      ? gGet({ action:'matches', giai: giaiName }, 12000).catch(() => ({}))
       : Promise.resolve(null);
 
-    // Dashboard API trả về đủ thông tin. Tải matches song song chỉ khi không có cache
     const [d, mRes] = await Promise.all([
-      gGet({ action: 'dashboard', adminCode: CODE, giai: giaiName, nd, bang }),
+      gGet({ action: 'dashboard', adminCode: CODE, giai: giaiName, nd, bang }, 15000),
       matchPromise
     ]);
-    if (!d) { toast('Không kết nối được GAS', 'er'); return; }
-
-    if (!d?.ok) { toast('Lỗi dashboard: ' + (d?.reason||'Không kết nối'), 'er'); return; }
+    if (!d) { if(btn) btn.textContent='↻ Làm mới'; _showGasError('Không phản hồi từ GAS'); return; }
+    if (!d?.ok) { if(btn) btn.textContent='↻ Làm mới'; toast('Lỗi dashboard: ' + (d?.reason||'?'), 'er'); return; }
     _dashData = d;
 
-    // Cập nhật _M từ GAS (nếu chọn giải và chưa cache)
+    // Cập nhật _M nếu có data mới
     if (mRes?.rows?.length > 1) {
       const newRows = normalizeMatchRows(mRes.rows.slice(1));
       cacheSet(cKeyM, newRows);
-      // Merge: giữ các giải khác (theo giaiName), thay giải hiện tại
       const others = _M.filter(m => String(m[0]||'') !== giaiName);
       _M = [...others, ...newRows];
       dedupM();
-    } else if (cachedM) {
-      // Dùng cache: chỉ merge nếu chưa có data của giải này
-      const alreadyHas = _M.some(m => String(m[0]||'') === giaiName);
-      if (!alreadyHas) {
-        _M = [..._M, ...cachedM];
-        dedupM();
-      }
+    } else if (cachedM && !_M.some(m => String(m[0]||'') === giaiName)) {
+      _M = [..._M, ...cachedM];
+      dedupM();
     }
 
-    // Populate giải dropdown nếu có data
+    // Populate giải dropdown nếu có data mới
     if (d.tournaments?.length) {
       _T = d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.refs||[]]);
       populateTournamentDropdowns();
