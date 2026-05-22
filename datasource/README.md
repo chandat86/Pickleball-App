@@ -1,3 +1,9 @@
+Link admin: https://chandat86.github.io/Pickleball-App/admin/version7/
+Link trong tai: https://chandat86.github.io/Pickleball-App/Referee/Version7/
+
+
+https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec
+
 Link app: https://chandat86.github.io/UAT-PickleBall-Test/
 
 https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec
