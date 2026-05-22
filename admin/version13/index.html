@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<!-- Pickleball v13 | Thêm: Nút làm mới (giải/nội dung/bảng đấu), Thu gọn bảng A/B/..., BXH inline trong nội dung, Tỉ số realtime theo trạng thái trận, Ghi KetQua+log khi admin sửa tỉ số | 2026-05-23 -->
+<!-- Pickleball v13 | FIX: live count không nhảy (poll all rows), s-live realtime _lK | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Admin v13 — Referee Pickleball / DA NANG ®</title>
@@ -925,10 +925,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <div id="tv-list">
         <div class="ph">
           <div><div class="ptitle">🏆 Quản lý Giải đấu</div><div class="psub">Chọn giải để xem nội dung và lịch thi đấu</div></div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="rfbtn" onclick="loadTournaments()" title="Làm mới danh sách giải">↻ Làm mới</button>
-            <button class="btn bp" onclick="openTournMo()">＋ Tạo giải đấu</button>
-          </div>
+          <button class="btn bp" onclick="openTournMo()">＋ Tạo giải đấu</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px" id="tourn-cards">
           <div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>
@@ -945,8 +942,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <div class="psub" id="td-sub">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="rfbtn" onclick="renderNdCards(_curTourn)" title="Làm mới nội dung">↻ Làm mới</button>
+          <div style="display:flex;gap:8px">
             <button class="btn bh" onclick="openAddNdMo()">＋ Thêm nội dung</button>
             <button class="btn bp" onclick="openBracketMo()">🏆 Xem bracket</button>
           </div>
@@ -968,35 +964,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <div class="psub" id="tv-nd-sub">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="rfbtn" onclick="renderBangList(_curGiaiId,_curNd)" title="Làm mới bảng đấu">↻ Làm mới</button>
+          <div style="display:flex;gap:8px">
             <button class="btn bh" onclick="openAddBangMo()">＋ Thêm bảng</button>
             <button class="btn bp" onclick="openBracketMo()">🏆 Bracket</button>
             <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);font-size:12px" onclick="cleanupDuplicateMatches()" title="Xóa trận bị trùng trong Google Sheets">🧹 Dọn trùng</button>
           </div>
         </div>
 
-        <!-- Split layout: Bảng đấu (left) + BXH inline (right) -->
-        <div style="display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start" id="nd-layout">
-          <div id="bang-list" style="display:flex;flex-direction:column;gap:14px"></div>
-          <!-- BXH inline trong nội dung -->
-          <div style="position:sticky;top:70px">
-            <div class="card" style="padding:0;overflow:hidden">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-bottom:1px solid var(--bdr)">
-                <span style="font-weight:800;font-size:13px;color:var(--ac2)">📈 Bảng xếp hạng</span>
-                <button class="rfbtn" style="padding:4px 8px;font-size:11px" onclick="_refreshNdBxh()" title="Làm mới BXH">↻</button>
-              </div>
-              <div id="nd-bxh-wrap" style="max-height:65vh;overflow-y:auto;padding:10px">
-                <div class="empty" style="padding:20px"><div class="ei" style="font-size:24px">📊</div><p style="font-size:12px">Chọn nội dung để xem BXH</p></div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div id="bang-list" style="display:flex;flex-direction:column;gap:14px"></div>
       </div>
     </div>
-<style>
-@media(max-width:900px){#nd-layout{grid-template-columns:1fr!important}#nd-layout>div:last-child{position:static!important}}
-</style>
 
 
     <!-- ══ CÂY THI ĐẤU (BRACKET) ══ -->
@@ -1464,38 +1441,26 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 </div></div>
 
 <!-- Score Edit Modal (sửa tỉ số nhanh trực tiếp) -->
-<div class="mo" id="mo-score"><div class="mbox" style="width:400px">
+<div class="mo" id="mo-score"><div class="mbox" style="width:360px">
   <div class="mh"><div class="mtt">✏️ Sửa tỉ số trực tiếp</div><button class="mc" onclick="closeMo('mo-score')">✕</button></div>
   <input type="hidden" id="sc-giai"><input type="hidden" id="sc-nd"><input type="hidden" id="sc-bang"><input type="hidden" id="sc-code">
-  <!-- Match info -->
-  <div style="background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--tx3)">
-    <div id="sc-meta" style="font-size:10px;color:var(--tx4);margin-bottom:4px"></div>
-    <div id="sc-teams" style="font-size:14px;font-weight:700;color:var(--tx);text-align:center"></div>
-    <div id="sc-current" style="font-size:11px;color:var(--tx3);text-align:center;margin-top:4px"></div>
-  </div>
-  <!-- Score inputs -->
   <div style="text-align:center;margin-bottom:14px">
-    <div style="font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Tỉ số mới</div>
+    <div id="sc-teams" style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:12px"></div>
     <div style="display:flex;align-items:center;justify-content:center;gap:16px">
       <div>
         <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Điểm A</div>
-        <input type="number" id="sc-sa" min="0" style="width:80px;text-align:center;font-size:28px;font-weight:900;font-family:var(--mo);background:var(--bg3);border:1.5px solid var(--bdr2);border-radius:10px;padding:10px;color:var(--ac);outline:none">
+        <input type="number" id="sc-sa" min="0" style="width:70px;text-align:center;font-size:24px;font-weight:900;font-family:var(--mo);background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;padding:8px;color:var(--ac);outline:none">
       </div>
-      <div style="font-size:28px;font-weight:900;color:var(--bdr3)">—</div>
+      <div style="font-size:24px;color:var(--tx3)">—</div>
       <div>
         <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Điểm B</div>
-        <input type="number" id="sc-sb" min="0" style="width:80px;text-align:center;font-size:28px;font-weight:900;font-family:var(--mo);background:var(--bg3);border:1.5px solid var(--bdr2);border-radius:10px;padding:10px;color:var(--or);outline:none">
+        <input type="number" id="sc-sb" min="0" style="width:70px;text-align:center;font-size:24px;font-weight:900;font-family:var(--mo);background:var(--bg3);border:1px solid var(--bdr2);border-radius:8px;padding:8px;color:var(--or);outline:none">
       </div>
     </div>
   </div>
-  <!-- Log note -->
-  <div style="margin-bottom:12px">
-    <div style="font-size:11px;color:var(--tx3);margin-bottom:4px">Ghi chú chỉnh sửa (tùy chọn)</div>
-    <input type="text" id="sc-note" placeholder="VD: Sửa nhập sai, chỉnh sau trận..." style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--tx);outline:none;font-family:var(--fn)">
-  </div>
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-score')">Hủy</button>
-    <button class="btn bp" onclick="saveScore()">💾 Lưu & ghi log</button>
+    <button class="btn bp" onclick="saveScore()">💾 Lưu tỉ số</button>
   </div>
 </div></div>
 
@@ -2000,7 +1965,9 @@ function startLivePolling() {
       const giaiName = ROLE === 'manager'
         ? (_resolveGiaiName(MY_GIAI) || MY_GIAI)
         : (_curTourn ? String(_curTourn[1]||'') : '');
-      const ld = await gGet({ action:'live', code:'all', giai: giaiName }, 8000);
+      // FIX v13: Luôn lấy ALL live rows, không filter giai ở GAS
+      // → _lK có đủ tất cả playing keys, tránh bị nhảy về subset
+      const ld = await gGet({ action:'live', code:'all', giai: '' }, 8000);
       const rows = ld?.rows?.slice(1) || [];
       _buildLiveFromRows(rows);
       // Re-render live card nếu đang ở dashboard
@@ -2158,7 +2125,7 @@ async function prefetchAll() {
         gGet({ action: 'tournaments' }, 10000).catch(() => ({})),
         gGet({ action: 'matches', giai: giaiParam }, 10000).catch(() => ({})),
         gGet({ action: 'results', giai: giaiParam }, 10000).catch(() => ({})),
-        gGet({ action: 'live', code: 'all', giai: giaiParam }, 10000).catch(() => ({}))
+        gGet({ action: 'live', code: 'all', giai: '' }, 10000).catch(() => ({}))
       ]);
       tRes = t2; mRes = m2; rRes = r2; lRes = l2;
     }
@@ -2283,8 +2250,9 @@ function nav(p) {
 async function updateLiveScores() {
   if (!GS || _failCount > 3) return;
   try {
-    const giai = ROLE === 'manager' ? MY_GIAI : (_curTourn ? String(_curTourn[1]||'') : '');
-    const d = await gGet({ action: 'live', code: 'all', giai }, 8000);
+    // FIX v13: Luôn lấy ALL live rows (không filter giai) để _lK đầy đủ
+    // Tránh: poll với giai filter → _lK chỉ có 1 key → số live nhảy 3→1
+    const d = await gGet({ action: 'live', code: 'all', giai: '' }, 8000);
     if (!d?.rows?.length) return;
     _buildLiveFromRows(d.rows.slice(1));
     if (_curPage === 'dashboard') {
@@ -2778,7 +2746,9 @@ async function loadDash() {
     } catch(eDk) { console.warn('[loadDash] _dK update warn:', eDk); }
     _showGasOk(); // Kết nối thành công → ẩn error bar
     document.getElementById('s-total').textContent = s.totalMatches ?? 0;
-    document.getElementById('s-live').textContent  = s.liveMatches  ?? 0;
+    // FIX v13: s-live dùng _lK.size (realtime từ live poll 8s, không phải GAS dash 30s)
+    // Nếu _lK chưa có data → fallback về GAS dashboard value
+    document.getElementById('s-live').textContent  = (_lK.size > 0 ? _lK.size : (s.liveMatches ?? 0));
     // ── s-done luôn từ GAS (nguồn sự thật) ──
     // GAS đã tính đúng: KetQua rows trừ các trận đang playing lại
     document.getElementById('s-done').textContent  = s.doneMatches  ?? 0;
@@ -3493,8 +3463,6 @@ function openNdDetail(giaiId, nd) {
   } else {
     renderBangList(giaiId, nd);
   }
-  // Load BXH inline
-  _refreshNdBxh();
 }
 
 // ── Render danh sách bảng + trận ──
@@ -3534,26 +3502,21 @@ function renderBangList(giaiId, nd) {
         ? '<span class="bdg bw" style="margin-left:10px">⚡ Đang thi đấu</span>'
         : '<span class="bdg bg0" style="margin-left:10px;opacity:.6">⬜ Chưa thi đấu</span>';
 
-    const bangKey = 'collapse_' + esc(nd) + '_' + esc(bang);
-    const isCollapsed = (window._bangCollapsed||{})[bangKey] || false;
-
     return `<div class="card" style="margin-bottom:0">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${isCollapsed?'0':'12px'};flex-wrap:wrap;gap:8px;cursor:pointer" onclick="toggleBangCollapse('${bangKey}',this)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-          <span style="font-size:15px;font-weight:800;color:var(--tx3);transition:transform .25s;display:inline-block" data-chev="${bangKey}">${isCollapsed?'▶':'▼'}</span>
-          <span style="font-size:16px;font-weight:800;color:var(--ac);margin-left:4px">${bang}</span>
+          <span style="font-size:16px;font-weight:800;color:var(--ac)">${bang}</span>
           <span style="font-size:12px;color:var(--tx3);margin-left:8px">${matches.length} trận · ${teams.length} đội</span>
           ${headerBadges}
           ${overallBadge}
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap" onclick="event.stopPropagation()">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn bh bsm" onclick="openBracketForNd('${esc(giaiId)}','${esc(nd)}')">🏆 Bracket</button>
           <button class="btn bsm" style="background:rgba(99,179,237,.12);color:var(--ac2);border:1px solid rgba(99,179,237,.3)" onclick="openEditBangMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">✏️ Sửa bảng</button>
           <button class="btn bp bsm" onclick="openAddBangMo('${esc(bang)}')">＋ Thêm trận</button>
           <button class="btn bsm" style="background:rgba(239,68,68,.15);color:var(--rd);border:1px solid rgba(239,68,68,.3)" onclick="confirmDeleteBang('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">🗑 Xóa bảng</button>
         </div>
       </div>
-      <div data-bangbody="${bangKey}" style="overflow:hidden;transition:max-height .3s ease,opacity .3s ease;max-height:${isCollapsed?'0':'9999px'};opacity:${isCollapsed?'0':'1'}">
       <!-- Progress bar -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
@@ -3588,10 +3551,7 @@ function renderBangList(giaiId, nd) {
               // Tỉ số: live realtime nếu đang đấu, ngược lại lấy từ KetQua/Matches
               let sA, sB;
               const lk = `${m[1]}|${m[2]}|${m[3]}`;
-              if (!done && !live) {
-                // Chưa thi đấu: không hiện tỉ số
-                sA = null; sB = null;
-              } else if (live && _liveScores[lk]) {
+              if (live && _liveScores[lk]) {
                 sA = _liveScores[lk].scoreA;
                 sB = _liveScores[lk].scoreB;
               } else {
@@ -3617,10 +3577,6 @@ function renderBangList(giaiId, nd) {
                 : live
                   ? ' style="background:rgba(245,158,11,.06);border-left:2px solid var(--or)"'
                   : '';
-              // Score button: only show if already started or done
-              const scoreBtn = done || live
-                ? `<button class="btn bsm" style="padding:3px 8px;font-size:11px;background:rgba(245,158,11,.15);color:var(--or);border:1px solid rgba(245,158,11,.3)" onclick="openScoreMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}','${esc(String(m[4]||''))}','${esc(String(m[7]||''))}','${sA!==null?sA:''}','${sB!==null?sB:''}')">⚡ Tỉ số</button>`
-                : '';
               return `<tr${rowStyle}>
                 <td style="font-family:var(--mo);color:var(--ac);font-weight:700;white-space:nowrap">${m[3]||''}</td>
                 <td style="font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m[4]||'TBD'}</td>
@@ -3630,91 +3586,14 @@ function renderBangList(giaiId, nd) {
                 <td style="color:var(--ac2);font-size:11px;white-space:nowrap">${m[8]||'—'}</td>
                 <td>${refCell}</td>
                 <td>${statusBadge}</td>
-                <td style="white-space:nowrap">
-                  ${scoreBtn}
-                  <button class="btn bsm" style="padding:3px 8px;font-size:11px;background:rgba(99,179,237,.15);color:var(--ac2);border:1px solid rgba(99,179,237,.3)" onclick="openEditMatchMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}')">✏️</button>
-                </td>
+                <td><button class="btn bsm" style="padding:3px 8px;font-size:11px;background:rgba(99,179,237,.15);color:var(--ac2);border:1px solid rgba(99,179,237,.3)" onclick="openEditMatchMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}')">✏️</button></td>
               </tr>`;
             }).join('') : `<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--tx3)">Chưa có trận nào</td></tr>`}
           </tbody>
         </table>
       </div>
-      </div><!-- /bangbody -->
     </div>`;
   }).join('');
-}
-
-// ── toggleBangCollapse ──
-function toggleBangCollapse(key, headerEl) {
-  if (!window._bangCollapsed) window._bangCollapsed = {};
-  const isNowCollapsed = !window._bangCollapsed[key];
-  window._bangCollapsed[key] = isNowCollapsed;
-  // Update body visibility
-  const card = headerEl.closest('.card');
-  if (!card) return;
-  const body = card.querySelector('[data-bangbody]');
-  const chev = card.querySelector('[data-chev]');
-  if (body) {
-    body.style.maxHeight = isNowCollapsed ? '0' : '9999px';
-    body.style.opacity   = isNowCollapsed ? '0' : '1';
-  }
-  if (chev) chev.textContent = isNowCollapsed ? '▶' : '▼';
-  // Update header margin
-  headerEl.style.marginBottom = isNowCollapsed ? '0' : '12px';
-}
-
-// ── BXH inline trong trang nội dung ──
-async function _refreshNdBxh() {
-  const wrap = document.getElementById('nd-bxh-wrap');
-  if (!wrap) return;
-  if (!_curGiaiId || !_curNd) {
-    wrap.innerHTML = '<div class="empty" style="padding:20px"><div class="ei" style="font-size:24px">📊</div><p style="font-size:12px">Chọn nội dung để xem BXH</p></div>';
-    return;
-  }
-  wrap.innerHTML = '<div class="empty" style="padding:20px"><span class="spin"></span></div>';
-  try {
-    const giaiName = String((_T.find(t=>String(t[0]||'')===_curGiaiId)||[])[1]||'');
-    const d = await gGet({ action:'standings', giai:giaiName, nd:_curNd, bang:'' });
-    if (!d.ok || !d.groups?.length) {
-      wrap.innerHTML = '<div class="empty" style="padding:20px"><div class="ei" style="font-size:20px">📊</div><p style="font-size:12px">Chưa có kết quả</p></div>';
-      return;
-    }
-    wrap.innerHTML = d.groups.filter(g=>g.standings?.length).map(g => {
-      const rows = g.standings||[];
-      return `<div style="margin-bottom:14px">
-        <div style="font-size:12px;font-weight:800;color:var(--ac2);margin-bottom:6px;padding:6px 8px;background:var(--bg4);border-radius:6px">${esc(g.bang)}</div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <thead><tr>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">#</th>
-            <th style="text-align:left;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">Đội</th>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">T</th>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">Đ</th>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">B</th>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">HS</th>
-            <th style="text-align:center;padding:5px 6px;color:var(--tx3);font-weight:700;background:var(--bg3)">Pts</th>
-          </tr></thead>
-          <tbody>${rows.map(r=>{
-            const medal=r.rank===1?'🥇':r.rank===2?'🥈':r.rank===3?'🥉':'';
-            const rankC=r.rank===1?'var(--or)':r.rank===2?'#94a3b8':r.rank===3?'#b45309':'var(--tx3)';
-            const hsStr=r.pDiff>0?'+'+r.pDiff:String(r.pDiff);
-            const hsC=r.pDiff>0?'var(--gn)':r.pDiff<0?'var(--rd)':'var(--tx3)';
-            const bg=r.rank===1?'rgba(245,158,11,.06)':r.rank===2?'rgba(148,163,184,.04)':'transparent';
-            return `<tr style="background:${bg};border-bottom:1px solid var(--bdr)">
-              <td style="text-align:center;font-weight:900;color:${rankC};padding:6px">${medal||r.rank}</td>
-              <td style="font-weight:600;padding:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.team)}</td>
-              <td style="text-align:center;padding:6px;color:var(--tx2)">${r.played}</td>
-              <td style="text-align:center;padding:6px;font-weight:700;color:var(--gn)">${r.won}</td>
-              <td style="text-align:center;padding:6px;color:var(--rd)">${r.lost}</td>
-              <td style="text-align:center;padding:6px;font-weight:700;color:${hsC}">${hsStr}</td>
-              <td style="text-align:center;padding:6px;font-family:var(--mo);font-weight:900;color:var(--ac)">${r.won}</td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    wrap.innerHTML = '<div class="empty" style="padding:20px"><p style="font-size:12px;color:var(--rd)">Lỗi tải BXH</p></div>';
-  }
 }
 
 // ── Mở modal thêm nội dung ──
@@ -6409,16 +6288,13 @@ function renderMatches(rows) {
     const live = !done && _lK.has(lk); // live chỉ khi chưa done
     // Tỉ số: live realtime → KetQua → Matches
     let sA, sB;
-    if (!done && !live) {
-      // Chưa đấu: không hiện tỉ số
-      sA = null; sB = null;
-    } else if (live && _liveScores[lk]) {
+    if (live && _liveScores[lk]) {
       sA = _liveScores[lk].scoreA; sB = _liveScores[lk].scoreB;
     } else {
       const fs = getFinalScore(r);
       sA = fs ? fs.scoreA : null; sB = fs ? fs.scoreB : null;
     }
-    const scoreColor = done ? 'var(--gn)' : live ? 'var(--or)' : 'var(--tx3)';
+    const scoreColor = done ? 'var(--gn)' : live ? 'var(--or)' : 'var(--ac)';
     const sAstr = sA!==null&&sA!==undefined ? `<span style="font-family:var(--mo);color:${scoreColor};font-weight:900">${sA}</span>` : '<span style="color:var(--tx3)">—</span>';
     const sBstr = sB!==null&&sB!==undefined ? `<span style="font-family:var(--mo);color:${scoreColor};font-weight:900">${sB}</span>` : '<span style="color:var(--tx3)">—</span>';
     const sb = done
@@ -6441,7 +6317,7 @@ function renderMatches(rows) {
       <td>${sb}</td>
       <td style="font-size:12px;color:var(--tx3)">${r[9]||'—'}</td>
       <td><div style="display:flex;gap:3px">
-        ${done||live ? `<button class="btn bsm" style="padding:3px 8px;font-size:11px;background:rgba(245,158,11,.15);color:var(--or);border:1px solid rgba(245,158,11,.3)" title="Sửa tỉ số" onclick="openScoreMo('${g}','${nd}','${bg}','${cd}','${esc(r[4])}','${esc(r[7])}','${sA!==null&&sA!==undefined?sA:''}','${sB!==null&&sB!==undefined?sB:''}')">⚡ Tỉ số</button>` : ''}
+        <button class="btn bh bsm" title="Sửa tỉ số" onclick="openScoreMo('${g}','${nd}','${bg}','${cd}','${esc(r[4])}','${esc(r[7])}','${r[5]||0}','${r[6]||0}')">✏️</button>
         <button class="btn bh bsm" title="Sửa trận" onclick="editMatchRow('${g}','${nd}','${bg}','${cd}')">🔧</button>
         <button class="btn br bsm" title="Xóa" onclick="delMatch('${g}','${bg}','${cd}')">🗑</button>
       </div></td></tr>`;
@@ -6515,24 +6391,14 @@ async function delMatch(g,bg,code) {
 }
 
 // Sửa tỉ số trực tiếp
-function openScoreMo(g,nd,bg,code,teamA,teamB,sA,sB,statusTxt) {
+function openScoreMo(g,nd,bg,code,teamA,teamB,sA,sB) {
   document.getElementById('sc-giai').value = g;
   document.getElementById('sc-nd').value   = nd;
   document.getElementById('sc-bang').value = bg;
   document.getElementById('sc-code').value = code;
   document.getElementById('sc-teams').textContent = `${teamA}  vs  ${teamB}`;
-  document.getElementById('sc-note').value = '';
-  // Meta line: bảng | mã trận
-  const metaEl = document.getElementById('sc-meta');
-  if (metaEl) metaEl.textContent = `${bg} · Mã: ${code}${nd?' · '+nd:''}`;
-  // Hiện tỉ số hiện tại
-  const curEl = document.getElementById('sc-current');
-  if (curEl) {
-    const hasScore = (sA!==null&&sA!==''&&sA!==undefined) || (sB!==null&&sB!==''&&sB!==undefined);
-    curEl.textContent = hasScore ? `Tỉ số hiện tại: ${sA!==null&&sA!==''?sA:'—'} — ${sB!==null&&sB!==''?sB:'—'}` : 'Chưa có tỉ số';
-  }
-  document.getElementById('sc-sa').value = sA!==null&&sA!==undefined&&sA!=='' ? sA : '';
-  document.getElementById('sc-sb').value = sB!==null&&sB!==undefined&&sB!=='' ? sB : '';
+  document.getElementById('sc-sa').value = sA||'';
+  document.getElementById('sc-sb').value = sB||'';
   openMo('mo-score');
 }
 async function saveScore() {
@@ -6542,59 +6408,18 @@ async function saveScore() {
   const code = document.getElementById('sc-code').value;
   const sA   = Number(document.getElementById('sc-sa').value)||0;
   const sB   = Number(document.getElementById('sc-sb').value)||0;
-  const teams = document.getElementById('sc-teams').textContent || '';
-  const editNote = (document.getElementById('sc-note')?.value||'').trim();
   closeMo('mo-score');
-
-  // ── Lấy tỉ số cũ trước khi ghi đè (cho log) ──
+  // Cập nhật local cache
   const idx = _M.findIndex(r=>r[0]===g&&r[1]===nd&&r[2]===bg&&r[3]===code);
-  const oldSA = idx>=0 ? (_M[idx][5]!==null&&_M[idx][5]!==undefined&&_M[idx][5]!=='' ? _M[idx][5] : '—') : '—';
-  const oldSB = idx>=0 ? (_M[idx][6]!==null&&_M[idx][6]!==undefined&&_M[idx][6]!=='' ? _M[idx][6] : '—') : '—';
-
-  // ── Cập nhật local cache ──
   if (idx>=0) { _M[idx][5]=sA; _M[idx][6]=sB; }
-
-  // ── Cập nhật _dkScores để isMatchDone() nhận đúng ──
-  const giaiNameSC = String((_T.find(t=>String(t[0]||'')===g)||[])[1]||g);
-  const dkKey = `${bg}|${code}`;
-  if (!_dkScores[dkKey]) _dkScores[dkKey] = {};
-  _dkScores[dkKey].scoreA = sA;
-  _dkScores[dkKey].scoreB = sB;
-  if (!_dK) _dK = new Set();
-  _dK.add(dkKey);
-
-  // ── Re-render live nếu đang ở trang bảng đấu ──
-  if (_curPage==='tournaments' && _curGiaiId && _curNd) renderBangList(_curGiaiId, _curNd);
   filterMatches();
   toast('✅ Đã cập nhật tỉ số','ok');
-
-  // ── Gửi GAS: updateMatch (cập nhật Matches sheet) + appendResult (ghi KetQua) + editLog ──
+  // Gửi GAS ngầm (updateMatch với row đầy đủ)
   try {
+    const giaiNameSC = String((_T.find(t=>String(t[0]||'')===g)||[])[1]||g);
     const row = idx>=0 ? _M[idx] : [giaiNameSC,nd,bg,code,'',sA,sB,'','','',''];
-    // 1. Cập nhật Matches sheet
     await gPost({ action:'updateMatch', adminCode:CODE, giai:giaiNameSC, giaiName:giaiNameSC, bang:bg, code, row });
-
-    // 2. Ghi vào KetQua (append hoặc upsert)
-    const teamA = row[4]||'', teamB = row[7]||'';
-    const winner = sA>sB ? teamA : sB>sA ? teamB : '';
-    const court  = row[8]||'';
-    const now    = new Date().toISOString();
-    const ktRow  = [now, giaiNameSC, nd, bg, code, teamA, teamB, sA, sB, winner, court, _userName||'admin', ''];
-    await gPost({ action:'appendResult', adminCode:CODE, row:ktRow });
-
-    // 3. Ghi edit log
-    await gPost({
-      action:'logScoreEdit', adminCode:CODE,
-      log:{
-        time: now,
-        editor: _userName||'admin',
-        giai: giaiNameSC, nd, bang:bg, code,
-        teams, oldScore: `${oldSA}-${oldSB}`, newScore: `${sA}-${sB}`,
-        note: editNote
-      }
-    });
-    toast('💾 Đã lưu tỉ số & ghi log','ok');
-  } catch(e) { console.warn('[saveScore]', e); }
+  } catch(e) {}
 }
 
 // Import CSV matches
