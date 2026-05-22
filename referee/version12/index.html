@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<!-- Pickleball v7 | FIX: Resume live match on re-select, protect live score from GAS overwrite, restore context sets, push live after restore | 2026-05-23 -->
+<!-- Pickleball v7 | FIX CORE: loadAllFromGS fetch live, liveScores populated on load, smart resume from GAS, poll keeps myKey alive | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Da Nang Referee v7 – Pickleball</title>
@@ -1571,25 +1571,27 @@ async function loadAllFromGS() {
   setDot('syn');
 
   // Thử BATCH (GAS v8+). Fallback về 2 requests song song nếu GAS cũ
-  const actions = _resultsCleared ? 'matches' : 'matches,results';
-  let matchData = null, resultData = null;
+  // ── FIX v12: Luôn fetch live data khi load để biết trạng thái đang playing ──
+  const actions = _resultsCleared ? 'matches,live' : 'matches,results,live';
+  let matchData = null, resultData = null, liveInitData = null;
 
   const batchData = await getFromGS(`?action=batch&actions=${actions}`);
   if (batchData?.matches) {
     // GAS v8 batch thành công
-    matchData  = batchData.matches;
-    resultData = _resultsCleared ? null : (batchData.results || null);
+    matchData     = batchData.matches;
+    resultData    = _resultsCleared ? null : (batchData.results || null);
+    liveInitData  = batchData.live  || null;
   } else {
     // Fallback: GAS cũ → gọi riêng từng request
     console.warn('[loadAllFromGS] Batch không khả dụng, dùng fallback');
     const requests = _resultsCleared
-      ? [getFromGS('?action=matches'), Promise.resolve(null)]
-      : [getFromGS('?action=matches'), getFromGS('?action=results')];
-    const [md, rd] = await Promise.all(requests).catch(e => {
+      ? [getFromGS('?action=matches'), Promise.resolve(null), getFromGS('?action=live&code=all')]
+      : [getFromGS('?action=matches'), getFromGS('?action=results'), getFromGS('?action=live&code=all')];
+    const [md, rd, ld] = await Promise.all(requests).catch(e => {
       console.error('[loadAllFromGS fallback]', e);
-      setDot('err'); toast('⚠️ Lỗi kết nối GSheets'); return [null, null];
+      setDot('err'); toast('⚠️ Lỗi kết nối GSheets'); return [null, null, null];
     });
-    matchData = md; resultData = rd;
+    matchData = md; resultData = rd; liveInitData = ld;
   }
 
   if (!matchData && !resultData) {
@@ -1617,17 +1619,6 @@ async function loadAllFromGS() {
                         matchScoreA:sA, matchScoreB:sB,
                         court, round, // phân quyền
                         key });
-    });
-    // ── FIX v12: Bảo vệ trận đang live khi load lần đầu ──
-    const myKeyLA = S.currentMatch?.key;
-    newMatches.forEach(nm => {
-      const isActive = nm.key === myKeyLA && matchStarted;
-      const lv = liveScores[nm.key];
-      const isLiveGA = lv && lv.status !== 'finished' && !_savedMatchKeys.has(nm.key) && !_clearedLiveKeys.has(nm.key);
-      if (isActive || isLiveGA) {
-        nm.matchScoreA = null;
-        nm.matchScoreB = null;
-      }
     });
     matchList = newMatches;
     saveMatchList();
@@ -1658,6 +1649,30 @@ async function loadAllFromGS() {
       addedResults++;
     });
     try { localStorage.setItem('pb_res6', JSON.stringify(S.results)); } catch(e){}
+  }
+
+  // ── FIX v12: Nạp liveScores từ GAS ngay khi load ──
+  // Đảm bảo liveScores populated TRƯỚC khi renderMatchGrid và loadMatch check
+  if (liveInitData?.rows?.length > 1) {
+    const myKey = S.currentMatch?.key;
+    liveInitData.rows.slice(1).forEach(r => {
+      const k  = String(r[0]||'').trim();
+      const st = String(r[9]||'').trim().toLowerCase();
+      if (!k || st === 'finished') return;
+      if (_savedMatchKeys.has(k) || _clearedLiveKeys.has(k)) return;
+      // Nếu là trận của máy này đang chấm → KHÔNG ghi đè (local state ưu tiên)
+      if (k === myKey && matchStarted) return;
+      liveScores[k] = {
+        teamA:     String(r[2]||''),
+        scoreA:    Number(r[3])||0,
+        scoreB:    Number(r[4])||0,
+        teamB:     String(r[5]||''),
+        serve:     String(r[6]||''),
+        game:      String(r[7]||''),
+        updatedAt: String(r[8]||''),
+        status:    st || 'playing',
+      };
+    });
   }
 
   if (gotMatches) syncDropdownsFromData(true);
@@ -1999,9 +2014,6 @@ function saveActiveMatch() {
       },
       matchStarted,
       evLog: evLog.slice(-50),
-      // ── FIX v12: Lưu context sets để restore đúng ──
-      savedMatchKeys: [..._savedMatchKeys],
-      clearedLiveKeys: [..._clearedLiveKeys],
       ts: Date.now()
     };
     localStorage.setItem(_SAV_KEY, JSON.stringify(snap));
@@ -2031,9 +2043,6 @@ function restoreActiveMatch() {
       _pm.serverPlayerIdx   = snap.pm.serverPlayerIdx;
       _pm.receiverPlayerIdx = snap.pm.receiverPlayerIdx;
     }
-    // ── FIX v12: Khôi phục context sets ──
-    if (snap.savedMatchKeys?.length)  snap.savedMatchKeys.forEach(k  => _savedMatchKeys.add(k));
-    if (snap.clearedLiveKeys?.length) snap.clearedLiveKeys.forEach(k => _clearedLiveKeys.add(k));
     return true;
   } catch(e) {
     console.warn('restoreActiveMatch:', e);
@@ -2318,25 +2327,18 @@ function renderMatchGrid() {
 
 function _renderMatchCard(grid, m, idx) {
     const active = S.currentMatch?.key === m.key;
-    // ── FIX v12: Ưu tiên GAS LiveScore để xác định trạng thái ──
-    // 1. Nếu đang chấm (active+matchStarted) → live, KHÔNG done
-    // 2. Nếu GAS LiveScore có entry != finished → đang live (máy khác hoặc reload)
-    // 3. Nếu đã lưu KetQua (savedMatchKeys / localResult / matchScore) → done
+    // ── FIX: Nếu trọng tài đang chấm lại (active + matchStarted) → KHÔNG force done ──
+    // Trường hợp: trận đã lưu (matchScoreA có giá trị), trọng tài chọn lại và bấm Bắt đầu
+    // → ưu tiên trạng thái live hiện tại, bỏ qua điểm cũ từ matchList
     const isReplay = active && matchStarted;
-    const localResult = S.results[m.key];
-    const liveEntryCard = liveScores[m.key];
-    // Trận đang live trên GAS (chưa finished, chưa trong savedKeys/clearedKeys)
-    const isLiveOnGAS = liveEntryCard &&
-      liveEntryCard.status !== 'finished' &&
-      !_savedMatchKeys.has(m.key) &&
-      !_clearedLiveKeys.has(m.key);
-    // "done" chỉ khi KHÔNG có live trên GAS VÀ KHÔNG đang replay
-    const done = !isReplay && !isLiveOnGAS && (
+    // "done" = matchList đã có điểm, HOẶC S.results local đã lưu, HOẶC vừa lưu xong (savedMatchKeys)
+    const localResult = S.results[m.key]; // kết quả đã lưu trên máy này
+    const done   = !isReplay && (
                   (m.matchScoreA !== null && m.matchScoreA !== undefined)
                 || !!localResult
                 || _savedMatchKeys.has(m.key)
                 );
-    const isLive = (active && matchStarted && !done) || (!active && isLiveOnGAS && !done); // đang chấm điểm
+    const isLive = active && matchStarted && !done; // đang chấm điểm chưa lưu
     const btn    = document.createElement('button');
     let statusLabel = '', statusStyle = '';
     if (done) {
@@ -2930,6 +2932,19 @@ function confirmSave() {
 function loadMatch(idx) {
   const m = matchList[idx];
 
+  // ── FIX v12: Nếu trận đang có entry live trên GAS → xóa matchScoreA ──
+  // Đảm bảo khi loadMatch check matchHasScore không bị nhầm là đã hoàn thành
+  const liveCheck = liveScores[m.key];
+  if (liveCheck && liveCheck.status !== 'finished' &&
+      !_savedMatchKeys.has(m.key) && !_clearedLiveKeys.has(m.key)) {
+    // Trận đang live → đảm bảo matchScoreA = null trong matchList
+    if (m.matchScoreA !== null || m.matchScoreB !== null) {
+      m.matchScoreA = null; m.matchScoreB = null;
+      const mIdx2 = matchList.findIndex(x => x.key === m.key);
+      if (mIdx2 >= 0) { matchList[mIdx2].matchScoreA = null; matchList[mIdx2].matchScoreB = null; }
+    }
+  }
+
   // ── Nếu bấm vào CÙNG TRẬN đang có dữ liệu (chấm hoặc tạm dừng) → GIỮ NGUYÊN ──
   const isSameMatch = S.currentMatch && S.currentMatch.key === m.key;
   const hasActiveScore = S.a > 0 || S.b > 0 || S.game > 1 || S.history.length > 0;
@@ -2955,88 +2970,6 @@ function loadMatch(idx) {
     }
     renderMatchGrid();
     render();
-    return;
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // FIX v12: Kiểm tra trận đang LIVE trên GAS (trọng tài khác đang chấm
-  // hoặc chính máy này đang chấm nhưng bị mất state sau reload/timeout)
-  // Nếu GAS LiveScore còn entry cho key này → khôi phục từ live, KHÔNG reset
-  // ══════════════════════════════════════════════════════════════
-  const liveEntry = liveScores[m.key];
-  const isLiveOnGAS = liveEntry &&
-    typeof liveEntry.scoreA === 'number' &&
-    typeof liveEntry.scoreB === 'number' &&
-    liveEntry.status !== 'finished' &&
-    !_savedMatchKeys.has(m.key) &&
-    !_clearedLiveKeys.has(m.key);
-
-  // Kiểm tra localStorage xem có snapshot trận này không (trọng tài vừa reload)
-  const savedSnap = (() => {
-    try {
-      const raw = localStorage.getItem(_SAV_KEY);
-      if (!raw) return null;
-      const snap = JSON.parse(raw);
-      if (snap?.S?.currentMatch?.key === m.key && Date.now() - (snap.ts||0) < 8*3600*1000)
-        return snap;
-    } catch(e) {}
-    return null;
-  })();
-
-  // ── RESUME từ live GAS hoặc saved snapshot (không reset) ──
-  if ((isLiveOnGAS || savedSnap) && !S.results[m.key] && !_savedMatchKeys.has(m.key)) {
-    // Khôi phục từ snapshot localStorage nếu có (ưu tiên hơn live GAS — chính xác hơn)
-    if (savedSnap) {
-      const sv = savedSnap.S;
-      Object.assign(S, sv);
-      matchStarted = savedSnap.matchStarted || false;
-      if (savedSnap.evLog) evLog = savedSnap.evLog;
-      if (savedSnap.pm && typeof _pm !== 'undefined') {
-        _pm.serverSide        = savedSnap.pm.serverSide;
-        _pm.serverPlayerIdx   = savedSnap.pm.serverPlayerIdx;
-        _pm.receiverPlayerIdx = savedSnap.pm.receiverPlayerIdx;
-      }
-    } else if (isLiveOnGAS) {
-      // Không có snapshot → dùng score từ GAS live (chỉ có A/B, game=?)
-      S.currentMatch = { ...m };
-      S.currentMatch.origTeamA = m.teamA;
-      S.currentMatch.origTeamB = m.teamB;
-      S.currentMatch.origSideA = 'a';
-      S.currentMatch.playersA  = _parsePlayers(m.teamA);
-      S.currentMatch.playersB  = _parsePlayers(m.teamB);
-      S.playersA = S.currentMatch.playersA;
-      S.playersB = S.currentMatch.playersB;
-      S.a = liveEntry.scoreA;
-      S.b = liveEntry.scoreB;
-      S.game = parseInt(String(liveEntry.game||'Game 1').replace(/\D/g,'')) || 1;
-      matchStarted = true;
-    }
-
-    // Cập nhật currentMatch metadata
-    S.currentMatch = { ...S.currentMatch, ...m,
-      origTeamA: S.currentMatch?.origTeamA || m.teamA,
-      origTeamB: S.currentMatch?.origTeamB || m.teamB,
-      origSideA: S.currentMatch?.origSideA || 'a',
-    };
-
-    // Kích hoạt scoreboard
-    if (matchStarted) {
-      document.querySelector('.scoreboard')?.classList.remove('not-started');
-      const startBtn = document.getElementById('btn-start');
-      if (startBtn) { startBtn.textContent = '🟢 Đang thi đấu'; startBtn.classList.add('started'); startBtn.classList.remove('done-btn'); }
-      const bar = document.getElementById('toss-bar');
-      if (bar) bar.style.display = 'none';
-      // Push live ngay để GAS biết đang tiếp tục
-      pushLiveScore();
-      toast(`⚡ Tiếp tục trận: ${m.code} · ${S.a}–${S.b} · Game ${S.game}`, 3000);
-    } else {
-      _setMatchStarted(false, false);
-      const startBtn = document.getElementById('btn-start');
-      if (startBtn) startBtn.textContent = `▶ Tiếp tục (${S.a}–${S.b})`;
-      toast(`📋 ${m.code}: ${S.a}–${S.b} · Nhấn Tiếp tục để chấm`);
-    }
-    saveActiveMatch();
-    render(); renderMatchGrid();
     return;
   }
 
@@ -3583,7 +3516,21 @@ async function pollMatches() {
         if (_savedMatchKeys.has(k))  return;
         // Bỏ qua nếu GAS đã đánh dấu finished (v9+)
         if (newLive[k]?.status === 'finished') return;
-        if (k !== myKey) liveScores[k] = newLive[k];
+        if (k === myKey) {
+          // ── FIX v12: Trận của máy này đang chấm ──
+          // Cập nhật liveScores[myKey] để _renderMatchCard biết trận đang live
+          // NHƯNG không ghi đè score (local S.a/S.b luôn chính xác hơn GAS)
+          if (!matchStarted) {
+            // Nếu không đang chấm (tạm dừng) → dùng score từ GAS để hiện đúng
+            liveScores[k] = newLive[k];
+          } else {
+            // Đang chấm → chỉ cập nhật metadata, giữ score local
+            liveScores[k] = { ...newLive[k], scoreA: liveScores[k]?.scoreA ?? newLive[k].scoreA,
+                              scoreB: liveScores[k]?.scoreB ?? newLive[k].scoreB };
+          }
+        } else {
+          liveScores[k] = newLive[k];
+        }
       });
       Object.keys(liveScores).forEach(k => {
         if (k !== myKey && !newLive[k]) delete liveScores[k];
@@ -3629,20 +3576,6 @@ async function pollMatches() {
 
     const added = newCount - _lastMatchCount;
     _lastMatchCount = newCount;
-    // ── FIX v12: Bảo vệ trận đang live khỏi bị matchScore từ GAS Matches sheet ghi đè ──
-    // Khi trận đang live: matchScoreA trong Matches sheet có thể là giá trị cũ
-    // → giữ matchScoreA=null để loadMatch không nhầm là "đã hoàn thành"
-    const myKey = S.currentMatch?.key;
-    newMatches.forEach(nm => {
-      const lv = liveScores[nm.key];
-      const isActiveMatch = nm.key === myKey && matchStarted;
-      const isLiveOnGAS = lv && lv.status !== 'finished' && !_savedMatchKeys.has(nm.key) && !_clearedLiveKeys.has(nm.key);
-      if (isActiveMatch || isLiveOnGAS) {
-        // Trận đang live → giữ matchScore null để không bị đánh dấu done
-        nm.matchScoreA = null;
-        nm.matchScoreB = null;
-      }
-    });
     matchList = newMatches;
     saveMatchList();
     // Dọn _savedMatchKeys cho các trận đã có điểm chính thức từ GAS
@@ -4454,14 +4387,11 @@ function licEnter() {
       // Ẩn toss-bar
       const bar = document.getElementById('toss-bar');
       if (bar) bar.style.display = 'none';
-      // ── FIX v12: Push live ngay sau restore để GAS biết trận đang tiếp tục ──
-      // Điều này đảm bảo liveScores[key] có entry → poll/loadMatch nhận ra đang live
-      setTimeout(() => { if (GS_URL && matchStarted) pushLiveScore(); }, 600);
     } else if (S.a > 0 || S.b > 0 || S.game > 1) {
       // Có tỉ số dở → "▶ Tiếp tục", scoreboard inactive cho đến khi bấm
       _setMatchStarted(false, false);
       const startBtn = document.getElementById('btn-start');
-      if (startBtn) startBtn.textContent = `▶ Tiếp tục (${S.a}–${S.b})`;
+      if (startBtn) startBtn.textContent = '▶ Tiếp tục';
     } else {
       _setMatchStarted(false, false);
     }
@@ -4486,18 +4416,78 @@ function licEnter() {
     setTimeout(async () => {
       await loadAllFromGS();
       startAutoPoll();
-      // Sau khi load xong, nếu đang restore → sync liveScores vào S
+
+      // ── FIX v12: Sau khi load, kiểm tra trận đang playing trên GAS ──
+      // Ưu tiên 1: nếu đang restore từ localStorage → sync score từ GAS live
+      // Ưu tiên 2: nếu không có snapshot, kiểm tra liveScores xem TT này có trận đang play
+      const lic = licLoad();
+      const myCode = lic?.code || '';
+
       if (_restored && S.currentMatch) {
-        const lv = liveScores[S.currentMatch.key];
+        const myKey = S.currentMatch.key;
+        const lv = liveScores[myKey];
         if (lv && typeof lv.scoreA === 'number' && typeof lv.scoreB === 'number') {
-          // Live score từ GSheets mới hơn → dùng làm nguồn tin cậy hơn snapshot
-          if (lv.scoreA !== S.a || lv.scoreB !== S.b) {
-            S.a = lv.scoreA; S.b = lv.scoreB;
+          // GAS live có dữ liệu mới hơn snapshot → ưu tiên GAS
+          const gasA = lv.scoreA, gasB = lv.scoreB;
+          const gasGame = parseInt(String(lv.game||'Game 1').replace(/\D/g,''))||1;
+          if (gasA !== S.a || gasB !== S.b || gasGame !== S.game) {
+            S.a = gasA; S.b = gasB;
+            if (gasGame > S.game) S.game = gasGame; // không lùi game
             render();
-            toast(`🔄 Đồng bộ: ${S.currentMatch.code} · ${S.a}–${S.b}`, 2000);
+            toast(`🔄 Đồng bộ live: ${S.currentMatch.code} · ${S.a}–${S.b}`, 2500);
+          }
+          // Đảm bảo scoreboard active
+          if (matchStarted) {
+            document.querySelector('.scoreboard')?.classList.remove('not-started');
+            const sb = document.getElementById('btn-start');
+            if (sb) { sb.textContent = '🟢 Đang thi đấu'; sb.classList.add('started'); }
           }
         }
         renderMatchGrid();
+
+      } else if (!_restored && myCode && GS_URL) {
+        // ── Không có snapshot → tìm trận đang playing của TT này trên GAS ──
+        // Referee name được lưu ở col 10 của LiveScore
+        const myLiveEntry = Object.entries(liveScores).find(([k, lv]) =>
+          lv.status !== 'finished' &&
+          !_savedMatchKeys.has(k) &&
+          !_clearedLiveKeys.has(k) &&
+          (String(lv.referee||'').trim().toLowerCase() === myCode.toLowerCase() ||
+           String(lv.referee||'').trim().toLowerCase() === (lic?.name||'').toLowerCase())
+        );
+        if (myLiveEntry) {
+          const [liveKey, lv] = myLiveEntry;
+          // Tìm match trong matchList
+          const lkParts = liveKey.split('|');
+          const nd = lkParts[0], bang = lkParts[1], code = lkParts.slice(2).join('|');
+          const mIdx = matchList.findIndex(m => m.noidung===nd && m.bang===bang && m.code===code);
+          if (mIdx >= 0) {
+            const m = matchList[mIdx];
+            // Khôi phục state từ live GAS
+            S.currentMatch = { ...m, origTeamA: m.teamA, origTeamB: m.teamB, origSideA: 'a',
+              playersA: _parsePlayers(m.teamA), playersB: _parsePlayers(m.teamB) };
+            S.playersA = S.currentMatch.playersA;
+            S.playersB = S.currentMatch.playersB;
+            S.a = lv.scoreA; S.b = lv.scoreB;
+            S.game = parseInt(String(lv.game||'Game 1').replace(/\D/g,''))||1;
+            matchStarted = true;
+            // Kích hoạt UI
+            document.querySelector('.scoreboard')?.classList.remove('not-started');
+            const sb = document.getElementById('btn-start');
+            if (sb) { sb.textContent = '🟢 Đang thi đấu'; sb.classList.add('started'); sb.classList.remove('done-btn'); }
+            const bar = document.getElementById('toss-bar');
+            if (bar) bar.style.display = 'none';
+            const miEl = document.getElementById('mi-tag');
+            if (miEl) {
+              miEl.innerHTML = `<span class="mi-code">${m.code}${m.bang?' · '+m.bang:''}</span><span class="mi-nd">${m.noidung||''}</span>`;
+            }
+            saveActiveMatch();
+            render(); renderMatchGrid();
+            // Push live để GAS biết đang tiếp tục
+            setTimeout(() => { if(GS_URL && matchStarted) pushLiveScore(); }, 500);
+            toast(`⚡ Tìm thấy trận đang live: ${m.code} · ${S.a}–${S.b} · Game ${S.game}`, 4000);
+          }
+        }
       }
     }, _restored ? 800 : 400);
   }
