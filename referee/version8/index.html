@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<!-- Pickleball v3 | Optimized 2026-05-21 | Batch API | Debounce | Timeout | No-cache -->
+<!-- Pickleball v4 | Fix đánh lại: _savedMatchKeys/_clearedLiveKeys clear khi reload + startMatch, matchList reset score cũ, renderMatchCard override done khi isReplay | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee – Pickleball</title>
+<title>Da Nang Referee v4 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1607,7 +1607,7 @@ async function loadAllFromGS() {
       const court = String(r[8]||'').trim(); // Sân
       const round = String(r[9]||'').trim(); // Vòng đấu
       if (!nd || !code) return;
-      const key = `${giai}|${nd}|${bang}|${code}`;
+      const key = `${nd}|${bang}|${code}`;
       newMatches.push({ giai, noidung:nd, bang, code, teamA:tA, teamB:tB,
                         matchScoreA:sA, matchScoreB:sB,
                         court, round, // phân quyền
@@ -1625,8 +1625,7 @@ async function loadAllFromGS() {
       const noidung = String(r[2]||'').trim();
       const bang    = String(r[3]||'').trim();
       const code    = String(r[4]||'').trim();
-      const giaiKq = String(r[1]||'').trim();
-      const key = `${giaiKq}|${noidung}|${bang}|${code}`;
+      const key = `${noidung}|${bang}|${code}`;
       S.results[key] = {
         savedAt: r[0],
         giai:    String(r[1]||'').trim(),
@@ -1875,11 +1874,10 @@ function confirmAdd() {
   if (!bang)         { toast('⚠️ Chọn Bảng!'); return; }
   if (!code||!tA||!tB) { toast('⚠️ Điền đủ Mã trận, Đội A, Đội B!'); return; }
 
-  const giai = _userPerm.giai || '';
-  const key = `${giai}|${nd}|${bang}|${code}`;
+  const key = `${nd}|${bang}|${code}`;
   if (matchList.find(x => x.key === key)) { toast('⚠️ Trận đã tồn tại!'); return; }
 
-  matchList.push({ giai, noidung:nd, bang, code, teamA:tA, teamB:tB, matchScoreA:null, matchScoreB:null, key });
+  matchList.push({ noidung:nd, bang, code, teamA:tA, teamB:tB, matchScoreA:null, matchScoreB:null, key });
   saveMatchList();
   syncDropdownsFromData(false);
   syncBXHDropdowns();
@@ -2244,12 +2242,18 @@ function renderMatchGrid() {
 }
 
 function _renderMatchCard(grid, m, idx) {
+    const active = S.currentMatch?.key === m.key;
+    // ── FIX: Nếu trọng tài đang chấm lại (active + matchStarted) → KHÔNG force done ──
+    // Trường hợp: trận đã lưu (matchScoreA có giá trị), trọng tài chọn lại và bấm Bắt đầu
+    // → ưu tiên trạng thái live hiện tại, bỏ qua điểm cũ từ matchList
+    const isReplay = active && matchStarted;
     // "done" = matchList đã có điểm, HOẶC S.results local đã lưu, HOẶC vừa lưu xong (savedMatchKeys)
     const localResult = S.results[m.key]; // kết quả đã lưu trên máy này
-    const done   = (m.matchScoreA !== null && m.matchScoreA !== undefined)
+    const done   = !isReplay && (
+                  (m.matchScoreA !== null && m.matchScoreA !== undefined)
                 || !!localResult
-                || _savedMatchKeys.has(m.key);
-    const active = S.currentMatch?.key === m.key;
+                || _savedMatchKeys.has(m.key)
+                );
     const isLive = active && matchStarted && !done; // đang chấm điểm chưa lưu
     const btn    = document.createElement('button');
     let statusLabel = '', statusStyle = '';
@@ -2353,7 +2357,7 @@ function renderResults() {
   const body = document.getElementById('res-body');
   const allResults = Object.values(S.results);
   const arr = allResults.filter(r => {
-    const key = `${r.giai||''}|${r.noidung||''}|${r.bang||''}|${r.code||''}`;
+    const key = `${r.noidung||''}|${r.bang||''}|${r.code||''}`;
     const match = matchList.find(m => m.key === key);
     return match &&
            match.matchScoreA !== null && match.matchScoreA !== undefined &&
@@ -2479,6 +2483,13 @@ function startMatch() {
   }
   const isResume = (S.a > 0 || S.b > 0 || S.game > 1);
   matchStarted = true;
+
+  // ── FIX: Xóa _clearedLiveKeys cho trận này khi bắt đầu/bắt đầu lại ──
+  // Sau khi reset và bấm Bắt đầu lại, live key mới phải được ghi lên GAS
+  // và không bị polling coi là "đã reset" nữa
+  const myKey = S.currentMatch.key;
+  if (myKey) _clearedLiveKeys.delete(myKey);
+
   const btn = document.getElementById('btn-start');
   if (btn) { btn.textContent = '🟢 Đang thi đấu'; btn.classList.add('started'); }
   document.querySelector('.scoreboard')?.classList.remove('not-started');
@@ -2571,6 +2582,9 @@ function resetMatch() {
   if (prevKey) {
     delete liveScores[prevKey];
     _clearedLiveKeys.add(prevKey); // ngăn poll restore lại
+    // ── FIX: Xóa khỏi _savedMatchKeys để cho phép đánh lại ──
+    // Khi trọng tài reset → sẵn sàng chấm lại → live mới phải được ghi/đọc
+    _savedMatchKeys.delete(prevKey);
   }
   try {
     const ls = JSON.parse(localStorage.getItem('pb_live6')||'{}');
@@ -2586,7 +2600,7 @@ function resetMatch() {
 }
 async function clearLiveGS(m) {
   if (!GS_URL || !m) return;
-  const key = (m.giai||'') + '|' + (m.noidung||'') + '|' + (m.bang||'') + '|' + (m.code||'');
+  const key = (m.noidung||'') + '|' + (m.bang||'') + '|' + (m.code||'');
   try {
     // Gửi action deleteLive để GAS xoá hẳn row khỏi sheet LiveScore (thoát trận không lưu)
     await syncGS('deleteLive', { key });
@@ -2597,7 +2611,7 @@ async function clearLiveGS(m) {
 // Admin sẽ thấy tỉ số cuối nhưng trận rời khỏi "Đang thi đấu"
 async function finishLiveGS(m, scoreA, scoreB) {
   if (!GS_URL || !m) return;
-  const key = (m.giai||'') + '|' + (m.noidung||'') + '|' + (m.bang||'') + '|' + (m.code||'');
+  const key = (m.noidung||'') + '|' + (m.bang||'') + '|' + (m.code||'');
   try {
     await syncGS('finishLive', {
       key,
@@ -2811,16 +2825,36 @@ function loadMatch(idx) {
   S.playersA = S.currentMatch.playersA;
   S.playersB = S.currentMatch.playersB;
 
+  // ── FIX: Xóa key khỏi _savedMatchKeys + _clearedLiveKeys khi chọn lại trận ──
+  // Cho phép trọng tài đánh lại trận đã lưu (live mới sẽ được ghi/polling đúng)
+  if (m.key) {
+    _savedMatchKeys.delete(m.key);
+    _clearedLiveKeys.delete(m.key);
+    // Xóa kết quả cũ trong S.results để trận không bị force "done" khi đánh lại
+    if (S.results[m.key]) {
+      delete S.results[m.key];
+      try { localStorage.setItem('pb_res6', JSON.stringify(S.results)); } catch(e) {}
+    }
+    // ── FIX thêm: clear điểm cũ trong matchList local ──
+    // Khi trọng tài chọn lại trận để đánh lại, điểm cũ trong matchList
+    // sẽ làm renderMatchCard force "done" và không show live đúng
+    // → reset về null để polling GAS cập nhật lại sau khi lưu kết quả mới
+    const mIdx = matchList.findIndex(x => x.key === m.key);
+    if (mIdx !== -1 && (matchList[mIdx].matchScoreA !== null || matchList[mIdx].matchScoreB !== null)) {
+      matchList[mIdx]._prevScoreA = matchList[mIdx].matchScoreA; // backup để rollback nếu cần
+      matchList[mIdx]._prevScoreB = matchList[mIdx].matchScoreB;
+      matchList[mIdx].matchScoreA = null;
+      matchList[mIdx].matchScoreB = null;
+      saveMatchList();
+    }
+  }
+
   const matchHasScore = (m.matchScoreA !== null && m.matchScoreA !== undefined &&
                          m.matchScoreB !== null && m.matchScoreB !== undefined);
   if (matchHasScore) {
     S.a = m.matchScoreA; S.b = m.matchScoreB;
   } else {
     S.a = 0; S.b = 0;
-    if (S.results[m.key]) {
-      delete S.results[m.key];
-      try { localStorage.setItem('pb_res6', JSON.stringify(S.results)); } catch(e) {}
-    }
   }
   S.game=1; S.server='a'; S.serveNum=2; S.isFirstServe=true; S.history=[];
   S.serverPlayerIdx=0; S.posA=[0,1]; S.posB=[0,1];
