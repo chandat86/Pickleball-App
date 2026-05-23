@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -5454,6 +5453,12 @@ function bkRender() {
     ${byeCount>0?`<span style="margin:0 4px;opacity:.4">·</span><span style="color:var(--or)">${byeCount} BYE</span>`:''}
   `;
 
+  // ── Map seedLabel → seed number toàn giải ──
+  const seedLabelToNum = {};
+  if (allSeeds?.length) {
+    allSeeds.forEach((s, i) => { seedLabelToNum[s.label] = i + 1; });
+  }
+
   // ── Helpers ──
   const pillCls = (seedStr) => {
     if (!seedStr) return 'p-num';
@@ -5465,11 +5470,12 @@ function bkRender() {
   };
   const pillLabel = (seedStr) => {
     if (!seedStr) return '?';
-    if (seedStr.startsWith('Thắng')) {
-      const c = seedStr.replace('Thắng ','');
-      return 'W';
-    }
+    if (seedStr.startsWith('Thắng')) return 'W';
     if (seedStr==='BYE') return 'BYE';
+    // Ưu tiên hiển thị seed number toàn giải (S1, S2...)
+    const sn = seedLabelToNum[seedStr];
+    if (sn) return 'S' + sn;
+    // Fallback: rank+bang (1A, 2B...)
     const rank = seedStr.includes('Nhất')?1:seedStr.includes('Nhì')?2:
                  seedStr.includes('Ba')?3:seedStr.includes('Tư')?4:0;
     const bangM = seedStr.match(/Bảng\s+([A-Z])/i);
@@ -5502,12 +5508,12 @@ function bkRender() {
         </div>
       </div>
       <div class="bk-row ${rA}">
-        <div class="bk-pill ${pcA}">${plA}</div>
+        <div class="bk-pill ${pcA}" title="${esc(m.seedA||'')}">${plA}</div>
         <div class="bk-tname" title="${esc(nA)}">${esc(nA)}</div>
         ${scA}
       </div>
       <div class="bk-row ${rB}">
-        <div class="bk-pill ${pcB}">${plB}</div>
+        <div class="bk-pill ${pcB}" title="${esc(m.seedB||'')}">${plB}</div>
         <div class="bk-tname" title="${esc(nB)}">${esc(nB)}</div>
         ${scB}
       </div>
