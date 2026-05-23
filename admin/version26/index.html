@@ -103,7 +103,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);
   cursor:pointer;letter-spacing:.3px;
   box-shadow:0 4px 16px rgba(14,165,233,.35);
   transition:all var(--tr);
+  position:relative;overflow:hidden;
 }
+.btn-ln:disabled{opacity:.65!important;cursor:not-allowed!important;transform:none!important;box-shadow:none!important}
+
 .btn-ln:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(14,165,233,.4)}
 .btn-ln:active{transform:translateY(0)}
 .btn-ln:disabled{opacity:.5;cursor:not-allowed;transform:none}
@@ -839,13 +842,22 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <label class="lbl">🔗 Google Apps Script URL</label>
-      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"
+        oninput="localStorage.setItem('pb_gs_url',this.value.trim())"
+        onpaste="setTimeout(()=>localStorage.setItem('pb_gs_url',this.value.trim()),50)">
       <label class="lbl">🔑 Mã đăng nhập</label>
-      <!-- Không ép uppercase — gõ tự nhiên, JS tự uppercase khi submit -->
-      <input class="fi" type="text" id="adm-code" placeholder="admin01 hoặc mgr001" maxlength="20" autocomplete="off">
-      <div style="display:flex;gap:10px">
-        <button class="btn-ln" id="login-btn" onclick="doLogin()" style="flex:1">Đăng nhập</button>
-        <button class="btn-ln" onclick="testGasUrl()" style="flex:0 0 auto;background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.4);color:#a78bfa;padding:0 18px;font-size:13px" title="Kiểm tra kết nối GAS">🔌 Test</button>
+      <input class="fi" type="text" id="adm-code" placeholder="ADMIN001 hoặc MGR001" maxlength="20" autocomplete="off"
+        oninput="this.value=this.value.toUpperCase();localStorage.setItem('pb_adm_code',this.value.trim())"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn-ln" id="login-btn" onclick="doLogin()" style="flex:1;position:relative;overflow:hidden">
+          <span id="login-btn-txt">🔐 Đăng nhập</span>
+        </button>
+        <button class="btn-ln" onclick="testGasUrl()" style="flex:0 0 auto;background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.4);color:#a78bfa;padding:0 14px;font-size:13px" title="Kiểm tra kết nối GAS">🔌 Test</button>
+      </div>
+      <!-- Progress bar login -->
+      <div id="login-progress" style="display:none;margin-top:8px;height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
+        <div id="login-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--ac),var(--gn));border-radius:2px;transition:width .4s"></div>
       </div>
       <div class="lerr" id="lerr"></div>
       <div class="ldbg" id="ldbg"></div>
@@ -2067,6 +2079,14 @@ function getFinalScore(m) {
 //  INIT
 // ════════════════════════════════════════════════════════════════
 window.onload = () => {
+  // Khôi phục URL + code đã lưu vào form (kể cả chưa login)
+  const savedUrl  = localStorage.getItem('pb_gs_url') || '';
+  const savedCode = localStorage.getItem('pb_adm_code') || '';
+  const urlEl  = document.getElementById('gs-url');
+  const codeEl = document.getElementById('adm-code');
+  if (urlEl  && savedUrl)  urlEl.value  = savedUrl;
+  if (codeEl && savedCode) codeEl.value = savedCode;
+
   // Khôi phục session nếu đã login trước
   const s = localStorage.getItem('pb_adm3');
   if (s) {
@@ -2074,6 +2094,7 @@ window.onload = () => {
       const j = JSON.parse(s);
       GS=j.u; CODE=j.c; NAME=j.n; ROLE=j.r||'admin'; MY_GIAI=j.g||'';
       showApp();
+      return; // skip form restore nếu đã đăng nhập
     } catch(e) { localStorage.removeItem('pb_adm3'); }
   }
   // Gắn event nav — sidebar + mobile nav
@@ -2111,25 +2132,69 @@ async function doLogin() {
 
   // Validate URL format
   if (!url) { err.textContent = '⚠️ Nhập URL Google Apps Script'; return; }
+  // Auto-fix: thêm https:// nếu thiếu
+  let urlFixed = url;
+  if (urlFixed && !urlFixed.startsWith('http')) urlFixed = 'https://' + urlFixed;
+  // Auto-fix: bỏ /exec/anything sau /exec
+  urlFixed = urlFixed.replace(/(\/exec)(\/.*)?$/, '$1');
+  if (urlFixed !== url) {
+    document.getElementById('gs-url').value = urlFixed;
+    localStorage.setItem('pb_gs_url', urlFixed);
+    url = urlFixed;
+  }
   if (!url.startsWith('https://script.google.com')) {
     err.textContent = '⚠️ URL phải bắt đầu bằng https://script.google.com';
     dbg.style.display = 'block';
-    dbg.innerHTML = `URL hiện tại: <code style="word-break:break-all">${url}</code><br>Vào Google Apps Script → Deploy → Copy URL Web App`;
+    dbg.innerHTML = `URL hiện tại: <code style="word-break:break-all">${url}</code><br>Vào Google Apps Script → Deploy → Manage deployments → Copy Web app URL`;
     return;
   }
   if (!code) { err.textContent = '⚠️ Nhập mã đăng nhập'; return; }
 
-  const btn = document.getElementById('login-btn');
-  btn.textContent = '⏳ Đang xác thực...'; btn.disabled = true;
+  const btn    = document.getElementById('login-btn');
+  const btnTxt = document.getElementById('login-btn-txt');
+  const prog   = document.getElementById('login-progress');
+  const bar    = document.getElementById('login-progress-bar');
 
-  // Build fetch URL — đảm bảo không có trailing /exec/ kép
+  btn.disabled = true;
+  if (btnTxt) btnTxt.textContent = '⏳ Đang kết nối...';
+  if (prog) prog.style.display = 'block';
+  if (bar)  { bar.style.width = '20%'; bar.style.transition = 'width 10s linear'; setTimeout(()=>{ if(bar) bar.style.width='85%'; },100); }
+
+  // Lưu URL + code vào localStorage ngay khi submit
+  localStorage.setItem('pb_gs_url', url);
+  localStorage.setItem('pb_adm_code', code);
+
   const baseUrl = url.replace(/\/+$/, '');
   const fetchUrl = `${baseUrl}?action=validate&code=${encodeURIComponent(code)}&device=AdminPanel&_t=${Date.now()}`;
 
+  // Fetch với timeout 12s + retry 1 lần nếu timeout
+  async function fetchWithTimeout(url, ms) {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, { redirect: 'follow', signal: ctrl.signal });
+      clearTimeout(tid);
+      return r;
+    } catch(e) {
+      clearTimeout(tid);
+      throw e;
+    }
+  }
+
+  let r;
   try {
-    const r = await fetch(fetchUrl, { redirect: 'follow' });
+    try {
+      r = await fetchWithTimeout(fetchUrl, 12000);
+    } catch(e1) {
+      if (e1.name === 'AbortError') {
+        // Retry 1 lần với timeout 15s
+        err.textContent = '⏳ Kết nối chậm, đang thử lại...';
+        r = await fetchWithTimeout(fetchUrl + '&retry=1', 15000);
+      } else throw e1;
+    }
 
     // Kiểm tra HTTP status
+    err.textContent = '';
     if (!r.ok) {
       err.textContent = `❌ HTTP ${r.status} — GAS trả về lỗi`;
       dbg.style.display = 'block';
@@ -2165,27 +2230,49 @@ async function doLogin() {
     }
 
     // Đăng nhập thành công
+    if (bar) { bar.style.transition='width .3s'; bar.style.width='100%'; }
     GS = baseUrl; CODE = code; NAME = d.name;
     ROLE    = d.isAdmin ? 'admin' : 'manager';
     MY_GIAI = d.giai || '';
     localStorage.setItem('pb_adm3', JSON.stringify({u:baseUrl,c:code,n:NAME,r:ROLE,g:MY_GIAI}));
-    showApp();
+    if (btnTxt) btnTxt.textContent = '✅ Thành công!';
+    setTimeout(() => showApp(), 200);
 
   } catch(e) {
-    err.textContent = '❌ Không kết nối được GAS';
-    dbg.style.display = 'block';
-    dbg.innerHTML = `Lỗi: <b>${e.message||e}</b><br>
-      URL: <code style="word-break:break-all;font-size:10px">${fetchUrl}</code><br><br>
-      Kiểm tra:<br>
-      1. URL GAS đúng chưa? (copy từ Deploy → Manage deployments)<br>
-      2. GAS đã deploy với quyền <b>Anyone</b> chưa?<br>
-      3. Có bị chặn bởi network/firewall không?`;
+    const isTimeout = e.name === 'AbortError' || (e.message||'').includes('timeout');
+    const isNetwork = e.message === 'Failed to fetch' || e.message === 'NetworkError' || (e.message||'').includes('network');
+    if (isTimeout) {
+      err.textContent = '❌ GAS phản hồi quá chậm (timeout 15s)';
+      dbg.style.display = 'block';
+      dbg.innerHTML = `<b>Timeout</b> — GAS không phản hồi trong 15 giây.<br><br>
+        Nguyên nhân phổ biến:<br>
+        1. GAS chưa Deploy hoặc Deploy chưa đúng → <a href="${fetchUrl}" target="_blank" style="color:var(--ac)">Click kiểm tra URL</a><br>
+        2. Script bị lỗi → Vào <b>GAS Editor → Execution log</b><br>
+        3. Google Sheets đang bận (nhiều người dùng)<br>
+        → Thử lại sau 30 giây`;
+    } else if (isNetwork) {
+      err.textContent = '❌ Không có kết nối mạng hoặc GAS bị chặn';
+      dbg.style.display = 'block';
+      dbg.innerHTML = `Kiểm tra:<br>
+        1. Đang có Internet không?<br>
+        2. URL GAS có bị firewall/proxy chặn không?<br>
+        3. Thử mở URL trong tab mới: <a href="${fetchUrl}" target="_blank" style="color:var(--ac);word-break:break-all;font-size:10px">${fetchUrl}</a>`;
+    } else {
+      err.textContent = '❌ Lỗi kết nối: ' + (e.message||e);
+      dbg.style.display = 'block';
+      dbg.innerHTML = `Chi tiết: <b>${e.message||e}</b><br>
+        URL: <a href="${fetchUrl}" target="_blank" style="color:var(--ac);word-break:break-all;font-size:10px">${fetchUrl}</a>`;
+    }
   } finally {
-    btn.textContent = 'Đăng nhập'; btn.disabled = false;
+    btn.disabled = false;
+    if (btnTxt) btnTxt.textContent = '🔐 Đăng nhập';
+    if (prog)   prog.style.display = 'none';
+    if (bar)    { bar.style.transition='none'; bar.style.width='0%'; }
   }
 }
+// Enter key trên URL field cũng login
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('ls').style.display !== 'none') doLogin();
+  if (e.key === 'Enter' && document.getElementById('ls')?.style.display !== 'none') doLogin();
 });
 
 // Test kết nối GAS (không cần mã đăng nhập)
@@ -2250,8 +2337,8 @@ function showApp() {
     if (_T.length || _M.length) _renderDashFromLocal('', '', '');
   } catch(e) {}
 
-  // Tải dữ liệu nền một lần để cache (GAS fetch nền)
-  prefetchAll();
+  // Tải dữ liệu nền (non-blocking — chạy nền, UI không chờ)
+  setTimeout(() => prefetchAll(), 50);
   // Bắt đầu realtime refresh 30s dashboard + 8s live scores
   // ── TỐI ƯU: tách 2 timer ──
   // Timer 1: live scores mỗi 8s (nhẹ, chỉ đọc LiveScore sheet)
@@ -2303,7 +2390,10 @@ function startLivePolling() {
 
 function doLogout() {
   localStorage.removeItem('pb_adm3');
-  clearInterval(_dtimer); clearInterval(_rtimer); clearInterval(_liveTimer);
+  localStorage.removeItem('pb_adm_code'); // xóa code khi đăng xuất (bảo mật)
+  // Giữ lại pb_gs_url để không phải nhập lại URL lần sau
+  clearInterval(_dtimer); clearInterval(_rtimer);
+  clearInterval(_liveTimer); clearInterval(_liveTimer2);
   location.reload();
 }
 
@@ -2602,20 +2692,30 @@ async function gGet(p, timeout=12000) {
     throw e;
   }
 }
-async function gPost(b) {
+async function gPost(b, timeout=20000) {
   // GAS Web App: POST với Content-Type text/plain để tránh preflight CORS
-  const r = await fetch(GS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(b),
-    redirect: 'follow'
-  });
-  const text = await r.text();
-  // GAS có thể trả về JSONP hoặc JSON
-  try { return JSON.parse(text); } catch(e) {
-    const m = text.match(/[({[]([\s\S]*)[})\]]/);
-    if (m) try { return JSON.parse(m[0]); } catch(e2) {}
-    throw new Error('GAS response không phải JSON: ' + text.substring(0,100));
+  // Có timeout để tránh treo UI
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(GS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(b),
+      redirect: 'follow',
+      signal: ctrl.signal
+    });
+    clearTimeout(tid);
+    const text = await r.text();
+    try { return JSON.parse(text); } catch(e) {
+      const m = text.match(/[({[]([\s\S]*)[})\]]/);
+      if (m) try { return JSON.parse(m[0]); } catch(e2) {}
+      throw new Error('GAS response không phải JSON: ' + text.substring(0,100));
+    }
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('GAS timeout sau ' + (timeout/1000) + 's');
+    throw e;
   }
 }
 
