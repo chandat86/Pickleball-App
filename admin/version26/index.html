@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v266 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v261 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1142,9 +1142,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
 
-      <!-- VIEW 3: Chi tiết nội dung (Bảng + VĐV) -->
+      <!-- VIEW 3: Chi tiết nội dung (Bảng + Cây thi đấu) -->
       <div id="tv-nd" style="display:none">
-        <div class="ph">
+        <!-- Header -->
+        <div class="ph" style="margin-bottom:0">
           <div style="display:flex;align-items:center;gap:10px">
             <button class="rfbtn" onclick="showTournView('detail')" style="padding:6px 10px">← Quay lại</button>
             <div>
@@ -1152,14 +1153,55 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <div class="psub" id="tv-nd-sub">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn bh" onclick="openAddBangMo()">＋ Thêm bảng</button>
-            <button class="btn bp" onclick="openBracketMo()">🏆 Bracket</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);font-size:12px" onclick="cleanupDuplicateMatches()" title="Xóa trận bị trùng trong Google Sheets">🧹 Dọn trùng</button>
           </div>
         </div>
 
-        <div id="bang-list" style="display:flex;flex-direction:column;gap:14px"></div>
+        <!-- Tab switcher -->
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--bdr);margin-bottom:16px;margin-top:14px">
+          <button id="nd-tab-bangs" onclick="switchNdTab('bangs')"
+            style="padding:9px 20px;font-size:13px;font-weight:700;background:none;border:none;cursor:pointer;color:var(--ac);border-bottom:2px solid var(--ac);margin-bottom:-2px;font-family:var(--fn)">
+            📋 Bảng đấu
+          </button>
+          <button id="nd-tab-bracket" onclick="switchNdTab('bracket')"
+            style="padding:9px 20px;font-size:13px;font-weight:700;background:none;border:none;cursor:pointer;color:var(--tx3);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--fn)">
+            🏆 Cây thi đấu
+          </button>
+        </div>
+
+        <!-- Tab: Bảng đấu -->
+        <div id="nd-panel-bangs">
+          <div id="bang-list" style="display:flex;flex-direction:column;gap:14px"></div>
+        </div>
+
+        <!-- Tab: Cây thi đấu -->
+        <div id="nd-panel-bracket" style="display:none">
+          <!-- Bracket toolbar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;
+                      background:var(--bg2);border:1px solid var(--bdr2);border-radius:12px;padding:12px 16px">
+            <div>
+              <div style="font-size:13px;font-weight:800;color:var(--tx)">🏆 Cây thi đấu</div>
+              <div style="font-size:11px;color:var(--tx3);margin-top:2px">Tự động từ BXH vòng bảng · Có thể chỉnh tay</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn">↻ Làm mới</button>
+              <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)"
+                onclick="bkShowRules()">📋 Quy tắc</button>
+              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Tự động điền</button>
+              <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3)"
+                onclick="ndBkSave()">💾 Lưu cây</button>
+              <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25)"
+                onclick="ndBkApply()">⚡ Áp dụng & Tạo lịch</button>
+              <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)"
+                onclick="ndBkDelete()">🗑 Xóa cây</button>
+            </div>
+          </div>
+          <!-- Bracket render area -->
+          <div id="nd-bk-wrap" style="overflow-x:auto;overflow-y:visible;padding-bottom:20px;min-height:300px">
+            <div class="empty"><div class="ei">🏆</div><p>Nhấn "Làm mới" hoặc "Tự động điền" để tạo cây</p></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3840,6 +3882,121 @@ function renderNdCards(r) {
   }).join('');
 }
 
+// ── Tab switcher trong nd view ──
+function switchNdTab(tab) {
+  const isBracket = tab === 'bracket';
+  document.getElementById('nd-panel-bangs').style.display   = isBracket ? 'none' : 'block';
+  document.getElementById('nd-panel-bracket').style.display = isBracket ? 'block' : 'none';
+
+  const tabBangs   = document.getElementById('nd-tab-bangs');
+  const tabBracket = document.getElementById('nd-tab-bracket');
+  if (tabBangs) {
+    tabBangs.style.color        = isBracket ? 'var(--tx3)' : 'var(--ac)';
+    tabBangs.style.borderBottom = isBracket ? '2px solid transparent' : '2px solid var(--ac)';
+  }
+  if (tabBracket) {
+    tabBracket.style.color        = isBracket ? 'var(--ac)' : 'var(--tx3)';
+    tabBracket.style.borderBottom = isBracket ? '2px solid var(--ac)' : '2px solid transparent';
+  }
+
+  if (isBracket) {
+    // Sync _bkGiai/_bkNd với context hiện tại rồi render
+    _bkGiai = _curGiaiId || '';
+    _bkNd   = _curNd     || '';
+    _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+    _ndBkRender();
+  }
+}
+
+// ── Render cây thi đấu vào nd-bk-wrap (dùng ID swap) ──
+function _ndBkRender() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  const ndWrap  = document.getElementById('nd-bk-wrap');
+  const realWrap = document.getElementById('bk-wrap');
+  if (!ndWrap) return;
+  if (!_bkGiai || !_bkNd) {
+    ndWrap.innerHTML = '<div class="empty"><div class="ei">🏆</div><p>Chưa chọn giải / nội dung</p></div>';
+    return;
+  }
+  // Swap IDs: nd-bk-wrap ↔ bk-wrap
+  if (realWrap) realWrap.id = '_bk_swap_hidden';
+  ndWrap.id = 'bk-wrap';
+  try {
+    bkRender();
+  } finally {
+    ndWrap.id = 'nd-bk-wrap';
+    if (realWrap) realWrap.id = 'bk-wrap';
+  }
+}
+
+// ── ndBk action wrappers ──
+function ndBkRefresh() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  const btn = document.getElementById('nd-bk-refresh-btn');
+  if (btn) { btn.textContent='⏳...'; btn.disabled=true; }
+  // Reload matches then render
+  loadMatchesCache(_bkGiai).then(()=>{
+    _ndBkRender();
+    if (btn) { btn.textContent='↻ Làm mới'; btn.disabled=false; }
+  }).catch(()=>{
+    _ndBkRender();
+    if (btn) { btn.textContent='↻ Làm mới'; btn.disabled=false; }
+  });
+}
+
+async function ndBkAutoFill() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  await _swapBkWrap('nd-bk-wrap', () => bkAutoFill());
+}
+
+async function ndBkSave() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  await _swapBkWrap('nd-bk-wrap', () => bkSave());
+}
+
+async function ndBkApply() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  await _swapBkWrap('nd-bk-wrap', () => bkApplyAndSave());
+}
+
+async function ndBkDelete() {
+  _bkGiai = _curGiaiId || _bkGiai;
+  _bkNd   = _curNd     || _bkNd;
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  await bkDeleteTree();
+  _ndBkRender();
+}
+
+// ── Helper: swap bk-wrap ID → run async fn → swap back ──
+async function _swapBkWrap(altId, fn) {
+  const realWrap = document.getElementById('bk-wrap');
+  const altWrap  = document.getElementById(altId);
+  if (!realWrap || !altWrap) { await fn(); return; }
+  // Swap
+  realWrap.id = '_bk_wrap_hidden';
+  altWrap.id  = 'bk-wrap';
+  try {
+    await fn();
+  } finally {
+    const w1 = document.getElementById('bk-wrap');
+    const w2 = document.getElementById('_bk_wrap_hidden');
+    if (w1) w1.id = altId;
+    if (w2) w2.id = 'bk-wrap';
+    // Re-render vào nd-bk-wrap sau khi action xong
+    await new Promise(r => setTimeout(r, 150));
+    _ndBkRender();
+  }
+}
+
 // ── Click nội dung → View Bảng ──
 function openNdDetail(giaiId, nd) {
   _curNd = nd; _curGiaiId = giaiId;
@@ -5692,7 +5849,7 @@ function _bkSaveOverrides() {
 // ── Render ───────────────────────────────────────────────────────
 function bkRender() {
   const wrap = document.getElementById('bk-wrap');
-  const status = document.getElementById('bk-status');
+  const status = document.getElementById('bk-status') || document.getElementById('nd-bk-status');
   if (!_bkGiai || !_bkNd) {
     wrap.innerHTML = '<div class="empty"><div class="ei">🏆</div><p>Chọn giải và nội dung thi đấu</p></div>';
     return;
