@@ -5202,7 +5202,6 @@ function _bkCrossSeededSlots(globalSeeds, bangs) {
     else                  byBang[s.bang].r = s;
   });
   const bangList = bangs || [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb); // [A,B,C,D...]
-  console.log("[BK] bangList:", bangList, "nb:", nb, "byBang keys:", Object.keys(byBang));
   const W = i => byBang[bangList[i]]?.w || null; // Nhất bảng thứ i
   const R = i => byBang[bangList[i]]?.r || null; // Nhì bảng thứ i
 
@@ -5868,14 +5867,21 @@ function _bkLookupSeedCode(code) {
   const m = code.trim().match(/^([1-4])([A-Z])$/i);
   if (!m) return null; // không phải mã seed → tên đội trực tiếp
   const rank = parseInt(m[1]);
-  const bang = m[2].toUpperCase();
-  const { seeds, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
-  const st = seeds[bang];
-  if (!st) return { error: `Không có Bảng ${bang}` };
-  if (!bangDone?.[bang]) return { error: `Bảng ${bang} chưa hoàn thành` };
+  const bangChar = m[2].toUpperCase(); // "A", "B", "C"...
+  const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
+  // Tìm tên bảng thực tế: dữ liệu có thể là "A" hoặc "Bảng A"
+  const bangKey = bangs.find(b =>
+    b === bangChar ||
+    b.toUpperCase() === bangChar ||
+    b.replace(/^Bảng\s+/i,'').trim().toUpperCase() === bangChar
+  );
+  if (!bangKey) return { error: `Không có Bảng ${bangChar}` };
+  const st = seeds[bangKey];
+  if (!st) return { error: `Không có Bảng ${bangChar}` };
+  if (!bangDone?.[bangKey]) return { error: `Bảng ${bangChar} chưa hoàn thành` };
   const entry = st.find(x => x.rank === rank);
-  if (!entry) return { error: `Không tìm thấy hạng ${rank} Bảng ${bang}` };
-  return { team: entry.team, label: `${['Nhất','Nhì','Ba','Tư'][rank-1]} Bảng ${bang}` };
+  if (!entry) return { error: `Không tìm thấy hạng ${rank} Bảng ${bangChar}` };
+  return { team: entry.team, label: `${['Nhất','Nhì','Ba','Tư'][rank-1]} Bảng ${bangChar}` };
 }
 
 function bkEditMatch(code, teamA, teamB, seedA, seedB) {
