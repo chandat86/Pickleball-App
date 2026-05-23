@@ -5183,10 +5183,21 @@ function _bkGlobalSeeding(seeds, bangs, bangDone) {
   const sf = (a, b) =>
     (b.won - a.won) || ((b.pf-b.pa) - (a.pf-a.pa)) || (b.pf - a.pf);
   winners.sort(sf);
-  runners.sort(sf);
-  // [nhất1, nhất2, ..., nhì1, nhì2, ...]
-  // pair(k, N+k) cùng bảng — được đặt ở 2 nhánh đối nhau
-  return [...winners, ...runners];
+  // Sắp xếp runners THEO THỨ TỰ BẢNG của winners
+  // → đảm bảo pair(k, k+N/2) luôn cùng bảng (cross-seeding chuẩn)
+  const runnersMap = {};
+  runners.forEach(r => { runnersMap[r.bang] = r; });
+  const runnersOrdered = winners
+    .map(w => runnersMap[w.bang])
+    .filter(Boolean);
+  // Thêm runners của bảng không có nhất (edge case)
+  runners.forEach(r => {
+    if (!runnersOrdered.find(x => x.bang === r.bang))
+      runnersOrdered.push(r);
+  });
+  // [nhất1, nhất2, ..., nhì(cùng bảng nhất1), nhì(cùng bảng nhất2), ...]
+  // pair(k, N/2+k) cùng bảng → đặt ở 2 nhánh đối nhau ✅
+  return [...winners, ...runnersOrdered];
 }
 
 // Đặt seeds vào bracket slots chuẩn cross-seeding quốc tế
@@ -5203,26 +5214,35 @@ function _bkCrossSeededSlots(globalSeeds) {
     // Seed: 1=nhất tốt, 2=nhất nhì, 3=nhì tốt, 4=nhì nhì
     // pair(1,3) và pair(2,4) → phân vào opposite half
     slotOf[1]=1; slotOf[4]=2; slotOf[2]=3; slotOf[3]=4;
-    // Slot: 1→s1(1A), 2→s4(2B), 3→s2(1B), 4→s3(2A)
-    // TK1: 1A vs 2B ✅ TK2: 1B vs 2A ✅
+    // Slot: 1→s1(Nhất1), 2→s4(Nhì2), 3→s2(Nhất2), 4→s3(Nhì1)
+    // BK1: Nhất1 vs Nhì2 ✅  BK2: Nhất2 vs Nhì1 ✅  (cross chuẩn)
+    // pair(1,3): slot1(h1) vs slot4(h2) ✅; pair(2,4): slot3(h2) vs slot2(h1) ✅
   } else if (N === 6) {
-    // 3 bảng, cap=8, 2 BYE (slots 7,8 = null)
-    // Seed 1,2,3=nhất; seed 4,5,6=nhì; pairs: (1,4),(2,5),(3,6)
-    slotOf[1]=1; slotOf[6]=2; slotOf[3]=3; slotOf[4]=4;
-    slotOf[2]=5; slotOf[5]=6;
-    // BYE ở slot 7,8 (không gán)
+    // 3 bảng, cap=8, 2 BYE (slots 4 và 7)
+    // Seed 1,2,3=nhất; seed 4,5,6=nhì; pairs: (1,4),(2,5),(3,6) cùng bảng
+    // Half top(slots1-4): 1,5,3,BYE; Half bot(slots5-8): 2,6,BYE,4
+    // TK1: s1 vs s5; TK2: s3 vs BYE; TK3: s2 vs s6; TK4: BYE vs s4
+    // pair(1,4): slot1(top) vs slot8(bot) ✅; pair(2,5): slot5(bot) vs slot2(top) ✅; pair(3,6): slot3(top) vs slot6(bot) ✅
+    slotOf[1]=1; slotOf[5]=2; slotOf[3]=3;
+    slotOf[2]=5; slotOf[6]=6; slotOf[4]=8;
+    // BYE ở slot 4 và 7
   } else if (N === 8) {
-    // 4 bảng: seed 1-4=nhất ABCD, seed 5-8=nhì ABCD (thứ tự sort)
-    // pairs: (1,5),(2,6),(3,7),(4,8)
-    // TK1(s1,s7), TK2(s3,s6), TK3(s2,s8), TK4(s4,s5)
-    // → BK1: win(TK1)vswin(TK2)=nhánh top; BK2: win(TK3)vswin(TK4)=nhánh bot
-    // → seed 1 và seed 5 (pair, cùng bảng) ở BK1 vs BK2 → gặp ở CK ✅
-    slotOf[1]=1; slotOf[7]=2; slotOf[3]=3; slotOf[6]=4;
-    slotOf[2]=5; slotOf[8]=6; slotOf[4]=7; slotOf[5]=8;
+    // 4 bảng: seed 1-4=nhất (sort perf), seed 5-8=nhì (cùng bảng với winner tương ứng)
+    // pairs: (1,5),(2,6),(3,7),(4,8) cùng bảng → phải ở OPPOSITE HALF (top=slots1-4, bot=slots5-8)
+    // Half top: seeds 1,3,6,8;  Half bot: seeds 2,4,5,7
+    // TK1(slot1,2): s1 vs s6 | TK2(slot3,4): s3 vs s8
+    // TK3(slot5,6): s2 vs s7 | TK4(slot7,8): s4 vs s5
+    // → tất cả TK đều khác bảng; pair(k,k+4) ở opposite half → chỉ gặp ở CK ✅
+    slotOf[1]=1; slotOf[6]=2; slotOf[3]=3; slotOf[8]=4;
+    slotOf[2]=5; slotOf[7]=6; slotOf[4]=7; slotOf[5]=8;
   } else if (N === 16) {
-    // 8 bảng: chuẩn bracket 16
-    const order = [1,16,9,8,5,12,13,4,3,14,11,6,7,10,15,2];
-    order.forEach((s,i) => { if(s<=N) slotOf[s]=i+1; });
+    // 8 bảng: seed 1-8=nhất, seed 9-16=nhì (cùng bảng với winner tương ứng)
+    // pairs: (k, k+8) cùng bảng → half1(slots1-8) vs half2(slots9-16) OPPOSITE ✅
+    // Half1: seeds 1,5,3,7,16,12,14,10;  Half2: seeds 2,6,4,8,15,11,13,9
+    // V161:s1vs s16, V162:s5vs s12, V163:s3vs s14, V164:s7vs s10
+    // V165:s2vs s15, V166:s6vs s11, V167:s4vs s13, V168:s8vs s9
+    const order16 = [1,16,5,12,3,14,7,10,2,15,6,11,4,13,8,9];
+    order16.forEach((s,i) => { if(s<=N) slotOf[s]=i+1; });
   } else {
     // Fallback tổng quát: seed[k] và seed[N+1-k] ở opposite half
     // Đặt nhất vào top half, nhì vào bottom half với cross
@@ -5279,18 +5299,11 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
   // Nếu chưa có KQ → tạo placeholder seeds từ danh sách bảng
   let globalSeeds = _bkGlobalSeeding(seeds, bangs, bangDone);
   if (globalSeeds.length === 0) {
-    // Chưa có kết quả: tạo placeholder (Nhất A, Nhì A, Nhất B, Nhì B...)
-    const rankNames = ['Nhất','Nhì'];
-    bangs.forEach(bang => {
-      rankNames.forEach((rn, ri) => {
-        globalSeeds.push({
-          bang, seedRank: ri+1, won:0, pf:0, pa:0,
-          team: '',
-          isPlaceholder: true,
-          label: `${rn} Bảng ${bang}`
-        });
-      });
-    });
+    // Chưa có kết quả: placeholder theo cấu trúc [Nhất A, Nhất B, ..., Nhì A, Nhì B, ...]
+    // Giữ đúng thứ tự để pair(k, k+N/2) cùng bảng
+    const winners = bangs.map(bang => ({ bang, seedRank:1, won:0, pf:0, pa:0, team:'', isPlaceholder:true, label:`Nhất Bảng ${bang}` }));
+    const runners = bangs.map(bang => ({ bang, seedRank:2, won:0, pf:0, pa:0, team:'', isPlaceholder:true, label:`Nhì Bảng ${bang}` }));
+    globalSeeds = [...winners, ...runners];
   }
   const nTeams = globalSeeds.length;
   if (nTeams === 0) { tree._meta = { nTeams:0, cap:0, byes:0, rounds:0, allSeeds:[] }; return tree; }
