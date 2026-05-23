@@ -5189,10 +5189,10 @@ function _bkGlobalSeeding(seeds, bangs, bangDone) {
 // Cross-seeding chuẩn: Nhất X gặp Nhì Y (khác bảng) ở vòng đầu
 // Slot table cố định theo tên bảng (A,B,C,D...) — label luôn đúng 1A,2B,1C,2D...
 // Quy tắc: cùng bảng chỉ gặp nhau TẠI Chung kết
-function _bkCrossSeededSlots(globalSeeds) {
+function _bkCrossSeededSlots(globalSeeds, bangs) {
   const N   = globalSeeds.length;
-  const nb  = N / 2; // số bảng
-  const cap = _ceil2(N);
+  const nb  = bangs ? bangs.length : N / 2; // số bảng
+  const cap = _ceil2(nb * 2); // cap dựa trên số bảng thực tế
 
   // Lookup bang → { w: nhất, r: nhì }
   const byBang = {};
@@ -5201,7 +5201,8 @@ function _bkCrossSeededSlots(globalSeeds) {
     if (s.seedRank === 1) byBang[s.bang].w = s;
     else                  byBang[s.bang].r = s;
   });
-  const bangList = [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb); // [A,B,C,D...]
+  const bangList = bangs || [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb); // [A,B,C,D...]
+  console.log("[BK] bangList:", bangList, "nb:", nb, "byBang keys:", Object.keys(byBang));
   const W = i => byBang[bangList[i]]?.w || null; // Nhất bảng thứ i
   const R = i => byBang[bangList[i]]?.r || null; // Nhì bảng thứ i
 
@@ -5314,7 +5315,7 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
   const nTeams = globalSeeds.length;
   if (nTeams === 0) { tree._meta = { nTeams:0, cap:0, byes:0, rounds:0, allSeeds:[] }; return tree; }
 
-  const { slotMap, cap } = _bkCrossSeededSlots(globalSeeds);
+  const { slotMap, cap } = _bkCrossSeededSlots(globalSeeds, bangs);
   const byes   = cap - nTeams;
   const rounds = Math.log2(cap);
 
@@ -5333,9 +5334,10 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
   };
 
   // Build all_seeds meta (cho display)
+  const _bShort = b => b ? b.replace(/^Bảng\s+/i,'').trim() : b;
   const allSeeds = globalSeeds.map(s => ({
     bang: s.bang,
-    label: `${['Nhất','Nhì','Ba','Tư'][s.seedRank-1]||'#'+s.seedRank} Bảng ${s.bang}`,
+    label: `${['Nhất','Nhì','Ba','Tư'][s.seedRank-1]||'#'+s.seedRank} Bảng ${_bShort(s.bang)}`,
     team: () => bangDone?.[s.bang] ? s.team : '',
     won: s.won, pf: s.pf, pa: s.pa, seedRank: s.seedRank
   }));
@@ -5366,8 +5368,10 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
         const byeT = !sT;
         const byeB = !sB;
         const rnArr = ['Nhất','Nhì','Ba','Tư'];
-        const labelT = byeT ? 'BYE' : `${rnArr[sT.seedRank-1]||('#'+sT.seedRank)} Bảng ${sT.bang}`;
-        const labelB = byeB ? 'BYE' : `${rnArr[sB.seedRank-1]||('#'+sB.seedRank)} Bảng ${sB.bang}`;
+        // bangShort: strip "Bảng " prefix nếu có → "Bảng A" → "A", "A" → "A"
+        const bangShort = (b) => b ? b.replace(/^Bảng\s+/i,'').trim() : b;
+        const labelT = byeT ? 'BYE' : `${rnArr[sT.seedRank-1]||('#'+sT.seedRank)} Bảng ${bangShort(sT.bang)}`;
+        const labelB = byeB ? 'BYE' : `${rnArr[sB.seedRank-1]||('#'+sB.seedRank)} Bảng ${bangShort(sB.bang)}`;
         const teamA  = byeT ? '' : (!sT.isPlaceholder && bangDone?.[sT.bang] ? (sT.team||'') : '');
         const teamB  = byeB ? '' : (!sB.isPlaceholder && bangDone?.[sB.bang] ? (sB.team||'') : '');
         matches.push({
