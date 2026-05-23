@@ -1172,6 +1172,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
             <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)" onclick="bkShowRules()">📋 Quy tắc</button>
             <button class="btn bp bsm" id="btn-bk-autofill" onclick="bkAutoFill()">⚡ Tự động điền</button>
             <button class="btn bsm" style="background:var(--gn);color:#fff" onclick="bkSave()">💾 Lưu cây</button>
+            <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)" onclick="bkDeleteTree()" title="Xóa toàn bộ cây thi đấu (trận KO) khỏi lịch thi đấu">🗑 Xóa cây</button>
           </div>
         </div>
         <div class="fbar" style="flex-wrap:wrap;margin-bottom:16px">
@@ -6515,6 +6516,75 @@ async function bkSave() {
   if (fail) { toast(`⚠️ ${fail} trận lỗi`, 'er'); }
   await loadMatchesCache(_bkGiai);
   bkRender();
+}
+
+// ── Xóa toàn bộ cây thi đấu (KO matches) ───────────────────────
+async function bkDeleteTree() {
+  if (!_bkGiai || !_bkNd) { toast('Chọn giải và nội dung trước', 'er'); return; }
+  const _giaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  const allM = _M.filter(m=>String(m[0]||'')===_giaiName&&String(m[1]||'')===_bkNd);
+  const koMatches = allM.filter(m=>{
+    const v=String(m[9]||''); return v&&v!=='Vòng bảng'&&!v.includes('bảng');
+  });
+
+  if (!koMatches.length) { toast('Cây thi đấu đang trống, không có gì để xóa', 'in'); return; }
+
+  // Confirm dialog
+  const confirmed = confirm(
+    `🗑 Xóa cây thi đấu?
+
+` +
+    `Sẽ xóa ${koMatches.length} trận KO:
+` +
+    koMatches.slice(0,8).map(m=>`· ${m[3]} (${m[9]||'KO'})`).join('
+') +
+    (koMatches.length>8?`
+· ...và ${koMatches.length-8} trận khác`:'') +
+    `
+
+Hành động này không thể hoàn tác!`
+  );
+  if (!confirmed) return;
+
+  const btn = document.querySelector('#page-bracket .btn[onclick*="bkDeleteTree"]');
+  if (btn) { btn.disabled=true; btn.textContent='⏳ Đang xóa...'; }
+
+  try {
+    let ok=0, fail=0;
+    // Xóa từng trận KO trên GSheets
+    for (const m of koMatches) {
+      try {
+        const d = await gPost({
+          action: 'deleteMatch', adminCode: CODE,
+          giai: String(m[0]||''),        // tên giải thực trong sheet
+          giaiName: _giaiName,           // backup lookup
+          bang: String(m[2]||''),        // tên vòng (Tứ kết, Bán kết...)
+          code: String(m[3]||'')         // mã trận (TK1, BK1, CK...)
+        });
+        if (d?.ok) {
+          // Xóa khỏi local cache
+          const idx = _M.findIndex(r=>r[0]===m[0]&&r[1]===m[1]&&r[2]===m[2]&&r[3]===m[3]);
+          if (idx>=0) _M.splice(idx,1);
+          ok++;
+        } else { fail++; }
+      } catch(e) { fail++; }
+    }
+
+    // Clear overrides localStorage
+    _bkOverrides = {};
+    _bkSaveOverrides();
+
+    if (fail===0) {
+      toast(`✅ Đã xóa ${ok} trận KO — cây thi đấu được reset`, 'ok');
+    } else {
+      toast(`⚠️ Xóa ${ok}/${koMatches.length} trận (${fail} lỗi)`, 'er');
+    }
+    bkRender();
+  } catch(e) {
+    toast('❌ Lỗi: ' + (e.message||e), 'er');
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='🗑 Xóa cây'; }
+  }
 }
 // ════════════════════════════════════════════════════════════════
 
