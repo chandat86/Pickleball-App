@@ -6632,8 +6632,7 @@ async function bkDeleteTree() {
 ` +
     `Sẽ xóa ${koMatches.length} trận KO:
 ` +
-    koMatches.slice(0,8).map(m=>`· ${m[3]} (${m[9]||'KO'})`).join('
-') +
+    koMatches.slice(0,8).map(m=>`· ${m[3]} (${m[9]||'KO'})`).join('\n') +
     (koMatches.length>8?`
 · ...và ${koMatches.length-8} trận khác`:'') +
     `
