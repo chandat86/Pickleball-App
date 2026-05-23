@@ -518,9 +518,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bk-row.r-tbd{}
 /* Seed pill */
 .bk-pill{
-  font-size:10px;font-weight:800;min-width:30px;height:22px;padding:0 5px;
-  border-radius:5px;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;font-family:var(--mo);letter-spacing:.02em;border:1px solid transparent;
+  font-size:10px;font-weight:800;width:28px;height:28px;padding:0;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-family:var(--mo);letter-spacing:.01em;border:2px solid transparent;
   text-transform:uppercase
 }
 .bk-pill.p-bye{background:var(--bg3);color:var(--tx4);border-color:var(--bdr)}
@@ -5605,7 +5605,7 @@ function bkRender() {
       html += `<div style="display:flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;
         background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;
         font-size:11px;${isDone?'':'opacity:.55'}" title="${esc(s.label)}">
-        <div class="bk-pill ${pc}" style="font-size:9px;min-width:24px;height:18px">${lbl}</div>
+        <div class="bk-pill ${pc}" style="font-size:9px;width:22px;height:22px;border-radius:50%;padding:0">${lbl}</div>
         <span style="color:var(--tx);font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(team)}</span>
       </div>`;
     });
