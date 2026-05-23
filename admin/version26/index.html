@@ -3777,267 +3777,257 @@ function renderBangList(giaiId, nd) {
   const wrap     = document.getElementById('bang-list');
   const giaiName = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||'');
   const matchGiai = m => String(m[0]||'') === giaiName;
-  const allMatches = _M.filter(m=>matchGiai(m)&&String(m[1]||'')===nd);
-  const bangs = [...new Set(allMatches.map(m=>String(m[2]||'')).filter(Boolean))]
+  const allM  = _M.filter(m=>matchGiai(m)&&String(m[1]||'')===nd);
+  const isDone = m => isMatchDone(m);
+  const isLive = m => !isMatchDone(m) && _lK.has(`${m[1]}|${m[2]}|${m[3]}`);
+
+  // Phân loại bảng: vòng bảng vs KO
+  const bangNames = [...new Set(allM.map(m=>String(m[2]||'')).filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
 
-  if (!bangs.length) {
+  const KO_ROUNDS = ['Tứ kết','Bán kết','Chung kết','Hạng 3','Vòng 16','Semi','Final','Quarter'];
+  const isKoRound = name => KO_ROUNDS.some(k=>name.includes(k)||name.startsWith('BK')||name.startsWith('TK')||name.startsWith('CK')||name.startsWith('H3')||name.startsWith('V16'));
+  const poolBangs = bangNames.filter(b=>!isKoRound(b));
+  const koBangs   = bangNames.filter(b=>isKoRound(b));
+
+  if (!bangNames.length) {
     wrap.innerHTML = `<div class="empty"><div class="ei">📋</div><p>Chưa có bảng nào</p>
       <button class="btn bp" style="margin-top:10px" onclick="openAddBangMo()">＋ Thêm bảng đấu</button></div>`;
     return;
   }
 
-  const isDone = m => isMatchDone(m);
-  const isLive = m => !isMatchDone(m) && _lK.has(`${m[1]}|${m[2]}|${m[3]}`);
+  // ── Stats ──
+  const totalM  = allM.length;
+  const doneM   = allM.filter(m=>isDone(m)).length;
+  const liveM   = allM.filter(m=>isLive(m)).length;
+  const pendM   = totalM - doneM - liveM;
+  const pct     = totalM ? Math.round(doneM/totalM*100) : 0;
+  const allTeams= [...new Set(allM.filter(m=>!isKoRound(String(m[2]||''))).flatMap(m=>[m[4],m[7]]).filter(Boolean))];
+  const courts  = [...new Set(allM.map(m=>String(m[8]||'')).filter(Boolean))];
 
-  // ── Tổng quan giải ──
-  const totalM   = allMatches.length;
-  const doneAllM = allMatches.filter(m=>isDone(m)).length;
-  const liveAllM = allMatches.filter(m=>isLive(m)).length;
-  const pendAllM = totalM - doneAllM - liveAllM;
-  const courts   = [...new Set(allMatches.map(m=>String(m[8]||'')).filter(Boolean))];
-  const allTeams = [...new Set(allMatches.flatMap(m=>[m[4],m[7]]).filter(Boolean))];
-  const pct      = totalM ? Math.round(doneAllM/totalM*100) : 0;
+  // ── BXH mỗi bảng (pool only) ──
+  function calcBxh(bang) {
+    const ms = allM.filter(m=>String(m[2]||'')===bang&&isDone(m));
+    const ts = {};
+    ms.forEach(m=>{
+      const fs=getFinalScore(m); if(!fs) return;
+      [m[4],m[7]].filter(Boolean).forEach(t=>{ if(!ts[t]) ts[t]={team:t,won:0,lost:0,pf:0,pa:0,played:0}; });
+      const sA=Number(fs.scoreA)||0,sB=Number(fs.scoreB)||0;
+      if(m[4]){ts[m[4]].pf+=sA;ts[m[4]].pa+=sB;ts[m[4]].played++;if(sA>sB)ts[m[4]].won++;else ts[m[4]].lost++;}
+      if(m[7]){ts[m[7]].pf+=sB;ts[m[7]].pa+=sA;ts[m[7]].played++;if(sB>sA)ts[m[7]].won++;else ts[m[7]].lost++;}
+    });
+    return Object.values(ts).sort((a,b)=>(b.won-a.won)||((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf));
+  }
 
-  // ── BXH tổng hợp (tất cả các bảng) cho seeding bar ──
-  const teamStats = {};
-  allMatches.filter(m=>isDone(m)).forEach(m=>{
-    const bang=String(m[2]||'');
-    const fs=getFinalScore(m); if(!fs) return;
-    [m[4],m[7]].filter(Boolean).forEach(t=>{ if(!teamStats[t]) teamStats[t]={team:t,bang,won:0,lost:0,pf:0,pa:0,played:0}; });
-    const sA=Number(fs.scoreA)||0,sB=Number(fs.scoreB)||0;
-    if(m[4]){teamStats[m[4]].pf+=sA;teamStats[m[4]].pa+=sB;teamStats[m[4]].played++;if(sA>sB)teamStats[m[4]].won++;else teamStats[m[4]].lost++;}
-    if(m[7]){teamStats[m[7]].pf+=sB;teamStats[m[7]].pa+=sA;teamStats[m[7]].played++;if(sB>sA)teamStats[m[7]].won++;else teamStats[m[7]].lost++;}
-  });
-
-  // ── Live matches ──
-  const liveMAll = allMatches.filter(m=>isLive(m));
-
-  // ── Overview card ──
-  const overviewHtml = `
-  <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;padding:18px 20px;margin-bottom:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div style="font-size:13px;font-weight:800;color:var(--tx)">📊 Tổng quan · ${nd}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn bh bsm" onclick="renderBangList('${esc(giaiId)}','${esc(nd)}')">↻ Làm mới</button>
-        <button class="btn bh bsm" onclick="openBracketForNd('${esc(giaiId)}','${esc(nd)}')">🏆 Cây thi đấu</button>
-        <button class="btn bp bsm" onclick="openAddBangMo()">＋ Thêm bảng</button>
-      </div>
-    </div>
-    <!-- Stat cards -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:14px">
-      <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--ac);font-family:var(--mo)">${totalM}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Tổng trận</div>
-      </div>
-      <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.15);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--gn);font-family:var(--mo)">${doneAllM}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Hoàn thành</div>
-      </div>
-      ${liveAllM>0?`<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--or);font-family:var(--mo)">${liveAllM}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Đang đấu</div>
-      </div>`:''}
-      <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--tx3);font-family:var(--mo)">${pendAllM}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Chờ đấu</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--pu);font-family:var(--mo)">${bangs.length}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Bảng</div>
-      </div>
-      <div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--cy);font-family:var(--mo)">${allTeams.length}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Đội</div>
-      </div>
-      ${courts.length?`<div style="background:var(--bg3);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:900;color:var(--ac2);font-family:var(--mo)">${courts.length}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px;font-weight:600;text-transform:uppercase">Sân</div>
-      </div>`:''}
-    </div>
-    <!-- Overall progress -->
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="flex:1;height:8px;background:var(--bg4);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--ac),var(--gn));border-radius:4px;transition:width .6s"></div>
-      </div>
-      <span style="font-size:12px;font-weight:700;color:var(--tx3);white-space:nowrap;min-width:48px;text-align:right">${pct}% · ${doneAllM}/${totalM}</span>
-    </div>
-  </div>`;
-
-  // ── Live section ──
-  const liveHtml = liveMAll.length ? `
-  <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:14px 16px;margin-bottom:14px">
-    <div style="font-size:12px;font-weight:800;color:var(--or);margin-bottom:10px">⚡ Đang thi đấu · ${liveMAll.length} trận</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
+  // ── Live bar ──
+  const liveMAll = allM.filter(m=>isLive(m));
+  const liveBar = liveMAll.length ? `
+    <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.22);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <span style="font-size:11px;font-weight:800;color:var(--or);white-space:nowrap">⚡ LIVE · ${liveMAll.length} trận</span>
       ${liveMAll.map(m=>{
-        const lk=`${m[1]}|${m[2]}|${m[3]}`;
-        const ls=_liveScores[lk]||{};
-        return `<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 12px;min-width:200px;flex:1">
-          <div style="font-size:10px;color:var(--or);font-weight:700;margin-bottom:4px">${m[2]||''} · ${m[3]||''} · ${m[8]||''}</div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700">
-            <span style="color:var(--tx);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m[4]||'TBD'}</span>
-            <span style="font-family:var(--mo);font-size:16px;font-weight:900;color:var(--or)">${ls.scoreA??'—'}–${ls.scoreB??'—'}</span>
-            <span style="color:var(--tx);flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m[7]||'TBD'}</span>
-          </div>
+        const lk=`${m[1]}|${m[2]}|${m[3]}`;const ls=_liveScores[lk]||{};
+        return `<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);border-radius:7px;padding:5px 10px;font-size:11px;display:flex;align-items:center;gap:6px">
+          <span style="color:var(--tx3);font-size:10px">${esc(m[3])}</span>
+          <span style="color:var(--tx);font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m[4]||'?')}</span>
+          <span style="font-family:var(--mo);font-weight:900;font-size:14px;color:var(--or)">${ls.scoreA??'—'}–${ls.scoreB??'—'}</span>
+          <span style="color:var(--tx);font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m[7]||'?')}</span>
         </div>`;
       }).join('')}
-    </div>
-  </div>` : '';
+    </div>` : '';
 
-  // ── BXH tổng ──
-  const bxhTeams = Object.values(teamStats).sort((a,b)=>(b.won-a.won)||((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf));
-  const bxhHtml = bxhTeams.length ? `
-  <div id="bxh-section" style="background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;margin-bottom:14px;overflow:hidden">
-    <div onclick="toggleSection('bxh-body','bxh-arrow')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;background:var(--bg3)">
-      <span id="bxh-arrow" style="color:var(--tx3);font-size:14px;transition:transform .25s">▾</span>
-      <span style="font-weight:800;color:var(--pu);font-size:13px">🏅 Bảng xếp hạng tổng hợp</span>
-      <span style="font-size:11px;color:var(--tx3)">${bxhTeams.length} đội</span>
-    </div>
-    <div id="bxh-body">
-      <div class="tw"><table class="tbl" style="font-size:12px">
-        <thead><tr>
-          <th style="text-align:center;width:32px">#</th>
-          <th>Đội</th><th style="text-align:center;width:40px">Bảng</th>
-          <th style="text-align:center;width:36px">T</th><th style="text-align:center;width:36px">Th</th>
-          <th style="text-align:center;width:36px">PT</th><th style="text-align:center;width:36px">Trận</th>
-          <th style="text-align:center;width:60px">HS</th>
-        </tr></thead>
-        <tbody>${bxhTeams.map((t,i)=>{
-          const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-          const hs=(t.pf-t.pa)>=0?`+${t.pf-t.pa}`:String(t.pf-t.pa);
-          const rowBg=i===0?'background:rgba(245,158,11,.07)':i===1?'background:rgba(148,163,184,.05)':i===2?'background:rgba(205,127,50,.05)':'';
-          return `<tr style="${rowBg}">
-            <td style="text-align:center;font-weight:900;font-size:13px">${medal||i+1}</td>
-            <td style="font-weight:700;color:var(--tx)">${esc(t.team)}</td>
-            <td style="text-align:center;font-size:10px;color:var(--tx3)">${esc(t.bang)}</td>
-            <td style="text-align:center;font-weight:700;color:var(--gn)">${t.won}</td>
-            <td style="text-align:center;color:var(--tx3)">${t.lost}</td>
-            <td style="text-align:center;color:var(--tx2)">${t.pf}</td>
-            <td style="text-align:center;color:var(--tx3)">${t.played}</td>
-            <td style="text-align:center;font-family:var(--mo);color:${(t.pf-t.pa)>=0?'var(--gn)':'var(--rd)'};font-weight:700">${hs}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table></div>
-    </div>
-  </div>` : '';
+  // ── Render match table (compact) ──
+  function matchTable(bang) {
+    const ms = allM.filter(m=>String(m[2]||'')===bang)
+      .sort((a,b)=>String(a[3]||'').localeCompare(String(b[3]||''),undefined,{numeric:true,sensitivity:'base'}));
+    if (!ms.length) return `<div style="padding:14px;text-align:center;color:var(--tx3);font-size:12px">Chưa có trận nào</div>`;
+    const rows = ms.map(m=>{
+      const done=isDone(m),live=isLive(m);
+      const lk=`${m[1]}|${m[2]}|${m[3]}`;
+      let sA,sB;
+      if(live&&_liveScores[lk]){sA=_liveScores[lk].scoreA;sB=_liveScores[lk].scoreB;}
+      else{const fs=getFinalScore(m);sA=fs?.scoreA??null;sB=fs?.scoreB??null;}
+      const sc=done?'var(--gn)':live?'var(--or)':'var(--tx4)';
+      const cell=v=>v!==null?`<b style="font-family:var(--mo);color:${sc};font-size:13px">${v}</b>`:'<span style="color:var(--tx4)">—</span>';
+      const badge=done?'<span style="font-size:9px;font-weight:700;color:var(--gn)">✅</span>':live?'<span style="font-size:9px;font-weight:700;color:var(--or);animation:pulse 1s infinite">⚡</span>':'<span style="font-size:9px;color:var(--tx4)">⬜</span>';
+      const rs=live?'background:rgba(245,158,11,.05);border-left:2px solid var(--or)':done?'background:rgba(34,197,94,.03)':'';
+      return `<tr${rs?` style="${rs}"`:''}><td style="font-family:var(--mo);color:var(--ac);font-size:11px;font-weight:700;white-space:nowrap;padding:5px 8px">${m[3]||''}</td>
+        <td style="font-size:11px;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px">${esc(m[4]||'TBD')}</td>
+        <td style="text-align:center;padding:5px 6px">${cell(sA)}</td>
+        <td style="text-align:center;padding:5px 6px">${cell(sB)}</td>
+        <td style="font-size:11px;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px">${esc(m[7]||'TBD')}</td>
+        <td style="font-size:10px;color:var(--ac2);white-space:nowrap;padding:5px 8px">${m[8]||'—'}</td>
+        <td style="padding:5px 6px;text-align:center">${badge}</td>
+        <td style="padding:4px 6px"><button class="btn bsm" style="padding:2px 6px;font-size:10px;background:rgba(99,179,237,.1);color:var(--ac2);border:1px solid rgba(99,179,237,.2)" onclick="openEditMatchMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}')">✏️</button></td>
+      </tr>`;
+    }).join('');
+    return `<div class="tw" style="border:none;border-radius:0"><table class="tbl" style="font-size:11px;border-radius:0;width:100%">
+      <thead><tr style="background:var(--bg4)">
+        <th style="padding:6px 8px;white-space:nowrap">Mã</th>
+        <th style="padding:6px 8px">Đội A</th>
+        <th style="padding:6px 6px;text-align:center;width:34px">A</th>
+        <th style="padding:6px 6px;text-align:center;width:34px">B</th>
+        <th style="padding:6px 8px">Đội B</th>
+        <th style="padding:6px 8px;white-space:nowrap">Sân</th>
+        <th style="padding:6px 6px;width:28px"></th>
+        <th style="padding:6px 6px;width:36px"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  }
 
-  // ── Bangs container với nút thu gọn tất cả ──
-  const bangsHtml = `
-  <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;overflow:hidden">
-    <!-- Toolbar -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--bdr);flex-wrap:wrap;gap:8px">
-      <div style="font-size:13px;font-weight:800;color:var(--tx)">📋 Các bảng đấu <span style="font-size:11px;font-weight:500;color:var(--tx3)">(${bangs.length} bảng)</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn bh bsm" onclick="_bangCollapseAll(true,'${esc(giaiId)}','${esc(nd)}')">⊟ Thu gọn tất cả</button>
-        <button class="btn bh bsm" onclick="_bangCollapseAll(false,'${esc(giaiId)}','${esc(nd)}')">⊞ Mở rộng tất cả</button>
-        <button class="btn bp bsm" onclick="openAddBangMo()">＋ Thêm bảng</button>
+  // ── Render 1 bang section (collapsible) ──
+  function bangSection(bang, color) {
+    const ms    = allM.filter(m=>String(m[2]||'')===bang);
+    const dc    = ms.filter(m=>isDone(m)).length;
+    const lc    = ms.filter(m=>isLive(m)).length;
+    const pc    = ms.length-dc-lc;
+    const p     = ms.length ? Math.round(dc/ms.length*100) : 0;
+    const bid   = `bs_${bang.replace(/[^a-zA-Z0-9]/g,'_')}`;
+    const col   = _collapsedBangs.has(bang);
+    const done  = dc===ms.length&&ms.length>0;
+    const statusDot = done?'#22c55e':lc>0?'#f97316':'#64748b';
+    return `<div id="${bid}" style="border-bottom:1px solid var(--bdr)">
+      <div onclick="_toggleBang('${bang.replace(/'/g,"&#39;")}','${bid}')"
+        style="display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;user-select:none;background:${col?'var(--bg3)':'var(--bg2)'};transition:background .15s">
+        <span id="arrow-${bid}" style="font-size:12px;color:var(--tx4);transition:transform .2s;transform:rotate(${col?'-90':'0'}deg)">▾</span>
+        <span style="width:8px;height:8px;border-radius:50%;background:${statusDot};flex-shrink:0"></span>
+        <span style="font-weight:800;color:${color||'var(--ac2)'};font-size:13px;min-width:0;flex:1">${esc(bang)}</span>
+        <span style="font-size:10px;color:var(--tx3)">${ms.length} trận · ${[...new Set(ms.flatMap(m=>[m[4],m[7]]).filter(Boolean))].length} đội</span>
+        ${lc>0?`<span style="font-size:10px;font-weight:700;color:var(--or)">⚡${lc}</span>`:''}
+        <div style="width:80px;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;flex-shrink:0">
+          <div style="height:100%;width:${p}%;background:${done?'var(--gn)':'var(--ac)'};border-radius:2px"></div>
+        </div>
+        <span style="font-size:10px;color:var(--tx3);width:28px;text-align:right">${p}%</span>
+        <div onclick="event.stopPropagation()" style="display:flex;gap:3px;margin-left:4px">
+          <button class="btn bsm" style="font-size:10px;padding:2px 6px;background:rgba(99,179,237,.1);color:var(--ac2);border:1px solid rgba(99,179,237,.2)" onclick="openEditBangMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">✏️</button>
+          <button class="btn bp bsm" style="font-size:10px;padding:2px 6px" onclick="openAddBangMo('${esc(bang)}')">＋</button>
+          <button class="btn bsm" style="font-size:10px;padding:2px 6px;background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.2)" onclick="confirmDeleteBang('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">🗑</button>
+        </div>
       </div>
+      <div id="body-${bid}" style="display:${col?'none':'block'}">${matchTable(bang)}</div>
+    </div>`;
+  }
+
+  // ── BXH panel (right column) ──
+  function bxhPanel() {
+    if (!poolBangs.length) return '';
+    const allBxh = poolBangs.map(b=>({ bang:b, rows:calcBxh(b) })).filter(x=>x.rows.length);
+    if (!allBxh.length) return `<div style="padding:20px;text-align:center;color:var(--tx3);font-size:12px">Chưa có kết quả</div>`;
+    return allBxh.map(({bang,rows})=>{
+      const color = _bangColor(poolBangs.indexOf(bang));
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:800;color:${color};letter-spacing:.06em;text-transform:uppercase;padding:0 2px;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>${esc(bang)}
+        </div>
+        ${rows.map((t,i)=>{
+          const medal=['🥇','🥈','🥉'][i]||'';
+          const hs=(t.pf-t.pa)>=0?`+${t.pf-t.pa}`:String(t.pf-t.pa);
+          const bg=i===0?`background:${color}18;border:1px solid ${color}35`:i===1?'background:rgba(148,163,184,.06)':'';
+          return `<div style="display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:8px;margin-bottom:3px;${bg}">
+            <span style="font-size:13px;width:18px;flex-shrink:0;text-align:center">${medal||`<span style="font-size:11px;color:var(--tx3);font-weight:700">${i+1}</span>`}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.team)}</div>
+              <div style="font-size:10px;color:var(--tx3);margin-top:1px">${t.played} trận · ${t.pf} điểm</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:900;color:var(--gn);font-family:var(--mo)">${t.won}<span style="font-size:9px;font-weight:600;color:var(--tx3)">W</span></div>
+              <div style="font-size:10px;font-family:var(--mo);color:${(t.pf-t.pa)>=0?'var(--gn)':'var(--rd)'};font-weight:700">${hs}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('<div style="height:1px;background:var(--bdr);margin:8px 0"></div>');
+  }
+
+  function _bangColor(i) {
+    return ['#38bdf8','#fb923c','#a78bfa','#4ade80','#f87171','#f472b6','#facc15','#22d3ee'][i%8];
+  }
+
+  // ── Assemble ──
+  const statsRow = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;margin-bottom:12px">
+    ${[
+      {v:totalM,  l:'Tổng trận', c:'var(--ac)',  bg:'rgba(14,165,233,.08)'},
+      {v:doneM,   l:'Hoàn thành',c:'var(--gn)',  bg:'rgba(34,197,94,.08)'},
+      {v:liveM,   l:'Đang đấu',  c:'var(--or)',  bg:'rgba(245,158,11,.08)', hide:!liveM},
+      {v:pendM,   l:'Chờ đấu',   c:'var(--tx3)', bg:'var(--bg3)'},
+      {v:allTeams.length, l:'Đội',c:'var(--pu)', bg:'rgba(167,139,250,.08)'},
+      {v:courts.length||'—', l:'Sân', c:'var(--cy)', bg:'rgba(6,182,212,.08)', hide:!courts.length},
+    ].filter(x=>!x.hide).map(x=>`
+      <div style="background:${x.bg};border-radius:10px;padding:10px 12px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:${x.c};font-family:var(--mo)">${x.v}</div>
+        <div style="font-size:9px;color:var(--tx3);margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${x.l}</div>
+      </div>`).join('')}
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+    <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--ac),var(--gn));border-radius:3px;transition:width .6s"></div>
     </div>
-    <!-- Bang list -->
-    <div id="bang-sections-inner" style="padding:12px;display:flex;flex-direction:column;gap:10px">
-      ${bangs.map(bang => _renderOneBang(bang, giaiId, nd, allMatches, isDone, isLive)).join('')}
-    </div>
+    <span style="font-size:11px;font-weight:700;color:var(--tx3);white-space:nowrap">${pct}% · ${doneM}/${totalM} trận</span>
   </div>`;
 
-  wrap.innerHTML = overviewHtml + liveHtml + bxhHtml + bangsHtml;
-}
+  // Pool bangs section
+  const poolSection = poolBangs.length ? `
+    <div style="border-bottom:1px solid var(--bdr);padding:8px 14px;background:var(--bg4)">
+      <span style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em">🏓 Vòng bảng (${poolBangs.length} bảng)</span>
+    </div>
+    ${poolBangs.map((b,i)=>bangSection(b,_bangColor(i))).join('')}` : '';
 
-function _renderOneBang(bang, giaiId, nd, allMatches, isDone, isLive) {
-  const giaiName = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||'');
-  const matches = allMatches.filter(m=>String(m[2]||'')===bang);
-  matches.sort((a,b)=>String(a[3]||'').localeCompare(String(b[3]||''),undefined,{numeric:true,sensitivity:'base'}));
-  const teams  = [...new Set(matches.flatMap(m=>[m[4],m[7]]).filter(Boolean))];
-  const doneC  = matches.filter(m=>isDone(m)).length;
-  const liveC  = matches.filter(m=>isLive(m)).length;
-  const pendC  = matches.length - doneC - liveC;
-  const pct    = matches.length ? Math.round(doneC/matches.length*100) : 0;
-  const bangId = `bs_${bang.replace(/[^a-zA-Z0-9]/g,'_')}`;
-  const collapsed = _collapsedBangs.has(bang);
+  // KO section
+  const koSection = koBangs.length ? `
+    <div style="border-bottom:1px solid var(--bdr);padding:8px 14px;background:var(--bg4)">
+      <span style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em">🏆 Vòng loại trực tiếp</span>
+    </div>
+    ${koBangs.map(b=>bangSection(b,'var(--or)')).join('')}` : '';
 
-  // BXH bảng này
-  const ts = {};
-  matches.filter(m=>isDone(m)).forEach(m=>{
-    const fs=getFinalScore(m); if(!fs) return;
-    [m[4],m[7]].filter(Boolean).forEach(t=>{ if(!ts[t]) ts[t]={team:t,won:0,lost:0,pf:0,pa:0,played:0}; });
-    const sA=Number(fs.scoreA)||0,sB=Number(fs.scoreB)||0;
-    if(m[4]){ts[m[4]].pf+=sA;ts[m[4]].pa+=sB;ts[m[4]].played++;if(sA>sB)ts[m[4]].won++;else ts[m[4]].lost++;}
-    if(m[7]){ts[m[7]].pf+=sB;ts[m[7]].pa+=sA;ts[m[7]].played++;if(sB>sA)ts[m[7]].won++;else ts[m[7]].lost++;}
-  });
-  const bxh = Object.values(ts).sort((a,b)=>(b.won-a.won)||((b.pf-b.pa)-(a.pf-a.pa))||(b.pf-a.pf));
+  wrap.innerHTML = `
+  <!-- Header toolbar -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:12px;color:var(--tx3)">${bangNames.length} bảng · ${allTeams.length} đội tham dự</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn bh bsm" onclick="renderBangList('${esc(giaiId)}','${esc(nd)}')">↻ Làm mới</button>
+      <button class="btn bh bsm" onclick="openBracketForNd('${esc(giaiId)}','${esc(nd)}')">🏆 Cây thi đấu</button>
+      <button class="btn bp bsm" onclick="openAddBangMo()">＋ Thêm bảng</button>
+    </div>
+  </div>
 
-  const statusColor = doneC===matches.length&&matches.length>0?'var(--gn)':liveC>0?'var(--or)':'var(--tx3)';
-  const statusTxt   = doneC===matches.length&&matches.length>0?'✅ Hoàn thành':liveC>0?'⚡ Đang đấu':'⬜ Chờ đấu';
+  ${liveBar}
 
-  return `<div style="border:1px solid var(--bdr);border-radius:10px;overflow:hidden" id="${bangId}">
-    <!-- Header -->
-    <div onclick="_toggleBang('${bang.replace(/'/g,"&#39;")}','${bangId}')"
-      style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg3);cursor:pointer;user-select:none;border-bottom:${collapsed?'none':'1px solid var(--bdr)'}">
-      <span id="arrow-${bangId}" style="color:var(--tx3);font-size:14px;line-height:1;transition:transform .25s;transform:rotate(${collapsed?'-90deg':'0deg'})">▾</span>
-      <span style="font-weight:800;color:var(--ac2);font-size:14px">${esc(bang)}</span>
-      <span style="font-size:11px;color:var(--tx3)">${matches.length} trận · ${teams.length} đội</span>
-      ${liveC>0?`<span class="bdg bw" style="font-size:10px">⚡ ${liveC} live</span>`:''}
-      <span style="font-size:11px;font-weight:700;color:${statusColor}">${statusTxt}</span>
-      <!-- Progress mini -->
-      <div style="flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:60px;max-width:120px">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--ac),var(--gn));border-radius:2px"></div>
+  <!-- Main 2-column layout -->
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:14px;align-items:start">
+
+    <!-- LEFT: Overview + Bangs list -->
+    <div style="min-width:0">
+      <!-- Stats card -->
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:12px;padding:16px 18px;margin-bottom:12px">
+        ${statsRow}
       </div>
-      <span style="font-size:10px;color:var(--tx3);white-space:nowrap">${pct}%</span>
-      <!-- Action buttons (stop propagation) -->
-      <div onclick="event.stopPropagation()" style="display:flex;gap:4px;flex-wrap:nowrap">
-        <button class="btn bsm" style="font-size:10px;padding:2px 7px;background:rgba(99,179,237,.12);color:var(--ac2);border:1px solid rgba(99,179,237,.25)" onclick="openEditBangMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">✏️</button>
-        <button class="btn bp bsm" style="font-size:10px;padding:2px 7px" onclick="openAddBangMo('${esc(bang)}')">＋</button>
-        <button class="btn bsm" style="font-size:10px;padding:2px 7px;background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.25)" onclick="confirmDeleteBang('${esc(giaiId)}','${esc(nd)}','${esc(bang)}')">🗑</button>
+
+      <!-- Bangs + KO gom chung 1 khung -->
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:12px;overflow:hidden">
+        <!-- Khung header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--bdr)">
+          <span style="font-size:12px;font-weight:800;color:var(--tx)">📋 Danh sách bảng đấu</span>
+          <div style="display:flex;gap:4px">
+            <button class="btn bh bsm" style="font-size:10px;padding:3px 8px" onclick="_bangCollapseAll(true,'${esc(giaiId)}','${esc(nd)}')">⊟ Thu gọn</button>
+            <button class="btn bh bsm" style="font-size:10px;padding:3px 8px" onclick="_bangCollapseAll(false,'${esc(giaiId)}','${esc(nd)}')">⊞ Mở rộng</button>
+          </div>
+        </div>
+        ${poolSection}
+        ${koSection}
+        ${!poolSection&&!koSection?`<div style="padding:24px;text-align:center;color:var(--tx3);font-size:12px">Chưa có bảng nào</div>`:''}
       </div>
     </div>
-    <!-- Body -->
-    <div id="body-${bangId}" style="display:${collapsed?'none':'block'}">
-      <div style="display:grid;grid-template-columns:1fr${bxh.length?';min(280px,35%):':''}auto;gap:0">
-        <!-- Match table -->
-        <div class="tw" style="border-radius:0;border:none;${bxh.length?'border-right:1px solid var(--bdr)':''}">
-          <table class="tbl" style="font-size:12px;border-radius:0">
-            <thead><tr>
-              <th>Mã</th><th>Đội A</th>
-              <th style="text-align:center;width:38px">A</th><th style="text-align:center;width:38px">B</th>
-              <th>Đội B</th><th style="white-space:nowrap">Sân</th><th style="white-space:nowrap">TT</th><th></th>
-            </tr></thead>
-            <tbody>
-            ${matches.length ? matches.map(m=>{
-              const done=isDone(m), live=isLive(m);
-              const lk=`${m[1]}|${m[2]}|${m[3]}`;
-              let sA,sB;
-              if(live&&_liveScores[lk]){sA=_liveScores[lk].scoreA;sB=_liveScores[lk].scoreB;}
-              else{const fs=getFinalScore(m);sA=fs?.scoreA??null;sB=fs?.scoreB??null;}
-              const sc=done?'var(--gn)':live?'var(--or)':'var(--tx3)';
-              const sAc=sA!==null?`<b style="font-family:var(--mo);color:${sc};font-size:13px">${sA}</b>`:'<span style="color:var(--tx3)">—</span>';
-              const sBc=sB!==null?`<b style="font-family:var(--mo);color:${sc};font-size:13px">${sB}</b>`:'<span style="color:var(--tx3)">—</span>';
-              const st=done?'<span class="bdg bo" style="font-size:9px">✅</span>':live?'<span class="bdg bw" style="font-size:9px;animation:pulse 1s infinite">⚡</span>':'<span style="font-size:10px;color:var(--tx3)">⬜</span>';
-              const rs=done?'background:rgba(34,197,94,.04)':live?'background:rgba(245,158,11,.06);border-left:2px solid var(--or)':'';
-              return `<tr${rs?` style="${rs}"`:''}><td style="font-family:var(--mo);color:var(--ac);font-weight:700;white-space:nowrap;font-size:11px">${m[3]||''}</td>
-                <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${m[4]||'TBD'}</td>
-                <td style="text-align:center">${sAc}</td><td style="text-align:center">${sBc}</td>
-                <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${m[7]||'TBD'}</td>
-                <td style="color:var(--ac2);font-size:10px;white-space:nowrap">${m[8]||'—'}</td>
-                <td>${st}</td>
-                <td><button class="btn bsm" style="padding:2px 6px;font-size:10px;background:rgba(99,179,237,.12);color:var(--ac2);border:1px solid rgba(99,179,237,.25)" onclick="openEditMatchMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}')">✏️</button></td>
-              </tr>`;
-            }).join('') : `<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--tx3)">Chưa có trận nào</td></tr>`}
-            </tbody>
-          </table>
+
+    <!-- RIGHT: BXH từng bảng -->
+    <div style="position:sticky;top:16px">
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:12px;overflow:hidden">
+        <div style="padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--bdr)">
+          <span style="font-size:12px;font-weight:800;color:var(--pu)">🏅 Bảng xếp hạng</span>
         </div>
-        ${bxh.length ? `<!-- BXH bảng -->
-        <div style="min-width:200px;padding:10px 12px">
-          <div style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🏅 BXH Bảng</div>
-          ${bxh.map((t,i)=>{
-            const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-            const hs=(t.pf-t.pa)>=0?`+${t.pf-t.pa}`:String(t.pf-t.pa);
-            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;margin-bottom:3px;${i===0?'background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15)':'background:var(--bg3)'}">
-              <span style="font-size:12px;width:18px;text-align:center">${medal||i+1}</span>
-              <span style="flex:1;font-size:11px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.team)}</span>
-              <span style="font-size:10px;font-weight:700;color:var(--gn);white-space:nowrap">${t.won}W</span>
-              <span style="font-size:10px;color:${(t.pf-t.pa)>=0?'var(--gn)':'var(--rd)'};font-family:var(--mo);font-weight:600;white-space:nowrap">${hs}</span>
-            </div>`;
-          }).join('')}
-        </div>` : ''}
+        <div style="padding:12px 10px;max-height:calc(100vh - 160px);overflow-y:auto">
+          ${bxhPanel()}
+        </div>
       </div>
     </div>
   </div>`;
@@ -4047,33 +4037,25 @@ function _bangCollapseAll(collapse, giaiId, nd) {
   const giaiName = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||'');
   const bangs = [...new Set(_M.filter(m=>String(m[0]||'')===giaiName&&String(m[1]||'')===nd).map(m=>String(m[2]||'')).filter(Boolean))];
   bangs.forEach(bang => {
-    const bangId = `bs_${bang.replace(/[^a-zA-Z0-9]/g,'_')}`;
-    const body  = document.getElementById('body-' + bangId);
-    const arrow = document.getElementById('arrow-' + bangId);
-    const hdr   = body?.previousElementSibling;
+    const bid  = `bs_${bang.replace(/[^a-zA-Z0-9]/g,'_')}`;
+    const body = document.getElementById('body-'+bid);
+    const arrow= document.getElementById('arrow-'+bid);
+    const hdr  = body?.previousElementSibling;
     if (!body) return;
     if (collapse) {
-      body.style.display = 'none';
-      if(arrow) arrow.style.transform = 'rotate(-90deg)';
-      if(hdr)   hdr.style.borderBottom = 'none';
+      body.style.display='none';
+      if(arrow) arrow.style.transform='rotate(-90deg)';
+      if(hdr)   hdr.style.background='var(--bg3)';
       _collapsedBangs.add(bang);
     } else {
-      body.style.display = 'block';
-      if(arrow) arrow.style.transform = 'rotate(0deg)';
-      if(hdr)   hdr.style.borderBottom = '1px solid var(--bdr)';
+      body.style.display='block';
+      if(arrow) arrow.style.transform='rotate(0deg)';
+      if(hdr)   hdr.style.background='var(--bg2)';
       _collapsedBangs.delete(bang);
     }
   });
 }
 
-function toggleSection(bodyId, arrowId) {
-  const body = document.getElementById(bodyId);
-  const arrow = document.getElementById(arrowId);
-  if (!body) return;
-  const isHidden = body.style.display === 'none';
-  body.style.display = isHidden ? 'block' : 'none';
-  if (arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
-}
 // ── Mở modal thêm nội dung ──
 function openAddNdMo() {
   document.getElementById('nd-name').value = '';
