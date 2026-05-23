@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<!-- Pickleball v25 | FIX: Seeding algorithm correct — cross-seeding verified no same-group in R1, all groups | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
+<!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Admin v25 — Referee Pickleball / DA NANG ®</title>
@@ -843,7 +843,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <label class="lbl">🔑 Mã đăng nhập</label>
       <!-- Không ép uppercase — gõ tự nhiên, JS tự uppercase khi submit -->
       <input class="fi" type="text" id="adm-code" placeholder="admin01 hoặc mgr001" maxlength="20" autocomplete="off">
-      <button class="btn-ln" id="login-btn" onclick="doLogin()">Đăng nhập</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn-ln" id="login-btn" onclick="doLogin()" style="flex:1">Đăng nhập</button>
+        <button class="btn-ln" onclick="testGasUrl()" style="flex:0 0 auto;background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.4);color:#a78bfa;padding:0 18px;font-size:13px" title="Kiểm tra kết nối GAS">🔌 Test</button>
+      </div>
       <div class="lerr" id="lerr"></div>
       <div class="ldbg" id="ldbg"></div>
     </div>
@@ -2100,35 +2103,123 @@ function toggleMobMore() {
 // ════════════════════════════════════════════════════════════════
 async function doLogin() {
   const url  = document.getElementById('gs-url').value.trim();
-  const code = document.getElementById('adm-code').value.trim().toUpperCase(); // uppercase khi submit
+  const code = document.getElementById('adm-code').value.trim().toUpperCase();
   const err  = document.getElementById('lerr');
   const dbg  = document.getElementById('ldbg');
   err.textContent = ''; dbg.style.display = 'none';
-  if (!url)  { err.textContent = '⚠️ Nhập URL GAS'; return; }
+
+  // Validate URL format
+  if (!url) { err.textContent = '⚠️ Nhập URL Google Apps Script'; return; }
+  if (!url.startsWith('https://script.google.com')) {
+    err.textContent = '⚠️ URL phải bắt đầu bằng https://script.google.com';
+    dbg.style.display = 'block';
+    dbg.innerHTML = `URL hiện tại: <code style="word-break:break-all">${url}</code><br>Vào Google Apps Script → Deploy → Copy URL Web App`;
+    return;
+  }
   if (!code) { err.textContent = '⚠️ Nhập mã đăng nhập'; return; }
+
   const btn = document.getElementById('login-btn');
-  btn.textContent = 'Đang xác thực...'; btn.disabled = true;
+  btn.textContent = '⏳ Đang xác thực...'; btn.disabled = true;
+
+  // Build fetch URL — đảm bảo không có trailing /exec/ kép
+  const baseUrl = url.replace(/\/+$/, '');
+  const fetchUrl = `${baseUrl}?action=validate&code=${encodeURIComponent(code)}&device=AdminPanel&_t=${Date.now()}`;
+
   try {
-    const r = await fetch(`${url}?action=validate&code=${encodeURIComponent(code)}&device=AdminPanel`);
-    const d = await r.json();
-    if (!d.ok || !d.valid) { err.textContent = '❌ ' + (d.reason || 'Sai mã'); return; }
+    const r = await fetch(fetchUrl, { redirect: 'follow' });
+
+    // Kiểm tra HTTP status
+    if (!r.ok) {
+      err.textContent = `❌ HTTP ${r.status} — GAS trả về lỗi`;
+      dbg.style.display = 'block';
+      dbg.innerHTML = `HTTP ${r.status} ${r.statusText}<br>URL: <code style="word-break:break-all;font-size:10px">${fetchUrl}</code><br>→ Kiểm tra GAS đã Deploy chưa, Deploy mode phải là "Anyone"`;
+      return;
+    }
+
+    const text = await r.text();
+    let d;
+    try {
+      d = JSON.parse(text);
+    } catch(je) {
+      err.textContent = '❌ GAS trả về lỗi — không phải JSON';
+      dbg.style.display = 'block';
+      dbg.innerHTML = `Phản hồi GAS (200 chars đầu):<br><code style="word-break:break-all;font-size:10px">${text.slice(0,200)}</code><br>→ GAS có thể bị lỗi script. Mở GAS → Run → Xem Logs`;
+      return;
+    }
+
+    if (!d.valid) {
+      err.textContent = '❌ ' + (d.reason || 'Mã không hợp lệ');
+      dbg.style.display = 'block';
+      dbg.innerHTML = `GAS phản hồi: <code>${JSON.stringify(d).slice(0,200)}</code>`;
+      return;
+    }
+
     if (!d.isAdmin && !d.isManager) {
       err.textContent = '❌ Tài khoản không có quyền Admin/Manager';
       dbg.style.display = 'block';
-      dbg.innerHTML = `⚠️ <b>${d.name}</b> hợp lệ nhưng chưa có quyền.<br>GSheets Trạng thái = "<b>${d.statusRaw||''}</b>"<br>→ Đổi thành <b>admin</b> hoặc <b>manager</b> trong sheet Users.`;
+      dbg.innerHTML = `<b>${d.name}</b> hợp lệ nhưng chưa có quyền.<br>
+        Trạng thái hiện tại: <b style="color:#f87171">"${d.statusRaw||'(trống)'}"</b><br>
+        → Vào Google Sheet tab <b>Users</b>, cột <b>Trạng thái</b> (cột H), đổi thành <b>admin</b> hoặc <b>manager</b>`;
       return;
     }
-    GS=url; CODE=code; NAME=d.name;
-    ROLE = d.isAdmin ? 'admin' : 'manager';
+
+    // Đăng nhập thành công
+    GS = baseUrl; CODE = code; NAME = d.name;
+    ROLE    = d.isAdmin ? 'admin' : 'manager';
     MY_GIAI = d.giai || '';
-    localStorage.setItem('pb_adm3', JSON.stringify({u:url,c:code,n:NAME,r:ROLE,g:MY_GIAI}));
+    localStorage.setItem('pb_adm3', JSON.stringify({u:baseUrl,c:code,n:NAME,r:ROLE,g:MY_GIAI}));
     showApp();
-  } catch(e) { err.textContent = '❌ Không kết nối được GAS. Kiểm tra URL.'; }
-  finally { btn.textContent = 'Đăng nhập'; btn.disabled = false; }
+
+  } catch(e) {
+    err.textContent = '❌ Không kết nối được GAS';
+    dbg.style.display = 'block';
+    dbg.innerHTML = `Lỗi: <b>${e.message||e}</b><br>
+      URL: <code style="word-break:break-all;font-size:10px">${fetchUrl}</code><br><br>
+      Kiểm tra:<br>
+      1. URL GAS đúng chưa? (copy từ Deploy → Manage deployments)<br>
+      2. GAS đã deploy với quyền <b>Anyone</b> chưa?<br>
+      3. Có bị chặn bởi network/firewall không?`;
+  } finally {
+    btn.textContent = 'Đăng nhập'; btn.disabled = false;
+  }
 }
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('ls').style.display !== 'none') doLogin();
 });
+
+// Test kết nối GAS (không cần mã đăng nhập)
+async function testGasUrl() {
+  const url = document.getElementById('gs-url').value.trim();
+  const err = document.getElementById('lerr');
+  const dbg = document.getElementById('ldbg');
+  err.textContent = ''; dbg.style.display = 'none';
+
+  if (!url) { err.textContent = '⚠️ Nhập URL GAS trước'; return; }
+
+  err.textContent = '🔌 Đang test kết nối...';
+  try {
+    const baseUrl = url.replace(/\/+$/, '');
+    const r = await fetch(`${baseUrl}?action=ping&_t=${Date.now()}`, { redirect: 'follow' });
+    const text = await r.text();
+    let d;
+    try { d = JSON.parse(text); } catch(e) { d = null; }
+
+    if (r.ok && (d?.status === 'ok' || d?.ok || text.includes('ok'))) {
+      err.style.color = 'var(--gn)';
+      err.textContent = '✅ Kết nối GAS thành công!';
+    } else {
+      err.textContent = `⚠️ GAS phản hồi HTTP ${r.status}`;
+      dbg.style.display = 'block';
+      dbg.innerHTML = `Phản hồi: <code style="word-break:break-all;font-size:10px">${text.slice(0,300)}</code>`;
+    }
+  } catch(e) {
+    err.textContent = '❌ Không kết nối được';
+    dbg.style.display = 'block';
+    dbg.innerHTML = `Lỗi: <b>${e.message}</b><br>
+      → Kiểm tra URL và quyền Deploy GAS (phải là "Anyone, even anonymous")`;
+  }
+  setTimeout(() => { err.style.color = ''; }, 4000);
+}
 
 function showApp() {
   document.getElementById('ls').style.display = 'none';
