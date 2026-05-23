@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v25 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v266 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1925,6 +1925,8 @@ let _dashData=null;                                // cache dashboard
 let _editU=null,_editM=null,_editP=null,_editT=null; // đang sửa gì
 let _rrRows=[], _csvM=[], _csvP=[];                // batch data
 let _dtimer=null, _rtimer=null, _dbt=null;         // timers
+let _liveTimer2=null;                              // secondary live polling timer
+let _gasConnected=true, _failCount=0, _prefetchFailed=false; // connection state
 let _curTourn=null;                                // giải đang xem (khai báo sớm để dùng trong polling)
 
 // ── buildLiveFromRows: build _lK + _liveScores từ LiveScore rows ──
@@ -2079,25 +2081,7 @@ function getFinalScore(m) {
 //  INIT
 // ════════════════════════════════════════════════════════════════
 window.onload = () => {
-  // Khôi phục URL + code đã lưu vào form (kể cả chưa login)
-  const savedUrl  = localStorage.getItem('pb_gs_url') || '';
-  const savedCode = localStorage.getItem('pb_adm_code') || '';
-  const urlEl  = document.getElementById('gs-url');
-  const codeEl = document.getElementById('adm-code');
-  if (urlEl  && savedUrl)  urlEl.value  = savedUrl;
-  if (codeEl && savedCode) codeEl.value = savedCode;
-
-  // Khôi phục session nếu đã login trước
-  const s = localStorage.getItem('pb_adm3');
-  if (s) {
-    try {
-      const j = JSON.parse(s);
-      GS=j.u; CODE=j.c; NAME=j.n; ROLE=j.r||'admin'; MY_GIAI=j.g||'';
-      showApp();
-      return; // skip form restore nếu đã đăng nhập
-    } catch(e) { localStorage.removeItem('pb_adm3'); }
-  }
-  // Gắn event nav — sidebar + mobile nav
+  // ── Gắn event nav TRƯỚC TIÊN (trước mọi thứ) ──
   document.querySelectorAll('.ni[data-p]').forEach(b =>
     b.addEventListener('click', () => nav(b.dataset.p))
   );
@@ -2108,9 +2092,28 @@ window.onload = () => {
   document.addEventListener('click', function(e){
     var more = document.getElementById('mob-more');
     var btn  = document.getElementById('mob-more-btn');
-    if (more && more.style.display !== 'none' && !more.contains(e.target) && !btn.contains(e.target))
+    if (more && more.style.display !== 'none' && !more.contains(e.target) && (!btn || !btn.contains(e.target)))
       more.style.display = 'none';
   });
+
+  // ── Khôi phục URL + code đã lưu vào form ──
+  const savedUrl  = localStorage.getItem('pb_gs_url') || '';
+  const savedCode = localStorage.getItem('pb_adm_code') || '';
+  const urlEl  = document.getElementById('gs-url');
+  const codeEl = document.getElementById('adm-code');
+  if (urlEl  && savedUrl)  urlEl.value  = savedUrl;
+  if (codeEl && savedCode) codeEl.value = savedCode;
+
+  // ── Khôi phục session nếu đã login trước ──
+  const s = localStorage.getItem('pb_adm3');
+  if (s) {
+    try {
+      const j = JSON.parse(s);
+      GS=j.u; CODE=j.c; NAME=j.n; ROLE=j.r||'admin'; MY_GIAI=j.g||'';
+      showApp();
+      return;
+    } catch(e) { localStorage.removeItem('pb_adm3'); }
+  }
 };
 
 // Mobile more drawer toggle
@@ -2407,9 +2410,7 @@ function cacheGet(key) {
 function cacheSet(key, data) { _cache[key] = { ts: Date.now(), data }; }
 
 // ── Connection status helpers ──────────────────────────────────
-let _gasConnected = true;    // false khi mất kết nối
-let _failCount    = 0;       // số lần thất bại liên tiếp
-let _prefetchFailed = false;
+// _gasConnected, _failCount, _prefetchFailed declared at top of STATE block
 
 function _showGasError(msg) {
   _gasConnected = false;
@@ -2625,7 +2626,7 @@ function nav(p) {
       _dtimer = setInterval(() => { if(_failCount<=5) loadDash(); }, 60000);
     },
     tournaments: loadTournaments,
-    standings: () => {},
+    standings: loadStandings,
     bracket:   () => { bkInit(); },
     assign: loadAssign,
     matches: loadMatches,
