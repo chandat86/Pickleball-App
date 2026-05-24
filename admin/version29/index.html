@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v29 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v29.1 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4134,7 +4134,7 @@ function renderBangList(giaiId, nd) {
       const scB=done?(lB?GN:AC):live?OR:'var(--bdr3)';
       const cv=(v,sc)=>v!==null?`<span style="font-family:var(--mo);font-weight:900;font-size:14px;color:${sc}">${v}</span>`
                               :`<span style="color:var(--bdr3);font-size:11px">—</span>`;
-      const ref=String(m[10]||_matchFs?.referee||'');  // trọng tài: m[10] hoặc từ kết quả
+      const ref=String(m[10]||getFinalScore(m)?.referee||'');  // trọng tài: m[10] hoặc từ kết quả
       const refHtml=ref?`<span style="font-size:10px;color:var(--ac2);font-weight:500">${esc(ref)}</span>`
                        :`<span style="color:var(--bdr3);font-size:10px">—</span>`;
       // Mã badge
