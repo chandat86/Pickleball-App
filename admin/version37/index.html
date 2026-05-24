@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v37 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v25 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4703,7 +4703,7 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
 
   ovl.innerHTML = `
   <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(560px,100%);
-              box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:92vh;overflow-y:auto">
+              box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
     <!-- Header -->
     <div style="display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--bg2);z-index:1;border-radius:14px 14px 0 0">
       <div>
@@ -4719,7 +4719,7 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
         style="margin-left:auto;background:none;border:none;font-size:18px;color:var(--tx3);cursor:pointer;padding:4px 8px;line-height:1">✕</button>
     </div>
 
-    <div style="padding:18px 20px;display:grid;gap:14px">
+    <div style="padding:18px 20px;display:grid;gap:14px;overflow-y:auto;flex:1">
 
       <!-- VĐV section -->
       <div style="background:var(--bg3);border-radius:10px;padding:14px">
@@ -4776,7 +4776,7 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
     </div>
 
     <!-- Footer actions -->
-    <div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--bdr);justify-content:flex-end;position:sticky;bottom:0;background:var(--bg2);border-radius:0 0 14px 14px">
+    <div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--bdr);justify-content:flex-end;background:var(--bg2);border-radius:0 0 14px 14px;flex-shrink:0">
       <button class="btn bh" onclick="document.getElementById('edit-match-overlay').remove()">Hủy</button>
       <button class="btn bsm" style="background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.25)"
         onclick="confirmDeleteMatchFromEdit('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(code)}')">🗑 Xóa trận</button>
