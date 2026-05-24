@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v37.1 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v37.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4703,9 +4703,9 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
 
   ovl.innerHTML = `
   <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(560px,100%);
-              box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:92vh;display:flex;flex-direction:column;overflow:hidden">
+              box-shadow:0 20px 60px rgba(0,0,0,.5);display:flex;flex-direction:column">
     <!-- Header -->
-    <div style="display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bdr);position:sticky;top:0;background:var(--bg2);z-index:1;border-radius:14px 14px 0 0">
+    <div style="display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--bdr);background:var(--bg2);border-radius:14px 14px 0 0;flex-shrink:0">
       <div>
         <div style="font-size:15px;font-weight:800">✏️ Sửa trận
           <span style="color:var(--ac);font-family:var(--mo);margin-left:4px">${code}</span>
@@ -4719,7 +4719,7 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
         style="margin-left:auto;background:none;border:none;font-size:18px;color:var(--tx3);cursor:pointer;padding:4px 8px;line-height:1">✕</button>
     </div>
 
-    <div style="padding:18px 20px;display:grid;gap:14px;overflow-y:auto;flex:1">
+    <div style="padding:18px 20px;display:grid;gap:14px">
 
       <!-- VĐV section -->
       <div style="background:var(--bg3);border-radius:10px;padding:14px">
@@ -4776,7 +4776,7 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
     </div>
 
     <!-- Footer actions -->
-    <div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--bdr);justify-content:flex-end;background:var(--bg2);border-radius:0 0 14px 14px;flex-shrink:0">
+    <div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--bdr);justify-content:flex-end;background:var(--bg2);border-radius:0 0 14px 14px">
       <button class="btn bh" onclick="document.getElementById('edit-match-overlay').remove()">Hủy</button>
       <button class="btn bsm" style="background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.25)"
         onclick="confirmDeleteMatchFromEdit('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(code)}')">🗑 Xóa trận</button>
@@ -4988,7 +4988,7 @@ async function openEditBangMo(giaiId, nd, bang) {
 
   const ovl = document.createElement('div');
   ovl.id = 'edit-bang-overlay';
-  ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center';
+  ovl.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:4vh 8px;overflow-y:auto';
   ovl.onclick = function(e){ if(e.target===ovl) ovl.remove(); };
   ovl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;padding:24px;width:min(460px,92vw);box-shadow:var(--shadow-lg)">'
     +'<div style="font-size:16px;font-weight:800;margin-bottom:18px">&#x270F;&#xFE0F; Sửa bảng: <span style=\'color:var(--ac)\'>'+bang+'</span></div>'
