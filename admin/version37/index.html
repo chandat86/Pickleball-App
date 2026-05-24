@@ -4755,16 +4755,15 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
       <!-- Sân & TT section -->
       <div style="background:var(--bg3);border-radius:10px;padding:14px">
         <div style="font-size:10px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">🏟 Sân & Trọng tài</div>
-        <div>
+        <div style="margin-bottom:12px">
             <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px">🏟 Sân thi đấu</label>
             ${buildCourtPills(courts, curCourt, 'em-court')}
           </div>
-        </div>
-        <!-- Trọng tài: pill multi-select -->
-        <div style="margin-top:12px">
-          <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px">🎯 Trọng tài</label>
-          ${buildRefPills(refs, curRef, 'em-ref')}
-        </div>
+          <!-- Trọng tài: pill multi-select -->
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px">🎯 Trọng tài</label>
+            ${buildRefPills(refs, curRef, 'em-ref')}
+          </div>
       </div>
 
       <!-- Ghi chú -->
