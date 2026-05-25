@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.222 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.333 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2036,16 +2036,37 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 // ════════════════════════════════════════════════════════════════
 let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
 
+// Sync MY_GIAI_LIST with owned tournaments so filter always works
+function _syncManagerGiaiList() {
+  if (ROLE !== 'manager' || !_T.length) return;
+  const myCode = CODE.toUpperCase();
+  _T.forEach(r => {
+    const giaiId = String(r[0]||'').trim().toUpperCase();
+    const ownerCode = r.owner
+      ? String(r.owner||'').trim().toUpperCase()
+      : (Array.isArray(r[8]) ? '' : String(r[8]||'').trim().toUpperCase());
+    if (ownerCode === myCode && !MY_GIAI_LIST.includes(giaiId)) {
+      MY_GIAI_LIST.push(giaiId);
+    }
+  });
+}
+
 // Filter tournaments theo quyền Manager — gọi mọi nơi trước khi gán _T
-// Manager thấy: (A) giải mình tạo (col[8]=ownerCode) + (B) giải được admin cấp (MY_GIAI_LIST)
+// Manager thấy: (A) giải mình tạo (owner field hoặc r[8] nếu string) + (B) MY_GIAI_LIST
 function _filterTournsForRole(rows) {
   if (ROLE !== 'manager') return rows;
+  const myCode        = CODE.toUpperCase();
   const assignedUpper = MY_GIAI_LIST.map(g => g.toUpperCase());
   return rows.filter(r => {
-    const giaiId    = String(r[0]||'').trim().toUpperCase();
-    // r[8] có thể là ownerCode (string) hoặc refs (array từ dashboard) — chỉ dùng khi là string
-    const ownerCode = Array.isArray(r[8]) ? '' : String(r[8]||'').trim().toUpperCase();
-    return ownerCode === CODE.toUpperCase() || assignedUpper.includes(giaiId);
+    const giaiId = String(r[0]||'').trim().toUpperCase();
+    // Check assigned list first (most reliable)
+    if (assignedUpper.includes(giaiId)) return true;
+    // Check owner: r.owner (object format from dashboard) or r[8] (array format, only if string)
+    const ownerCode = r.owner
+      ? String(r.owner||'').trim().toUpperCase()
+      : (Array.isArray(r[8]) ? '' : String(r[8]||'').trim().toUpperCase());
+    if (ownerCode === myCode) return true;
+    return false;
   });
 }
 let _T=[],_U=[],_M=[],_R=[],_P=[];                // dữ liệu cache
@@ -2793,6 +2814,7 @@ async function prefetchAll() {
     // Xử lý data nhận về
     if (tRes.rows?.length) {
       _T = _filterTournsForRole(tRes.rows.slice(1));
+      _syncManagerGiaiList();
       cacheSet('tournaments', _T);
     }
     if (mRes.rows?.length > 1) {
@@ -3398,9 +3420,16 @@ async function loadDash() {
 
     // Populate giải dropdown nếu có data mới
     if (d.tournaments?.length) {
-      // col[8] = ownerCode (từ GAS), col[9] = refs (từ dashboard response)
-      // KHÔNG dùng t.refs làm col[8] — col[8] phải là ownerCode để _filterTournsForRole hoạt động
-      _T = _filterTournsForRole(d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.owner||'',t.refs||[]]));
+      // Dashboard trả object với owner field — map vào array format
+      // col[8] = ownerCode, col[9] = refs
+      const _dashT = d.tournaments.map(t => {
+        // Giữ ownerCode từ _T hiện có nếu dashboard không trả owner
+        const existRow = _T.find(et => String(et[0]||'').toUpperCase() === String(t.id||'').toUpperCase());
+        const ownerCode = t.owner || (existRow && !Array.isArray(existRow[8]) ? String(existRow[8]||'') : '');
+        return [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,ownerCode,t.refs||[]];
+      });
+      _T = _filterTournsForRole(_dashT);
+      _syncManagerGiaiList();
       populateTournamentDropdowns();
     }
     // ── Populate filter dropdowns Nội dung / Bảng ──
@@ -4077,6 +4106,7 @@ async function loadTournaments() {
     if (ROLE === 'manager' || rows.length > 0 || _T.length === 0) {
       _T = rows;
       populateTournamentDropdowns();
+      _syncManagerGiaiList();
     }
     renderTournCards(_T);
   } catch(e) {
