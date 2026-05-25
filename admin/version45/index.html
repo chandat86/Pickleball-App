@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.8 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.84 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1147,6 +1147,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
             </div>
           </div>
           <div style="display:flex;gap:8px">
+            <button class="btn" style="background:rgba(14,165,233,.15);color:var(--ac);border:1px solid rgba(14,165,233,.3)" onclick="openUserMoFromTourn()">👤 Thêm trọng tài</button>
             <button class="btn bh" onclick="openAddNdMo()">＋ Thêm nội dung</button>
             <button class="btn bp" onclick="openBracketMo()">🏆 Xem bracket</button>
           </div>
@@ -10282,6 +10283,16 @@ function _removeGiaiPill(id) {
   const cb = document.querySelector(`#u-giai-checkboxes input[value="${id}"]`);
   if (cb) { cb.checked = false; _syncGiaiPicker(); }
 }
+// Mở modal thêm TT từ màn hình giải — pre-select giải hiện tại
+function openUserMoFromTourn() {
+  openUserMo(null); // thêm mới
+  // Sau khi modal render xong, set giải hiện tại
+  setTimeout(() => {
+    const refSel = document.getElementById('u-giai-ref-sel');
+    if (refSel && _curGiaiId) refSel.value = _curGiaiId;
+  }, 50);
+}
+
 function openUserMo(pre=null) {
   _editU=pre;
   document.getElementById('user-tt').textContent=pre?'Sửa Trọng tài':'Thêm Trọng tài';
