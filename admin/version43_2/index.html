@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.5.23 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -944,6 +944,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <div class="nsep"></div>
       <div class="nl">Quản lý</div>
       <button class="ni" data-p="users"><span class="ic">👥</span><span>Trọng tài</span></button>
+      <button class="ni" data-p="phanquyen"><span class="ic">🔑</span><span>Phân quyền</span></button>
       <button class="ni" data-p="players"><span class="ic">🏓</span><span>Vận động viên</span></button>
     </div>
     <div class="sbbm">
@@ -1553,6 +1554,29 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <thead><tr><th>Mã</th><th>Họ tên</th><th>GT</th><th>Giải</th><th>Nội dung</th><th>Đơn vị</th><th>Cấp</th><th>SĐT</th><th></th></tr></thead>
           <tbody id="p-tb"><tr><td colspan="9" style="text-align:center;padding:28px"><span class="spin"></span></td></tr></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ══ PHÂN QUYỀN MANAGER ══ -->
+    <div class="page" id="page-phanquyen">
+      <div class="ph">
+        <div>
+          <div class="ptitle">🔑 Phân quyền Manager</div>
+          <div class="psub">Cấp quyền truy cập giải đấu cho từng tài khoản Manager</div>
+        </div>
+        <button class="rfbtn" onclick="loadPhanQuyen()">↻ Làm mới</button>
+      </div>
+
+      <!-- Info card -->
+      <div style="background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.2);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--tx2);line-height:1.8">
+        <strong style="color:var(--ac)">💡 Hướng dẫn:</strong>
+        Mỗi tài khoản Manager chỉ thấy và quản lý <strong>đúng các giải được tích ✅ bên dưới</strong>.
+        Bỏ tick → Manager mất quyền vào giải đó ngay lập tức.
+      </div>
+
+      <!-- Manager list -->
+      <div id="pq-wrap">
+        <div class="empty"><span class="spin"></span></div>
       </div>
     </div>
 
@@ -2506,6 +2530,9 @@ function showApp() {
   if (ROLE === 'manager') {
     // Chỉ giữ lại nav "Quản lý giải", ẩn tất cả còn lại
     const MANAGER_ALLOWED_PAGES = ['tournaments'];
+    // Ẩn nav Phân quyền với Manager
+    const pqNav = document.querySelector('.ni[data-p="phanquyen"]');
+    if (pqNav) pqNav.style.display = 'none';
     document.querySelectorAll('.ni[data-p]').forEach(btn => {
       const p = btn.dataset.p;
       if (!MANAGER_ALLOWED_PAGES.includes(p)) {
@@ -2853,6 +2880,7 @@ function nav(p, _skipHash) {
     matches: loadMatches,
     results: loadResults,
     users: loadUsers,
+    phanquyen: loadPhanQuyen,
     players: loadPlayers,
   };
   if (loaders[p]) loaders[p]();
@@ -10105,6 +10133,204 @@ function setupDrop(aid,fn){
   a.addEventListener('dragleave',()=>a.style.borderColor='');
   a.addEventListener('drop',e=>{e.preventDefault();a.style.borderColor='';const f=e.dataTransfer.files[0];if(f)fn({files:[f]});});
 }
+
+// ════════════════════════════════════════════════════════════════
+//  PHÂN QUYỀN MANAGER
+// ════════════════════════════════════════════════════════════════
+let _pqManagers = []; // cache managers list
+
+async function loadPhanQuyen() {
+  const wrap = document.getElementById('pq-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="empty"><span class="spin"></span><p style="margin-top:10px;color:var(--tx3)">Đang tải...</p></div>';
+
+  try {
+    // Load users + tournaments in parallel
+    const [dU, dT] = await Promise.all([
+      gGet({ action: 'getUsers', adminCode: CODE }),
+      gGet({ action: 'tournaments', adminCode: CODE })
+    ]);
+
+    const allUsers = dU.rows?.slice(1) || _U;
+    const allTourns = dT.rows?.slice(1) || _T;
+    if (allTourns.length) _T = allTourns;
+
+    _pqManagers = allUsers.filter(r => String(r[7]||'').toLowerCase() === 'manager');
+
+    renderPhanQuyen(_pqManagers, allTourns);
+  } catch(e) {
+    wrap.innerHTML = '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu</p></div>';
+    toast('Lỗi tải phân quyền', 'er');
+  }
+}
+
+function renderPhanQuyen(managers, tourns) {
+  const wrap = document.getElementById('pq-wrap');
+  if (!wrap) return;
+
+  if (!managers.length) {
+    wrap.innerHTML = `<div class="empty"><div class="ei">🔵</div>
+      <p>Chưa có tài khoản Manager nào.</p>
+      <button class="btn bp" style="margin-top:12px" onclick="nav('users');openUserMo()">＋ Tạo Manager</button>
+    </div>`;
+    return;
+  }
+
+  const giaiColors = ['ac','gn','or','pu','cy','rd'];
+
+  wrap.innerHTML = managers.map((mgr, mi) => {
+    const code  = String(mgr[0]||'').trim().toUpperCase();
+    const name  = String(mgr[1]||'');
+    const note  = String(mgr[6]||'');
+    const giaiRaw = String(mgr[8]||'').trim();
+    const assigned = giaiRaw ? giaiRaw.split(',').map(g=>g.trim().toUpperCase()).filter(Boolean) : [];
+    const exp   = mgr[2] ? fmtD(mgr[2]) : '—';
+    const isExp = mgr[2] && new Date(mgr[2]) < new Date();
+
+    const tournRows = tourns.map((t, ti) => {
+      const tId   = String(t[0]||'').trim().toUpperCase();
+      const tName = String(t[1]||'');
+      const tVenue= String(t[2]||'');
+      const nds   = (t[7]||'').split(',').map(s=>s.trim()).filter(Boolean);
+      const checked = assigned.includes(tId);
+      const cc = giaiColors[ti % giaiColors.length];
+      return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;
+          cursor:pointer;border:1.5px solid ${checked?'rgba(14,165,233,.3)':'var(--bdr)'};
+          background:${checked?'rgba(14,165,233,.06)':'var(--bg3)'};
+          transition:all .15s;margin-bottom:6px"
+          onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='${checked?'rgba(14,165,233,.3)':'var(--bdr)'}'">
+        <input type="checkbox" value="${esc(tId)}"
+          ${checked ? 'checked' : ''}
+          data-mgr="${esc(code)}"
+          style="width:17px;height:17px;margin-top:2px;accent-color:var(--ac);cursor:pointer;flex-shrink:0"
+          onchange="onPqCheck(this,'${esc(code)}','${esc(mi)}')">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <span style="font-family:var(--mo);font-size:10px;font-weight:700;color:var(--${cc})">${esc(tId)}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--tx)">${esc(tName)}</span>
+            ${tVenue ? `<span style="font-size:11px;color:var(--tx3)">· ${esc(tVenue)}</span>` : ''}
+          </div>
+          ${nds.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">
+            ${nds.map(n=>`<span style="font-size:10px;background:var(--bg4);color:var(--tx3);padding:2px 7px;border-radius:10px">${esc(n)}</span>`).join('')}
+          </div>` : ''}
+        </div>
+        ${checked ? `<span style="font-size:10px;font-weight:700;color:var(--gn);white-space:nowrap;align-self:center">✅ Có quyền</span>`
+                  : `<span style="font-size:10px;color:var(--tx4);white-space:nowrap;align-self:center">Chưa cấp</span>`}
+      </label>`;
+    }).join('');
+
+    return `<div class="card" style="margin-bottom:16px;padding:0;overflow:hidden" id="pq-card-${mi}">
+      <!-- Manager header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+          padding:14px 18px;background:var(--bg3);border-bottom:1px solid var(--bdr)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(6,182,212,.4),rgba(14,165,233,.4));
+              display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔵</div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:var(--tx)">${esc(name)}</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:3px">
+              <span style="font-family:var(--mo);font-size:11px;color:var(--cy)">${esc(code)}</span>
+              ${note ? `<span style="font-size:11px;color:var(--tx3)">· ${esc(note)}</span>` : ''}
+              <span style="font-size:10px;color:${isExp?'var(--rd)':'var(--tx4)'}">Hết hạn: ${exp}</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="pq-badge-${mi}" style="font-size:11px;font-weight:700;
+              background:${assigned.length?'rgba(34,197,94,.12)':'rgba(100,116,139,.1)'};
+              color:${assigned.length?'var(--gn)':'var(--tx3)'};
+              border:1px solid ${assigned.length?'rgba(34,197,94,.25)':'var(--bdr)'};
+              padding:3px 10px;border-radius:20px">
+            ${assigned.length ? `✅ ${assigned.length} giải` : 'Chưa có giải'}
+          </span>
+          <button class="btn bp bsm" id="pq-save-${mi}"
+              onclick="savePhanQuyen('${esc(code)}',${mi})" style="display:none">
+            💾 Lưu thay đổi
+          </button>
+        </div>
+      </div>
+      <!-- Tournament checklist -->
+      <div style="padding:14px 18px">
+        ${tourns.length
+          ? `<div style="font-size:10px;font-weight:800;color:var(--tx4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">
+              Tích chọn giải Manager được phép quản lý:
+             </div>${tournRows}`
+          : `<div class="empty" style="padding:16px"><p>Chưa có giải đấu nào</p></div>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onPqCheck(cb, mgrCode, cardIdx) {
+  // Show save button when any change made
+  const saveBtn = document.getElementById(`pq-save-${cardIdx}`);
+  if (saveBtn) saveBtn.style.display = '';
+  // Update border of parent label
+  const lbl = cb.closest('label');
+  if (lbl) {
+    lbl.style.borderColor = cb.checked ? 'rgba(14,165,233,.3)' : 'var(--bdr)';
+    lbl.style.background  = cb.checked ? 'rgba(14,165,233,.06)' : 'var(--bg3)';
+    const tag = lbl.querySelector('span:last-child');
+    if (tag) {
+      tag.textContent = cb.checked ? '✅ Có quyền' : 'Chưa cấp';
+      tag.style.color = cb.checked ? 'var(--gn)' : 'var(--tx4)';
+    }
+  }
+}
+
+async function savePhanQuyen(mgrCode, cardIdx) {
+  const btn = document.getElementById(`pq-save-${cardIdx}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+
+  // Collect checked giai IDs for this manager
+  const checkboxes = document.querySelectorAll(`#pq-card-${cardIdx} input[type=checkbox][data-mgr="${mgrCode}"]`);
+  const selectedGiais = Array.from(checkboxes).filter(c=>c.checked).map(c=>c.value);
+  const giaiStr = selectedGiais.join(',');
+
+  // Find manager in _pqManagers
+  const mgr = _pqManagers.find(r => String(r[0]||'').trim().toUpperCase() === mgrCode);
+  if (!mgr) { toast('Không tìm thấy Manager', 'er'); return; }
+
+  const user = {
+    code:    String(mgr[0]||''),
+    name:    String(mgr[1]||''),
+    expire:  isoD(mgr[2]),
+    courts:  String(mgr[3]||''),
+    rounds:  String(mgr[4]||''),
+    note:    String(mgr[6]||''),
+    status:  'manager',
+    giai:    giaiStr,
+    noidung: String(mgr[9]||''),
+    phone:   String(mgr[10]||''),
+  };
+
+  try {
+    const d = await gPost({ action: 'updateUser', adminCode: CODE, user });
+    if (!d.ok) { toast('Lỗi: ' + (d.reason||'?'), 'er'); return; }
+
+    // Update local cache
+    const idx = _pqManagers.findIndex(r => String(r[0]||'').trim().toUpperCase() === mgrCode);
+    if (idx !== -1) _pqManagers[idx][8] = giaiStr;
+    delete _cache['users'];
+
+    // Update badge
+    const badge = document.getElementById(`pq-badge-${cardIdx}`);
+    if (badge) {
+      badge.textContent = selectedGiais.length ? `✅ ${selectedGiais.length} giải` : 'Chưa có giải';
+      badge.style.background = selectedGiais.length ? 'rgba(34,197,94,.12)' : 'rgba(100,116,139,.1)';
+      badge.style.color = selectedGiais.length ? 'var(--gn)' : 'var(--tx3)';
+      badge.style.borderColor = selectedGiais.length ? 'rgba(34,197,94,.25)' : 'var(--bdr)';
+    }
+
+    toast(`✅ Đã lưu phân quyền cho ${mgr[1]}: ${selectedGiais.length} giải`, 'ok');
+    if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.textContent = '💾 Lưu thay đổi'; }
+  } catch(e) {
+    toast('Lỗi kết nối', 'er');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu thay đổi'; }
+  }
+}
+
 window.addEventListener('load',()=>{
   setupDrop('mo-im',handleMCSV);
   setupDrop('mo-ip',handlePCSV);
