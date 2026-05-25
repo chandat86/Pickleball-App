@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.5 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -8409,7 +8409,14 @@ function onTournNameInput(val) {
 function editTourn(id) {
   const r = _T.find(t=>String(t[0]||'')===id);
   if(!r)return;
-  openTournMo({id:r[0],name:r[1],venue:r[2],courts:r[3],start:isoD(r[4]),end:isoD(r[5]),status:r[6],noidung:r[7],note:'',refs:r[8]||[]});
+  // r[8] = ownerCode (Người tạo), không phải refs array
+  // refs được lấy từ _U (Users với giai = tên giải này)
+  const tournName = String(r[1]||'');
+  const refsForTourn = _U.filter(u => {
+    const st = String(u[7]||'').toLowerCase();
+    return st === 'active' && String(u[8]||'').trim() === tournName;
+  }).map(u => ({code:String(u[0]||''),name:String(u[1]||''),phone:String(u[10]||'')}));
+  openTournMo({id:r[0],name:r[1],venue:r[2],courts:r[3],start:isoD(r[4]),end:isoD(r[5]),status:r[6],noidung:r[7],note:'',refs:refsForTourn});
 }
 async function saveTournament() {
   const btn  = document.getElementById('t-save');
