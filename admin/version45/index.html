@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.32 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10342,6 +10342,20 @@ async function saveUser() {
   if(!phone){
     document.getElementById('u-phone').focus();
     toast('⚠️ Số điện thoại là bắt buộc!','er');return;
+  }
+  // Kiểm tra SĐT unique phía client (bỏ qua chính user đang sửa)
+  const cleanPhone = phone.replace(/\D/g,'');
+  const dupUser = (_U||[]).find(u => {
+    const uPhone = String(u[10]||'').trim().replace(/\D/g,'');
+    const uCode  = String(u[0]||'').trim().toUpperCase();
+    const isSelf = _editU && uCode === String(_editU.code||'').trim().toUpperCase();
+    return !isSelf && uPhone && uPhone === cleanPhone;
+  });
+  if (dupUser) {
+    document.getElementById('u-phone').focus();
+    document.getElementById('u-phone').classList?.add?.('error');
+    toast(`⚠️ SĐT ${phone} đã thuộc TT: ${String(dupUser[1]||'(không tên)')}`, 'er');
+    return;
   }
   btn.disabled=true;
   const originalCode = (document.getElementById('u-code').dataset.originalCode||'').trim();
