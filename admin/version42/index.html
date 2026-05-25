@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v42 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42 jv21 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1589,19 +1589,43 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <input type="text" id="t-noidung" placeholder="Nội dung thi đấu 1, Nội dung thi đấu 2, ...">
       <span class="hint">Liệt kê các nội dung — hiển thị trên dashboard và lọc lịch</span></div>
     <div class="fg full" id="t-refs-wrap">
-      <label>Trọng tài phân công <span style="color:var(--tx3);font-weight:400">(không bắt buộc)</span></label>
-      <div id="t-refs-dropdown" style="position:relative">
-        <div id="t-refs-display" onclick="toggleRefsDropdown()" style="cursor:pointer;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;min-height:38px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-          <span id="t-refs-placeholder" style="color:var(--tx3);font-size:13px">Click để chọn trọng tài...</span>
+      <label style="display:flex;align-items:center;gap:10px">
+        Trọng tài phân công
+        <span style="color:var(--tx3);font-weight:400;font-size:11px">(không bắt buộc)</span>
+        <button type="button" onclick="openAddRefByPhoneMo()"
+          style="padding:4px 12px;background:var(--ac);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto">
+          ＋ Thêm trọng tài
+        </button>
+      </label>
+      <!-- Danh sách TT đã thêm -->
+      <div id="t-refs-added" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px 0">
+        <span id="t-refs-empty" style="color:var(--tx3);font-size:12px;line-height:28px">Chưa có trọng tài nào được thêm</span>
+      </div>
+    </div>
+
+    <!-- Popup nhập SĐT trọng tài -->
+    <div id="mo-add-ref-phone" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:none;align-items:center;justify-content:center">
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(420px,92vw);padding:0;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">
+          <span style="font-size:15px;font-weight:800">📞 Thêm trọng tài</span>
+          <button onclick="closeAddRefByPhoneMo()" style="margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer;color:var(--tx3)">✕</button>
         </div>
-        <div id="t-refs-list" style="display:none;position:absolute;z-index:999;width:100%;max-height:200px;overflow-y:auto;background:var(--bg2);border:1px solid var(--bdr);border-radius:8px;margin-top:4px;box-shadow:0 4px 16px rgba(0,0,0,0.3)">
-          <div style="padding:8px 10px;border-bottom:1px solid var(--bdr)">
-            <input id="t-refs-search" type="text" placeholder="🔍 Tìm tên trọng tài..." oninput="filterRefsDropdown()" style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--tx)">
+        <div style="padding:18px 20px;display:grid;gap:14px">
+          <div>
+            <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px">Số điện thoại trọng tài</label>
+            <input id="ref-phone-input" type="tel" placeholder="0901234567"
+              onkeydown="if(event.key==='Enter') searchRefByPhone()"
+              style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--tx);box-sizing:border-box">
           </div>
-          <div id="t-refs-options"></div>
+          <div id="ref-phone-result" style="display:none;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:12px"></div>
+          <div id="ref-phone-error" style="display:none;color:var(--rd);font-size:12px"></div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="closeAddRefByPhoneMo()" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--tx)">Hủy</button>
+          <button onclick="searchRefByPhone()" style="padding:8px 16px;background:var(--ac2);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔍 Tìm</button>
+          <button id="btn-confirm-add-ref" onclick="confirmAddRefByPhone()" style="display:none;padding:8px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Thêm vào giải</button>
         </div>
       </div>
-      <span class="hint">Chọn trọng tài tham gia giải đấu này</span>
     </div>
     <div class="fg"><label>Trạng thái</label>
       <select id="t-status">
@@ -8073,95 +8097,117 @@ function openTournMo(pre=null) {
   openMo('mo-tourn');
 }
 // ── Trọng tài dropdown cho modal tạo giải ──
-let _selectedRefs = [];
+// ══ Refs by phone popup ══
+let _selectedRefs = []; // [{code, name, phone}]
+let _refPhoneFound = null; // ref found by phone search
+
 function initRefsDropdown(preSelected) {
-  _selectedRefs = Array.isArray(preSelected) ? [...preSelected] : [];
-  renderRefsDisplay();
-  renderRefsOptions('');
-  document.getElementById('t-refs-list').style.display = 'none';
-  document.getElementById('t-refs-search').value = '';
-}
-function toggleRefsDropdown() {
-  const list = document.getElementById('t-refs-list');
-  const isOpen = list.style.display !== 'none';
-  if (isOpen) {
-    list.style.display = 'none';
-  } else {
-    renderRefsOptions('');
-    list.style.display = 'block';
-    document.getElementById('t-refs-search').focus();
+  if (!Array.isArray(preSelected)) { _selectedRefs = []; }
+  else {
+    _selectedRefs = preSelected.map(item => {
+      if (typeof item === 'object') return item;
+      const u = _U.find(r => String(r[0]||'').toUpperCase() === String(item||'').toUpperCase());
+      return u ? {code:String(u[0]||''),name:String(u[1]||''),phone:String(u[10]||'')} : {code:item,name:item,phone:''};
+    }).filter(Boolean);
   }
-}
-function filterRefsDropdown() {
-  renderRefsOptions(document.getElementById('t-refs-search').value);
-}
-function renderRefsOptions(q) {
-  const opts = document.getElementById('t-refs-options');
-  const refs = _U.filter(r => {
-    const st = String(r[7]||'').toLowerCase();
-    if (st === 'khóa') return false;
-    const name = String(r[1]||''), code = String(r[0]||'');
-    if (q) return name.toLowerCase().includes(q.toLowerCase()) || code.toLowerCase().includes(q.toLowerCase());
-    return true;
-  });
-  if (!refs.length) {
-    opts.innerHTML = '<div style="padding:10px;text-align:center;color:var(--tx3);font-size:12px">Không có trọng tài</div>';
-    return;
-  }
-  opts.innerHTML = refs.map(r => {
-    const code = String(r[0]||''), name = String(r[1]||'');
-    const checked = _selectedRefs.includes(code);
-    return `<div onclick="toggleRefSelection('${code}','${name.replace(/'/g,"\\'")}',this)"
-      style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;transition:background .15s;${checked?'background:rgba(var(--ac-rgb,.3),0.15)':''}"
-      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='${checked?'rgba(59,130,246,0.12)':''}'">
-      <span style="font-size:16px">${checked?'☑':'☐'}</span>
-      <span style="font-size:13px;color:var(--tx)">${name}</span>
-      <span style="font-size:11px;color:var(--tx3);margin-left:auto">${code}</span>
-    </div>`;
-  }).join('');
-}
-function toggleRefSelection(code, name, el) {
-  const idx = _selectedRefs.indexOf(code);
-  if (idx >= 0) _selectedRefs.splice(idx, 1);
-  else _selectedRefs.push(code);
   renderRefsDisplay();
-  renderRefsOptions(document.getElementById('t-refs-search').value);
 }
+
 function renderRefsDisplay() {
-  const display = document.getElementById('t-refs-display');
-  const ph = document.getElementById('t-refs-placeholder');
-  if (!_selectedRefs.length) {
-    ph.style.display = '';
-    // Remove tags
-    display.querySelectorAll('.ref-tag').forEach(e => e.remove());
-    return;
-  }
-  ph.style.display = 'none';
-  display.querySelectorAll('.ref-tag').forEach(e => e.remove());
-  _selectedRefs.forEach(code => {
-    const u = _U.find(r => String(r[0]||'') === code);
-    const name = u ? String(u[1]||code) : code;
+  const wrap  = document.getElementById('t-refs-added');
+  const empty = document.getElementById('t-refs-empty');
+  if (!wrap) return;
+  wrap.querySelectorAll('.ref-tag').forEach(e => e.remove());
+  if (!_selectedRefs.length) { if(empty) empty.style.display=''; return; }
+  if (empty) empty.style.display = 'none';
+  _selectedRefs.forEach(ref => {
     const tag = document.createElement('span');
     tag.className = 'ref-tag';
-    tag.style.cssText = 'background:var(--ac);color:#fff;border-radius:5px;padding:2px 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px';
-    tag.innerHTML = `${name} <span onclick="event.stopPropagation();removeRef('${code}')" style="cursor:pointer;font-size:13px;line-height:1">×</span>`;
-    display.insertBefore(tag, ph);
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#16a34a;border-radius:20px;padding:4px 10px 4px 12px;font-size:12px;font-weight:700';
+    const phonePart = ref.phone ? ` <span style="color:var(--tx3);font-size:10px;font-weight:500">· ${esc(ref.phone)}</span>` : '';
+    tag.innerHTML = `\u{1F464} ${esc(ref.name)}${phonePart}
+      <button onclick="removeRef('${esc(ref.code)}')" style="background:rgba(0,0,0,.15);border:none;border-radius:50%;width:16px;height:16px;cursor:pointer;color:inherit;font-size:11px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center">×</button>`;
+    wrap.insertBefore(tag, empty);
   });
 }
+
 function removeRef(code) {
-  _selectedRefs = _selectedRefs.filter(c => c !== code);
+  _selectedRefs = _selectedRefs.filter(r => r.code !== code);
   renderRefsDisplay();
-  renderRefsOptions(document.getElementById('t-refs-search').value);
 }
-function getSelectedRefs() { return [..._selectedRefs]; }
-// Close refs dropdown when clicking outside
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('t-refs-dropdown');
-  if (wrap && !wrap.contains(e.target)) {
-    const list = document.getElementById('t-refs-list');
-    if (list) list.style.display = 'none';
+
+function getSelectedRefs() {
+  return _selectedRefs.map(r => r.code);
+}
+
+// ── Phone popup ──
+function openAddRefByPhoneMo() {
+  const mo = document.getElementById('mo-add-ref-phone');
+  if (mo) mo.style.display = 'flex';
+  const inp = document.getElementById('ref-phone-input');
+  if (inp) { inp.value = ''; inp.focus(); }
+  document.getElementById('ref-phone-result').style.display = 'none';
+  document.getElementById('ref-phone-error').style.display = 'none';
+  document.getElementById('btn-confirm-add-ref').style.display = 'none';
+  _refPhoneFound = null;
+}
+
+function closeAddRefByPhoneMo() {
+  const mo = document.getElementById('mo-add-ref-phone');
+  if (mo) mo.style.display = 'none';
+  _refPhoneFound = null;
+}
+
+async function searchRefByPhone() {
+  const phone = (document.getElementById('ref-phone-input')?.value||'').trim();
+  const res   = document.getElementById('ref-phone-result');
+  const err   = document.getElementById('ref-phone-error');
+  const btn   = document.getElementById('btn-confirm-add-ref');
+  err.style.display = 'none'; btn.style.display = 'none'; _refPhoneFound = null;
+  if (!phone) { err.style.display=''; err.textContent='Vui lòng nhập số điện thoại'; return; }
+  res.style.display=''; res.innerHTML='<span class="spin"></span> Đang tìm...';
+
+  if (!_U.length) {
+    try { const d=await gGet({action:'getUsers',adminCode:CODE},8000); if(d?.ok) _U=d.rows?.slice(1)||[]; } catch(e){}
   }
-});
+
+  const q = phone.replace(/\D/g,'');
+  const found = (_U||[]).find(u => {
+    const p = String(u[10]||'').replace(/\D/g,'');
+    return p && (p===q || p.endsWith(q) || q.endsWith(p));
+  });
+
+  if (found) {
+    _refPhoneFound = {code:String(found[0]||''),name:String(found[1]||''),phone:String(found[10]||phone)};
+    const alreadyIn = _selectedRefs.some(r => r.code===_refPhoneFound.code);
+    if (alreadyIn) {
+      res.innerHTML = `<div style="color:var(--or);font-size:13px">\u26a0\ufe0f <strong>${esc(_refPhoneFound.name)}</strong> đã có trong danh sách</div>`;
+    } else {
+      res.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0">${esc(_refPhoneFound.name[0]||'?')}</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--tx)">${esc(_refPhoneFound.name)}</div>
+          <div style="font-size:11px;color:var(--tx3)">\ud83d\udcde ${esc(_refPhoneFound.phone)} &nbsp;·&nbsp; M\xe3: ${esc(_refPhoneFound.code)}</div>
+        </div>
+        <span style="margin-left:auto;color:#16a34a;font-size:11px;font-weight:700">\u2705 T\xecm th\u1ea5y</span>
+      </div>`;
+      btn.style.display = '';
+    }
+  } else {
+    res.style.display = 'none';
+    err.style.display = ''; err.textContent = `\u274c Kh\xf4ng t\xecm th\u1ea5y tr\u1ecdng t\xe0i v\u1edbi S\u0110T: ${phone}`;
+  }
+}
+
+function confirmAddRefByPhone() {
+  if (!_refPhoneFound) return;
+  _selectedRefs.push(_refPhoneFound);
+  renderRefsDisplay();
+  closeAddRefByPhoneMo();
+  toast(`\u2705 \u0110\xe3 th\xeam ${_refPhoneFound.name} v\xe0o gi\u1ea3i`, 'ok');
+}
+
+
 
 function genTournId(name) {
   if(!name) return '';
