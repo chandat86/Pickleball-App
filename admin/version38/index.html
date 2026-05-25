@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v38.23 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v25 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -825,6 +825,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 #asgn-tb select[multiple] { min-height: 60px; }
 
 /* Custom scrollbar for bang-list and BXH */
+#bang-list::-webkit-scrollbar { width:5px; }
+#bang-list::-webkit-scrollbar-track { background:rgba(255,255,255,.04);border-radius:3px; }
+#bang-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.2);border-radius:3px; }
+#bang-list::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,.35); }
 #bang-list::-webkit-scrollbar,
 #bang-list *::-webkit-scrollbar { width:6px; }
 #bang-list::-webkit-scrollbar-track { background:transparent; }
@@ -1194,7 +1198,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 
         <!-- Tab: Bảng đấu -->
         <div id="nd-panel-bangs">
-          <div id="bang-list" style="max-height:75vh;overflow-y:auto;overflow-x:hidden;padding-right:2px;scroll-behavior:smooth"></div>
+          <div id="bang-list" style="max-height:75vh;overflow-y:auto;overflow-x:hidden;padding-right:6px;scroll-behavior:smooth"></div>
         </div>
 
         <!-- Tab: Cây thi đấu -->
@@ -4814,13 +4818,13 @@ function renderBangList(giaiId, nd) {
   // ══════════════════════════════════════════════════════
   const bxhId = 'bxh-right-panel';
   const bxhAllPanel = poolBangs.length ? `
-  <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden">
-    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px;position:sticky;top:0;background:var(--bg2);z-index:1">
+  <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;max-height:72vh">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px;flex-shrink:0;background:var(--bg2);z-index:1">
       <span style="font-size:11px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em">🏅 Bảng xếp hạng</span>
       <span style="font-size:10px;color:var(--tx4)">${poolBangs.length} bảng</span>
     </div>
-    <!-- Container BXH - hiển thị đủ tất cả đội -->
-    <div id="${bxhId}" class="bxh-scroll" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;max-height:72vh;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth">
+    <!-- Container BXH - scrollable, max-height controlled by parent flex -->
+    <div id="${bxhId}" class="bxh-scroll" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;flex:1">
       ${poolBangs.map(bang=>{
         const rows=calcBxh(bang);
         const allInBang=[...new Set(allM.filter(m=>String(m[2]||'')===bang).flatMap(m=>[m[4],m[7]]).filter(Boolean))];
