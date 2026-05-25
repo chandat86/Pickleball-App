@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v42.33 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42.212 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4224,8 +4224,8 @@ function renderPlayersPanel() {
           <div>
             <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Tên bảng</label>
             <select id="bt-bang-style" style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--tx)">
-              <option value="alpha">A, B, C, D...</option>
-              <option value="num">Bảng 1, 2, 3...</option>
+              <option value="alpha">Bảng A, Bảng B, Bảng C...</option>
+              <option value="num">Bảng 1, Bảng 2, Bảng 3...</option>
             </select>
           </div>
         </div>
@@ -4395,7 +4395,7 @@ function runBocTham() {
 
   // Generate bang names
   const bangNames = Array.from({length:numBangs}, (_,i) =>
-    bangStyle === 'alpha' ? String.fromCharCode(65+i) : String(i+1)
+    bangStyle === 'alpha' ? 'Bảng ' + String.fromCharCode(65+i) : 'Bảng ' + String(i+1)
   );
 
   // Sort/shuffle players
@@ -4470,11 +4470,12 @@ function generateSchedule(nd, giaiId) {
 
   // Build all matches using round-robin algorithm
   const allRows = [];
-  let codeCounter = codeStart;
-
   Object.entries(_bocThamGroups).forEach(([bang, teams]) => {
     const n = teams.length;
     if (n < 2) return;
+    // Prefix từ tên bảng: "Bảng A" → "A", "Bảng 1" → "1"
+    const bangPrefix = bang.replace(/^bảng\s*/i, '').trim() || bang;
+    let codeCounter = codeStart;
     // Standard round-robin: each pair plays once
     const matches = [];
     // For odd n, use bye
@@ -4495,7 +4496,7 @@ function generateSchedule(nd, giaiId) {
     }
 
     matches.forEach(([teamA, teamB]) => {
-      const code = bang + codeCounter++;
+      const code = bangPrefix + codeCounter++;
       // HDR_MATCHES: [Giải đấu, Nội dung, Bảng, Mã trận, Đội A, ĐiểmA, ĐiểmB, Đội B, Sân, VòngĐấu, GhiChú]
       allRows.push([gName, nd, bang, code, teamA, '', '', teamB, court, 'Vòng bảng', '']);
     });
