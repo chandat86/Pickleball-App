@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.444 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.112211 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2557,7 +2557,7 @@ function showApp() {
   // ── PHÂN QUYỀN MANAGER: chỉ thấy Quản lý giải ──
   if (ROLE === 'manager') {
     // Chỉ giữ lại nav "Quản lý giải", ẩn tất cả còn lại
-    const MANAGER_ALLOWED_PAGES = ['tournaments'];
+    const MANAGER_ALLOWED_PAGES = ['tournaments', 'users'];
     // Ẩn nav Phân quyền với Manager
     const pqNav = document.querySelector('.ni[data-p="phanquyen"]');
     if (pqNav) pqNav.style.display = 'none';
@@ -9937,11 +9937,26 @@ function renderResults(rows) {
 //  USERS (Trọng tài)
 // ════════════════════════════════════════════════════════════════
 async function loadUsers() {
-  // Cập nhật subtitle cho Manager
-  const psubEl = document.getElementById('users-psub');
-  if (psubEl && ROLE === 'manager') {
-    psubEl.textContent = '👥 Nhóm trọng tài của bạn — TT bạn tạo + TT trong giải bạn quản lý';
-    psubEl.style.color = 'var(--cy)';
+  // Cập nhật UI cho Manager
+  if (ROLE === 'manager') {
+    // Subtitle
+    const psubEl = document.getElementById('users-psub');
+    if (psubEl) {
+      psubEl.textContent = '👥 Nhóm trọng tài của bạn — thêm, sửa, phân công sân/vòng';
+      psubEl.style.color = 'var(--cy)';
+    }
+    // Ẩn info card role (admin/manager info không cần thiết với manager)
+    const infoCard = document.querySelector('#page-users .card');
+    if (infoCard) infoCard.style.display = 'none';
+    // Ẩn filter role admin/manager
+    const roleFilter = document.getElementById('u-role-f');
+    if (roleFilter) {
+      // Chỉ giữ: Tất cả + Trọng tài + Bị khóa
+      roleFilter.innerHTML = '<option value="">Tất cả</option><option value="active">✅ Trọng tài</option><option value="khóa">🔒 Bị khóa</option>';
+    }
+    // Ẩn filter giải (manager chỉ thấy nhóm của mình, không cần filter giải)
+    const giaiFilter = document.getElementById('u-giai-f');
+    if (giaiFilter) giaiFilter.style.display = 'none';
   }
   document.getElementById('u-tb').innerHTML = spin(10);
   try {
@@ -10085,7 +10100,16 @@ function _removeGiaiPill(id) {
 }
 function openUserMo(pre=null) {
   _editU=pre;
-  document.getElementById('user-tt').textContent=pre?'Sửa người dùng':'Thêm người dùng';
+  document.getElementById('user-tt').textContent=pre?'Sửa Trọng tài':'Thêm Trọng tài';
+  // Manager chỉ tạo/sửa TT active — ẩn role admin/manager
+  const statusSel = document.getElementById('u-status');
+  if (statusSel) {
+    if (ROLE === 'manager') {
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="khóa">🔒 Khóa tài khoản</option>';
+    } else {
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
+    }
+  }
   document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=!!pre;
   document.getElementById('u-name').value=pre?.name||'';
   document.getElementById('u-status').value=pre?.status||'active';
@@ -10723,7 +10747,7 @@ async function _restoreFromHash() {
     if (!state?.p) return false;
 
     // Guard: Manager chỉ được vào tournaments — nếu hash lưu trang khác thì bỏ qua
-    const MANAGER_ALLOWED = ['tournaments'];
+    const MANAGER_ALLOWED = ['tournaments', 'users'];
     if (ROLE === 'manager' && !MANAGER_ALLOWED.includes(state.p)) {
       history.replaceState(null, '', location.pathname); // clear hash
       return false;
