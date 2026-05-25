@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v42.22 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42.33 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -5333,7 +5333,8 @@ async function openEditMatchMo(giaiId, nd, bang, code) {
   const giaiNameMo = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||'');
   const allValidRefsMo = (_U||[]).filter(u => String(u[7]||'').trim().toLowerCase() !== 'admin' && String(u[7]||'').trim().toLowerCase() !== 'manager');
   const refsInTournMo = allValidRefsMo.filter(u => String(u[8]||'').trim() === giaiNameMo);
-  const refs = refsInTournMo.length ? refsInTournMo : allValidRefsMo;
+  // CHỈ hiển thị TT trong giải hiện tại — KHÔNG fallback ra ngoài
+  const refs = refsInTournMo;
 
   const fi = (id,label,val,placeholder='',type='text')=>
     `<div><label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">${label}</label>
@@ -5594,9 +5595,11 @@ function buildRefPills(refsList, currentRefsStr, inputId) {
   // currentRefsStr: comma-separated ref names
   const currentRefs = new Set((currentRefsStr||'').split(',').map(r=>r.trim()).filter(Boolean));
   if (!refsList.length) {
-    return `<input id="${inputId}" type="text" value="${currentRefsStr}"
-      placeholder="Tên trọng tài (nhiều TT cách nhau bởi dấu phẩy)…"
-      style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--tx)">`;
+    return `<div style="padding:10px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:12px;color:var(--or)">
+      ⚠️ Chưa có trọng tài nào được phân công vào giải này.<br>
+      <span style="font-size:11px;color:var(--tx3)">Vào <strong>Phân công TT</strong> → chọn giải → lưu danh sách TT trước.</span>
+    </div>
+    <input type="hidden" id="${inputId}" value="${currentRefsStr}">`;
   }
   const pills = refsList.map(u => {
     const name = String(u[1]||'').trim();
@@ -5665,8 +5668,8 @@ async function openEditBangMo(giaiId, nd, bang) {
   const refsInTournament = allValidRefs.filter(u =>
     String(u[8]||'').trim() === giaiNameForRef
   );
-  // Ưu tiên TT trong giải, fallback tất cả TT hợp lệ nếu không có ai trong giải
-  const refsList = refsInTournament.length ? refsInTournament : allValidRefs;
+  // CHỈ hiển thị TT trong giải hiện tại — KHÔNG fallback ra ngoài
+  const refsList = refsInTournament;
 
   const refInput = buildRefPills(refsList, currentRef, 'eb-ref');;
 
