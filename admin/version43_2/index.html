@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.5 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42.23 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1589,7 +1589,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 
 <!-- Tournament Modal -->
 <div class="mo" id="mo-tourn"><div class="mbox ww">
-  <div class="mh"><div class="mtt" id="tourn-tt">Tạo giải đấu</div><button class="mc" onclick="closeMo('mo-tourn')">✕</button></div>
+  <div class="mh"><div class="mtt" id="tourn-tt">Tạo giải đấu</div><button class="mc" onclick="closeMo('mo-tourn');_editT=null;document.getElementById('t-save').disabled=false">✕</button></div>
 
   <!-- Mã giải tự động - ẩn UI, giữ hidden input -->
   <input type="hidden" id="t-id">
@@ -1659,7 +1659,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg"><label>Ghi chú</label><input type="text" id="t-note" placeholder="Nhà tài trợ, ghi chú thêm..."></div>
   </div>
   <div class="mf">
-    <button class="btn bh" onclick="closeMo('mo-tourn')">Hủy</button>
+    <button class="btn bh" onclick="closeMo('mo-tourn');_editT=null;document.getElementById('t-save').disabled=false">Hủy</button>
     <button class="btn bp" id="t-save" onclick="saveTournament()">💾 Lưu giải đấu</button>
   </div>
 </div></div>
@@ -8437,10 +8437,13 @@ async function saveTournament() {
     note:      noidung,
     refs:      getSelectedRefs()
   };
+  const isEdit = !!_editT;
   closeMo('mo-tourn');
-  toast(`✅ ${_editT?'Cập nhật':'Tạo'} giải ${name} (${id})...`,'ok');
+  _editT = null; // reset ngay sau khi đóng
+  btn.disabled = false; // reset nút
+  toast(`✅ ${isEdit?'Cập nhật':'Tạo'} giải ${name} (${id})...`,'ok');
   try{
-    const d = await gPost({action:_editT?'updateTournament':'addTournament',adminCode:CODE,tournament:tourn});
+    const d = await gPost({action:isEdit?'updateTournament':'addTournament',adminCode:CODE,tournament:tourn});
     if(!d.ok)toast('Lỗi: '+d.reason,'er');
     else loadTournaments();
   }catch(e){toast('Lỗi kết nối','er');}
