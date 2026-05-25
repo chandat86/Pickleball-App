@@ -2043,7 +2043,8 @@ function _filterTournsForRole(rows) {
   const assignedUpper = MY_GIAI_LIST.map(g => g.toUpperCase());
   return rows.filter(r => {
     const giaiId    = String(r[0]||'').trim().toUpperCase();
-    const ownerCode = String(r[8]||'').trim().toUpperCase(); // Tournaments col[8] = Người tạo
+    // r[8] có thể là ownerCode (string) hoặc refs (array từ dashboard) — chỉ dùng khi là string
+    const ownerCode = Array.isArray(r[8]) ? '' : String(r[8]||'').trim().toUpperCase();
     return ownerCode === CODE.toUpperCase() || assignedUpper.includes(giaiId);
   });
 }
@@ -3397,7 +3398,9 @@ async function loadDash() {
 
     // Populate giải dropdown nếu có data mới
     if (d.tournaments?.length) {
-      _T = _filterTournsForRole(d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.refs||[]]));
+      // col[8] = ownerCode (từ GAS), col[9] = refs (từ dashboard response)
+      // KHÔNG dùng t.refs làm col[8] — col[8] phải là ownerCode để _filterTournsForRole hoạt động
+      _T = _filterTournsForRole(d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.owner||'',t.refs||[]]));
       populateTournamentDropdowns();
     }
     // ── Populate filter dropdowns Nội dung / Bảng ──
@@ -4104,7 +4107,11 @@ function renderTournCards(rows) {
     const stl = st==='active'?'🟢 Đang diễn ra':st==='done'?'✅ Kết thúc':'⏳ Sắp diễn ra';
     const nds = (r[7]||'').split(',').map(s=>s.trim()).filter(Boolean);
     const sans= (r[3]||'').split(',').map(s=>s.trim()).filter(Boolean);
-    const mgr = _U.find(u=>String(u[8]||'')===String(r[0]||'')&&String(u[7]||'').toLowerCase()==='manager');
+    const _tId = String(r[0]||'').trim().toUpperCase();
+    const mgr = _U.find(u=> String(u[7]||'').toLowerCase()==='manager' && (
+      // ownerCode: Users.col[8] comma-separated list includes this tournId
+      String(u[8]||'').split(',').map(g=>g.trim().toUpperCase()).includes(_tId)
+    ));
     const id  = esc(r[0]);
     return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s"
               onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='var(--bdr)'"
@@ -8408,14 +8415,24 @@ function onTournNameInput(val) {
 }
 function editTourn(id) {
   const r = _T.find(t=>String(t[0]||'')===id);
-  if(!r)return;
-  // r[8] = ownerCode (Người tạo), không phải refs array
-  // refs được lấy từ _U (Users với giai = tên giải này)
+  if(!r){ toast('Không tìm thấy giải: '+id,'er'); return; }
+  // r[8] = ownerCode, r[9] = refs array (từ dashboard) hoặc lấy từ _U
   const tournName = String(r[1]||'');
-  const refsForTourn = _U.filter(u => {
-    const st = String(u[7]||'').toLowerCase();
-    return st === 'active' && String(u[8]||'').trim() === tournName;
-  }).map(u => ({code:String(u[0]||''),name:String(u[1]||''),phone:String(u[10]||'')}));
+  let refsForTourn = [];
+  if (Array.isArray(r[9]) && r[9].length) {
+    // Dùng refs từ dashboard response nếu có
+    refsForTourn = r[9].map(item => {
+      if (typeof item === 'object') return item;
+      const u = _U.find(u => String(u[0]||'').toUpperCase() === String(item||'').toUpperCase());
+      return u ? {code:String(u[0]||''),name:String(u[1]||''),phone:String(u[10]||'')} : {code:String(item),name:String(item),phone:''};
+    }).filter(Boolean);
+  } else {
+    // Fallback: lấy từ _U (Users với giai = tên giải)
+    refsForTourn = _U.filter(u => {
+      const st = String(u[7]||'').toLowerCase();
+      return st === 'active' && String(u[8]||'').trim() === tournName;
+    }).map(u => ({code:String(u[0]||''),name:String(u[1]||''),phone:String(u[10]||'')}));
+  }
   openTournMo({id:r[0],name:r[1],venue:r[2],courts:r[3],start:isoD(r[4]),end:isoD(r[5]),status:r[6],noidung:r[7],note:'',refs:refsForTourn});
 }
 async function saveTournament() {
