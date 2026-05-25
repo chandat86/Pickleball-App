@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v41 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v41.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2474,7 +2474,11 @@ function startLivePolling() {
         }
       }
       if (_curPage === 'tournaments' && _curNd && _curTourn) {
-        renderBangList(_curGiaiId||'', _curNd);
+        // Chỉ re-render khi đang ở view nd (bảng đấu), không phải list giải
+        const tvNd = document.getElementById('tv-nd');
+        if (tvNd && tvNd.style.display !== 'none') {
+          renderBangList(_curGiaiId||'', _curNd);
+        }
       }
       if (_curPage === 'bracket' && _bkGiai && _bkNd) bkRender();
     } catch(e) {}
@@ -3875,6 +3879,8 @@ function showTournView(v) {
 
 // ── Load danh sách giải ──
 async function loadTournaments() {
+  // Clear context so polling doesn't re-render bang list while on list view
+  _curNd = ''; _curTourn = null;
   showTournView('list');
   document.getElementById('tourn-cards').innerHTML = '<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
   try {
