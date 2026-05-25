@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.5 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1676,10 +1676,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <div class="mo" id="mo-user"><div class="mbox w">
   <div class="mh"><div class="mtt" id="user-tt">Thêm Trọng tài</div><button class="mc" onclick="closeMo('mo-user')">✕</button></div>
   <div class="fgrid">
-    <div class="fg"><label>Mã đăng nhập *</label>
+    <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label>
+      <input type="tel" id="u-phone" placeholder="0901234567" oninput="this.value=this.value.replace(/[^0-9+]/g,'')">
+      <span class="hint" style="color:var(--tx3)">Bắt buộc và phải là số duy nhất — dùng để đăng nhập.</span></div>
+    <div class="fg"><label>Họ tên <span style="color:var(--rd)">*</span></label><input type="text" id="u-name" placeholder="Nguyễn Văn An"></div>
+    <!-- Mã đăng nhập — ẩn, tự sinh hoặc để trống -->
+    <div class="fg" style="display:none"><label>Mã đăng nhập</label>
       <input type="text" id="u-code" placeholder="ref001" style="font-family:var(--mo)">
-      <span class="hint">Chữ thường + số. Hệ thống tự uppercase khi xác thực.</span></div>
-    <div class="fg"><label>Họ tên *</label><input type="text" id="u-name" placeholder="Nguyễn Văn An"></div>
+      <span class="hint">Không bắt buộc. Để trống hệ thống sẽ dùng SĐT làm mã.</span></div>
     <div class="fg"><label>Vai trò</label>
       <select id="u-status">
         <option value="active">🟢 Trọng tài (active)</option>
@@ -1714,7 +1718,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg full"><label>Vòng đấu được phân</label>
       <input type="text" id="u-rounds" placeholder="Vòng bảng, Tứ kết  (để trống = không thấy vòng nào)">
       <span class="hint">⚠️ Để trống = trọng tài không thấy vòng đấu nào.</span></div>
-    <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label><input type="tel" id="u-phone" placeholder="0901234567" required oninput="this.value=this.value.replace(/[^0-9+]/g,'')"><span class="hint" style="color:var(--rd)">Bắt buộc — dùng để phân biệt khi mã đăng nhập bị trùng.</span></div>
     <div class="fg full"><label>Ghi chú</label><input type="text" id="u-note" placeholder=""></div>
   </div>
   <div class="mf">
@@ -10301,6 +10304,8 @@ function openUserMo(pre=null) {
   document.getElementById('u-note').value=pre?.note||'';
   document.getElementById('u-nd').value=pre?.noidung||'';
   document.getElementById('u-phone').value=pre?.phone||'';
+  // Focus vào SĐT ngay khi mở form
+  setTimeout(()=>document.getElementById('u-phone').focus(), 100);
 
   // Populate ref giải dropdown
   const refSel = document.getElementById('u-giai-ref-sel');
@@ -10335,10 +10340,12 @@ function editUser(code) {
 }
 async function saveUser() {
   const btn=document.getElementById('u-save');
-  const code=document.getElementById('u-code').value.trim(); // giữ nguyên hoa/thường
   const name=document.getElementById('u-name').value.trim();
   const phone=document.getElementById('u-phone').value.trim();
-  if(!code||!name){toast('Vui lòng nhập mã và họ tên','er');return;}
+  // Mã không bắt buộc — nếu trống thì dùng SĐT làm mã
+  const codeRaw=document.getElementById('u-code').value.trim();
+  const code = codeRaw || phone; // fallback: SĐT làm mã
+  if(!name){toast('Vui lòng nhập họ tên','er');return;}
   if(!phone){
     document.getElementById('u-phone').focus();
     toast('⚠️ Số điện thoại là bắt buộc!','er');return;
@@ -10353,7 +10360,6 @@ async function saveUser() {
   });
   if (dupUser) {
     document.getElementById('u-phone').focus();
-    document.getElementById('u-phone').classList?.add?.('error');
     toast(`⚠️ SĐT ${phone} đã thuộc TT: ${String(dupUser[1]||'(không tên)')}`, 'er');
     return;
   }
