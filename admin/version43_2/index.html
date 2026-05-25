@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42.23 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1664,8 +1664,22 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg"><label>Hết hạn *</label>
       <input type="date" id="u-exp">
       <span class="hint">Bắt buộc. Để trống = tài khoản hết hạn ngay.</span></div>
-    <div class="fg"><label>Giải đấu phân công</label>
-      <select id="u-giai"><option value="">— Chọn giải —</option></select></div>
+    <div class="fg full" id="fg-giai-manager" style="display:none">
+      <label>🏆 Giải đấu được phép quản lý <span style="color:var(--rd)">*</span>
+        <span style="font-size:10px;color:var(--tx3);font-weight:400;margin-left:4px">(Manager thấy đúng các giải được tích)</span>
+      </label>
+      <div id="u-giai-pills" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--bg3);border:1.5px solid var(--bdr2);border-radius:var(--r);min-height:44px;cursor:pointer" onclick="document.getElementById('u-giai-dropdown').classList.toggle('open')">
+        <span id="u-giai-placeholder" style="color:var(--tx4);font-size:12px;align-self:center">— Chọn giải —</span>
+      </div>
+      <div id="u-giai-dropdown" style="display:none;position:absolute;z-index:999;background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r);margin-top:4px;padding:8px;min-width:260px;box-shadow:var(--shadow-lg);max-height:240px;overflow-y:auto" class="">
+        <div id="u-giai-checkboxes" style="display:flex;flex-direction:column;gap:4px"></div>
+      </div>
+      <input type="hidden" id="u-giai">
+    </div>
+    <div class="fg" id="fg-giai-ref" style="display:none">
+      <label>Giải đấu phân công</label>
+      <select id="u-giai-ref-sel"><option value="">— Chọn giải —</option></select>
+    </div>
     <div class="fg"><label>Nội dung thi đấu</label>
       <input type="text" id="u-nd" placeholder="Nội dung thi đấu (để trống = tất cả)"></div>
     <div class="fg full"><label>Sân được phân *</label>
@@ -2002,7 +2016,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 // ════════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════════
-let GS='', CODE='', NAME='', ROLE='', MY_GIAI=''; // thông tin đăng nhập
+let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
 let _T=[],_U=[],_M=[],_R=[],_P=[];                // dữ liệu cache
 // _gasLast*: giá trị mới nhất từ GAS dashboard (-1 = chưa nhận)
 // Dùng để tránh localStorage stale ghi đè GAS trên stat cards
@@ -2277,6 +2291,7 @@ window.onload = () => {
     try {
       const j = JSON.parse(s);
       GS=j.u; CODE=j.c; NAME=j.n; ROLE=j.r||'admin'; MY_GIAI=j.g||'';
+      MY_GIAI_LIST = MY_GIAI ? MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean) : [];
       showApp();
       return;
     } catch(e) { localStorage.removeItem('pb_adm3'); }
@@ -2400,6 +2415,7 @@ async function doLogin() {
     GS = baseUrl; CODE = code; NAME = d.name;
     ROLE    = d.isAdmin ? 'admin' : 'manager';
     MY_GIAI = d.giai || '';
+      MY_GIAI_LIST = MY_GIAI ? MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean) : [];
     localStorage.setItem('pb_adm3', JSON.stringify({u:baseUrl,c:code,n:NAME,r:ROLE,g:MY_GIAI}));
     if (btnTxt) btnTxt.textContent = '✅ Thành công!';
     setTimeout(() => showApp(), 200);
@@ -3992,10 +4008,10 @@ async function loadTournaments() {
     let rows = d.rows?.slice(1) || [];
     // Manager: filter client-side thêm (double-check)
     if (ROLE === 'manager') {
-      rows = rows.filter(r =>
-        String(r[8]||'').trim().toUpperCase() === CODE.trim().toUpperCase() ||
-        String(r[0]||'').trim().toUpperCase() === MY_GIAI.trim().toUpperCase()
-      );
+      rows = rows.filter(r => {
+        const giaiId = String(r[0]||'').trim().toUpperCase();
+        return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
+      });
     }
     // Chỉ cập nhật nếu kết quả hợp lệ
     if (rows.length > 0 || _T.length === 0) {
@@ -9805,9 +9821,89 @@ function renderUsers(rows) {
       </div></td></tr>`;
   }).join('');
 }
+function _updateUserRoleFields() {
+  const status = document.getElementById('u-status').value;
+  const isManager = status === 'manager';
+  const isRef = status === 'active';
+  document.getElementById('fg-giai-manager').style.display = isManager ? 'block' : 'none';
+  document.getElementById('fg-giai-ref').style.display    = isRef     ? 'block' : 'none';
+  // courts/rounds hints
+  const courtsHint = document.querySelector('#fg-giai-manager')?.closest('.fgrid')?.querySelector('.fg .hint');
+}
+function _buildManagerGiaiPicker(selectedList) {
+  // selectedList: array of giai IDs
+  const dropdown = document.getElementById('u-giai-dropdown');
+  const checks   = document.getElementById('u-giai-checkboxes');
+  const pills    = document.getElementById('u-giai-pills');
+  const placeholder = document.getElementById('u-giai-placeholder');
+  const hidden   = document.getElementById('u-giai');
+
+  checks.innerHTML = _T.map(t => {
+    const id   = String(t[0]||'');
+    const name = String(t[1]||id);
+    const chk  = selectedList.includes(id) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .1s"
+      onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background=''">
+      <input type="checkbox" value="${esc(id)}" ${chk}
+        style="width:15px;height:15px;accent-color:var(--ac);cursor:pointer"
+        onchange="_syncGiaiPicker()">
+      <span style="font-size:12px;font-weight:600;color:var(--tx)">${esc(name)}</span>
+      <span style="font-size:10px;color:var(--tx3);font-family:var(--mo)">${esc(id)}</span>
+    </label>`;
+  }).join('');
+
+  _syncGiaiPicker();
+
+  // Close dropdown on outside click
+  setTimeout(() => {
+    const handler = (e) => {
+      if (!document.getElementById('fg-giai-manager').contains(e.target)) {
+        dropdown.style.display = 'none';
+        dropdown.classList.remove('open');
+        document.removeEventListener('mousedown', handler);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+  }, 0);
+
+  // Toggle open style
+  const observer = new MutationObserver(() => {
+    dropdown.style.display = dropdown.classList.contains('open') ? 'block' : 'none';
+  });
+  observer.observe(dropdown, { attributes: true, attributeFilter: ['class'] });
+}
+function _syncGiaiPicker() {
+  const checks = document.querySelectorAll('#u-giai-checkboxes input[type=checkbox]');
+  const hidden = document.getElementById('u-giai');
+  const pills  = document.getElementById('u-giai-pills');
+  const placeholder = document.getElementById('u-giai-placeholder');
+  const selected = Array.from(checks).filter(c=>c.checked).map(c=>c.value);
+  hidden.value = selected.join(',');
+  // Re-render pills
+  const existing = pills.querySelectorAll('.giai-pill');
+  existing.forEach(p=>p.remove());
+  if (selected.length === 0) {
+    placeholder.style.display = '';
+  } else {
+    placeholder.style.display = 'none';
+    selected.forEach(id => {
+      const t = _T.find(t=>String(t[0]||'')===id);
+      const name = t ? String(t[1]||id) : id;
+      const pill = document.createElement('span');
+      pill.className = 'giai-pill';
+      pill.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:rgba(14,165,233,.15);color:var(--ac);border:1px solid rgba(14,165,233,.3);border-radius:20px;padding:2px 8px 2px 6px;font-size:11px;font-weight:600';
+      pill.innerHTML = `${esc(name)} <span style="cursor:pointer;opacity:.6;font-size:13px" onclick="event.stopPropagation();_removeGiaiPill('${esc(id)}')">×</span>`;
+      pills.insertBefore(pill, placeholder);
+    });
+  }
+}
+function _removeGiaiPill(id) {
+  const cb = document.querySelector(`#u-giai-checkboxes input[value="${id}"]`);
+  if (cb) { cb.checked = false; _syncGiaiPicker(); }
+}
 function openUserMo(pre=null) {
   _editU=pre;
-  document.getElementById('user-tt').textContent=pre?'Sửa Trọng tài':'Thêm Trọng tài';
+  document.getElementById('user-tt').textContent=pre?'Sửa người dùng':'Thêm người dùng';
   document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=!!pre;
   document.getElementById('u-name').value=pre?.name||'';
   document.getElementById('u-status').value=pre?.status||'active';
@@ -9817,12 +9913,24 @@ function openUserMo(pre=null) {
   document.getElementById('u-note').value=pre?.note||'';
   document.getElementById('u-nd').value=pre?.noidung||'';
   document.getElementById('u-phone').value=pre?.phone||'';
-  // Populate giải
-  const sel=document.getElementById('u-giai');
-  const tourns=ROLE==='manager'?_T.filter(t=>String(t[0]||'')===MY_GIAI):_T;
-  sel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
-  if(pre?.giai) sel.value=pre.giai;
-  else if(ROLE==='manager') sel.value=MY_GIAI;
+
+  // Populate ref giải dropdown
+  const refSel = document.getElementById('u-giai-ref-sel');
+  const tourns = ROLE==='manager' ? _T.filter(t=>String(t[0]||'')===MY_GIAI) : _T;
+  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
+
+  // Build manager multi-picker
+  const giaiRaw = pre?.giai || '';
+  const selectedList = giaiRaw ? giaiRaw.split(',').map(g=>g.trim()).filter(Boolean) : [];
+  _buildManagerGiaiPicker(selectedList);
+  document.getElementById('u-giai').value = giaiRaw;
+
+  // Set ref giai
+  if(pre?.status==='active' && pre?.giai) refSel.value=pre.giai;
+  else if(ROLE==='manager') refSel.value=MY_GIAI;
+
+  _updateUserRoleFields();
+  document.getElementById('u-status').onchange = _updateUserRoleFields;
   document.getElementById('u-save').disabled=false;
   openMo('mo-user');
 }
@@ -9842,7 +9950,9 @@ async function saveUser() {
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
     status:document.getElementById('u-status').value,
-    giai:document.getElementById('u-giai').value,
+    giai: document.getElementById('u-status').value === 'active'
+      ? document.getElementById('u-giai-ref-sel').value
+      : document.getElementById('u-giai').value,
     noidung:document.getElementById('u-nd').value.trim(),
     phone:document.getElementById('u-phone').value.trim()};
   closeMo('mo-user');
@@ -10074,10 +10184,10 @@ async function loadTournamentsForRestore() {
     const d = await gGet({ action: 'tournaments', adminCode: CODE }, 10000);
     let rows = d.rows?.slice(1) || [];
     if (ROLE === 'manager') {
-      rows = rows.filter(r =>
-        String(r[8]||'').trim().toUpperCase() === CODE.trim().toUpperCase() ||
-        String(r[0]||'').trim().toUpperCase() === MY_GIAI.trim().toUpperCase()
-      );
+      rows = rows.filter(r => {
+        const giaiId = String(r[0]||'').trim().toUpperCase();
+        return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
+      });
     }
     if (rows.length > 0) { _T = rows; populateTournamentDropdowns(); }
   } catch(e) {}
