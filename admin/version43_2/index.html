@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.7 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v42.23 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2035,6 +2035,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 //  STATE
 // ════════════════════════════════════════════════════════════════
 let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
+
+// Filter tournaments theo quyền Manager — gọi mọi nơi trước khi gán _T
+function _filterTournsForRole(rows) {
+  if (ROLE !== 'manager') return rows;
+  if (!MY_GIAI_LIST.length) return []; // Manager chưa được cấp giải nào
+  const allowed = MY_GIAI_LIST.map(g => g.toUpperCase());
+  return rows.filter(r => allowed.includes(String(r[0]||'').trim().toUpperCase()));
+}
 let _T=[],_U=[],_M=[],_R=[],_P=[];                // dữ liệu cache
 // _gasLast*: giá trị mới nhất từ GAS dashboard (-1 = chưa nhận)
 // Dùng để tránh localStorage stale ghi đè GAS trên stat cards
@@ -2540,6 +2548,17 @@ function showApp() {
       if (!MANAGER_ALLOWED_PAGES.includes(btn.dataset.p)) btn.style.display = 'none';
     });
     // Điều hướng thẳng vào Quản lý giải khi login (hoặc restore từ hash)
+    if (!MY_GIAI_LIST.length) {
+      // Manager chưa có giải — có thể GAS cũ chưa trả giai, hoặc chưa được cấp quyền
+      // Thử fetch lại quyền từ GAS
+      gGet({ action:'validate', code:CODE, device:'AdminPanel' }, 8000).then(dv => {
+        if (dv?.valid && dv?.giai) {
+          MY_GIAI = dv.giai;
+          MY_GIAI_LIST = MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean);
+          localStorage.setItem('pb_adm3', JSON.stringify({u:GS,c:CODE,n:NAME,r:ROLE,g:MY_GIAI}));
+        }
+      }).catch(()=>{});
+    }
     if (!_appShown) setTimeout(() => _restoreFromHash().then(ok => { if (!ok) nav('tournaments'); }), 100);
   } else {
     // Admin: restore từ hash nếu có, không thì về Dashboard
@@ -2561,13 +2580,8 @@ function showApp() {
     const lsR = localStorage.getItem(_lsRKey)     || localStorage.getItem('pb_adm_R');
     if (lsT) {
       let cachedT = JSON.parse(lsT);
-      // Manager: chỉ giữ giải trong MY_GIAI_LIST — loại bỏ giải thừa từ cache cũ
-      if (ROLE === 'manager' && MY_GIAI_LIST.length > 0) {
-        cachedT = cachedT.filter(r =>
-          MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(String(r[0]||'').trim().toUpperCase())
-        );
-      }
-      _T = cachedT;
+      // Manager: loại bỏ giải thừa từ cache cũ — luôn filter
+      _T = _filterTournsForRole(cachedT);
       populateTournamentDropdowns();
     }
     if (lsM) { _M = JSON.parse(lsM); dedupM(); }
@@ -2770,7 +2784,7 @@ async function prefetchAll() {
 
     // Xử lý data nhận về
     if (tRes.rows?.length) {
-      _T = tRes.rows.slice(1);
+      _T = _filterTournsForRole(tRes.rows.slice(1));
       cacheSet('tournaments', _T);
     }
     if (mRes.rows?.length > 1) {
@@ -3373,7 +3387,7 @@ async function loadDash() {
 
     // Populate giải dropdown nếu có data mới
     if (d.tournaments?.length) {
-      _T = d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.refs||[]]);
+      _T = _filterTournsForRole(d.tournaments.map(t => [t.id,t.name,t.venue,t.courts,t.startDate,t.endDate,t.status,t.note,t.refs||[]]));
       populateTournamentDropdowns();
     }
     // ── Populate filter dropdowns Nội dung / Bảng ──
@@ -4044,15 +4058,9 @@ async function loadTournaments() {
   try {
     const d = await gGet({ action: 'tournaments', adminCode: CODE });
     let rows = d.rows?.slice(1) || [];
-    // Manager: filter client-side thêm (double-check)
-    if (ROLE === 'manager') {
-      rows = rows.filter(r => {
-        const giaiId = String(r[0]||'').trim().toUpperCase();
-        return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
-      });
-    }
-    // Manager: luôn dùng GAS response (đã filter đúng quyền) — không giữ cache cũ
-    // Admin: chỉ cập nhật nếu có data (tránh ghi đè cache khi GAS lỗi)
+    // Manager: filter client-side — bất kể GAS cũ/mới đều đúng
+    rows = _filterTournsForRole(rows);
+    // Manager: luôn dùng GAS response; Admin: chỉ cập nhật khi có data
     if (ROLE === 'manager' || rows.length > 0 || _T.length === 0) {
       _T = rows;
       populateTournamentDropdowns();
@@ -4069,7 +4077,15 @@ async function loadTournaments() {
 function renderTournCards(rows) {
   const wrap = document.getElementById('tourn-cards');
   if (!rows.length) {
-    wrap.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="ei">🏆</div><p>Chưa có giải đấu nào. Nhấn "+ Tạo giải đấu" để bắt đầu.</p></div>`;
+    if (ROLE === 'manager') {
+      wrap.innerHTML = `<div class="empty" style="grid-column:1/-1">
+        <div class="ei">🔒</div>
+        <p style="font-weight:700;color:var(--or)">Chưa được cấp quyền giải đấu nào</p>
+        <p style="font-size:12px;color:var(--tx3);margin-top:6px">Vui lòng liên hệ Admin để được phân quyền.</p>
+      </div>`;
+    } else {
+      wrap.innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="ei">🏆</div><p>Chưa có giải đấu nào. Nhấn "+ Tạo giải đấu" để bắt đầu.</p></div>`;
+    }
     return;
   }
   wrap.innerHTML = rows.map(r => {
@@ -10165,7 +10181,7 @@ async function loadPhanQuyen() {
     ]);
     const allUsers  = dU.rows?.slice(1) || _U;
     const allTourns = dT.rows?.slice(1) || _T;
-    if (allTourns.length) { _T = allTourns; }
+    if (allTourns.length) { _T = _filterTournsForRole(allTourns); }
     _pqManagers = allUsers.filter(r => String(r[7]||'').toLowerCase() === 'manager');
     _pqTourns   = allTourns;
     renderPhanQuyen(_pqManagers, allTourns);
@@ -10609,10 +10625,7 @@ async function loadTournamentsForRestore() {
         return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
       });
     }
-    if (ROLE === 'manager') {
-      // Manager: filter lại phòng trường hợp GAS cũ chưa deploy
-      rows = rows.filter(r => MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(String(r[0]||'').trim().toUpperCase()));
-    }
+    rows = _filterTournsForRole(rows);
     if (rows.length > 0 || ROLE === 'manager') { _T = rows; populateTournamentDropdowns(); }
   } catch(e) {}
 }
