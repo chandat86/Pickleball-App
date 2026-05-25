@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.888 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.999 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2694,6 +2694,13 @@ function cacheGet(key) {
   return null;
 }
 function cacheSet(key, data) { _cache[key] = { ts: Date.now(), data }; }
+function cacheDel(key) { delete _cache[key]; }
+// Xóa cache matches cho 1 giải (dùng sau delete/update)
+function _invalidateMatchCache(giaiId) {
+  const giaiName = giaiId ? String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
+  if (giaiName) cacheDel('matches_' + giaiName);
+  if (giaiId && giaiId !== giaiName) cacheDel('matches_' + giaiId);
+}
 
 // ── Connection status helpers ──────────────────────────────────
 // _gasConnected, _failCount, _prefetchFailed declared at top of STATE block
@@ -4231,7 +4238,8 @@ async function ndRefresh() {
   const bracketActive = document.getElementById('nd-panel-bracket')?.style.display !== 'none';
   const playersActive = document.getElementById('nd-panel-players')?.style.display !== 'none';
   try {
-    await loadMatchesCache(_curGiaiId||'');
+    _invalidateMatchCache(_curGiaiId||''); // force fetch từ GAS, không dùng cache cũ
+    await loadMatchesCache(_curGiaiId||'', true);
     if (bracketActive) {
       _bkGiai = _curGiaiId || _bkGiai;
       _bkNd   = _curNd     || _bkNd;
@@ -4721,8 +4729,9 @@ async function confirmGenerateSchedule(rows, giaiId, nd) {
     const d = await gPost({action:'addMatchesBatch', adminCode:CODE, rows});
     if (d?.ok) {
       toast(`✅ Đã tạo ${d.added||rows.length} trận! Chuyển sang Bảng đấu...`, 'ok');
-      // Reload matches and switch to bangs tab
-      await loadMatchesCache(giaiId);
+      // Invalidate cache + force reload từ GAS để lấy data mới nhất
+      _invalidateMatchCache(giaiId);
+      await loadMatchesCache(giaiId, true);
       switchNdTab('bangs');
     } else {
       toast('❌ '+(d?.reason||'Lỗi tạo lịch'), 'er');
@@ -5612,6 +5621,7 @@ Hành động này không thể hoàn tác.`)) return;
     if (d?.ok) {
       const idx = _M.findIndex(r=>(String(r[0]||'')===giaiId||String(r[0]||'')===gName)&&String(r[1]||'')===nd&&String(r[2]||'')===bang&&String(r[3]||'')===code);
       if (idx>=0) _M.splice(idx,1);
+      _invalidateMatchCache(giaiId); // xóa cache để reload từ GAS
       toast(`✅ Đã xóa trận ${code}`,'ok');
       renderBangList(giaiId, nd);
     } else { toast('❌ '+(d?.reason||'Lỗi xóa'),'er'); }
@@ -5966,7 +5976,8 @@ async function confirmDeleteBang(giaiId, nd, bang) {
     return !(sameGiai && sameNd && sameBang);
   });
 
-  // ── Đóng modal tiến trình và re-render NGAY ──
+  // ── Xóa cache + re-render ──
+  _invalidateMatchCache(giaiId); // bắt reload GAS lần sau
   document.getElementById('prog-overlay').style.display = 'none';
   toast(`✅ Đã xóa bảng ${bang} (${before - _M.length} trận)`, 'ok');
   renderBangList(giaiId, nd);
@@ -6482,13 +6493,13 @@ function dedupM() {
   });
 }
 
-async function loadMatchesCache(giaiId='') {
+async function loadMatchesCache(giaiId='', forceRefresh=false) {
   // Resolve giaiName từ _T (luôn dùng tên để match với GSheets)
   const giaiName = giaiId ? String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
   const cKey = 'matches_' + giaiName;
 
-  // Dùng cache nếu còn mới
-  const cached = cacheGet(cKey);
+  // Dùng cache nếu còn mới VÀ không bị force refresh
+  const cached = forceRefresh ? null : cacheGet(cKey);
   if (cached) {
     // Thay thế hoàn toàn dữ liệu của giải này trong _M (chỉ theo giaiName)
     const others = _M.filter(m => String(m[0]||'') !== giaiName);
@@ -8172,7 +8183,8 @@ async function bkSave() {
 
   if (ok) { toast(`✅ Lưu xong ${ok} trận vào lịch thi đấu`, 'ok'); }
   if (fail) { toast(`⚠️ ${fail} trận lỗi`, 'er'); }
-  await loadMatchesCache(_bkGiai);
+  _invalidateMatchCache(_bkGiai);
+  await loadMatchesCache(_bkGiai, true);
   bkRender();
 }
 
