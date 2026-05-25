@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.333323 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.1212 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -7045,12 +7045,51 @@ function _bkCrossSeededSlots(globalSeeds, bangs) {
     ];
   } else if (nb === 7) {
     // 7 bảng → cap=16, 14 đội, 2 BYE
-    // Nhánh 1: V161=1A vs 2B, V162=1C vs 2D, V163=1E vs 2F, V164=1G vs BYE
-    // Nhánh 2: V165=1B vs 2A, V166=1D vs 2C, V167=1F vs 2E, V168=BYE vs 2G
-    // → Mỗi seed xuất hiện đúng 1 lần, cùng bảng gặp nhau muộn nhất
+    // NGUYÊN TẮC: BYE trao cho 2 nhất bảng có THÀNH TÍCH TỐT NHẤT toàn giải
+    // (không cố định theo tên bảng — đảm bảo công bằng)
+    //
+    // Sort nhất theo: thắng↓ → hiệu số↓ → điểm ghi↓
+    const wByPerf = bangList
+      .map((b,i) => ({ i, w: byBang[b]?.w }))
+      .filter(x => x.w)
+      .sort((a,b) => {
+        const sa=a.w, sb=b.w;
+        return (sb.won-sa.won) || ((sb.pf-sb.pa)-(sa.pf-sa.pa)) || (sb.pf-sa.pf);
+      });
+
+    const byeIdx  = [wByPerf[0]?.i, wByPerf[1]?.i].filter(x=>x!=null); // 2 bảng được BYE
+    const playIdx = wByPerf.slice(2).map(x=>x.i);  // 5 bảng nhất phải đánh V16
+    // 7 nhì — tất cả phải đánh V16
+    const rIdx = bangList.map((_,i)=>i); // 0..6
+
+    // Cross-seed 5 nhất với 5 nhì (khác bảng):
+    // Sắp xếp rIdx để tránh cùng bảng: rIdx[k] ≠ playIdx[k]
+    const rSorted = [...rIdx].filter(r => !byeIdx.includes(r));
+    // Rotate để tránh cùng bảng: nếu rSorted[k] === playIdx[k] → swap với next
+    for (let k=0; k<playIdx.length && k<rSorted.length; k++) {
+      if (rSorted[k] === playIdx[k]) {
+        const swapWith = rSorted.findIndex((r,j)=>j>k && r!==playIdx[k] && (j>=playIdx.length||r!==playIdx[j]));
+        if (swapWith>0) { [rSorted[k],rSorted[swapWith]]=[rSorted[swapWith],rSorted[k]]; }
+      }
+    }
+
+    // Tạo 5 cặp nhất-nhì + 1 cặp nhì-nhì (2 nhì còn lại)
+    const usedR   = new Set(rSorted.slice(0,5));
+    const leftR   = rIdx.filter(r=>!usedR.has(r)); // 2 nhì chưa ghép
+
+    const pair = (wi,ri) => [wi!=null?W(wi):null, ri!=null?R(ri):null];
+
+    // 8 slots V16: nhánh 1 (slots 1-4), nhánh 2 (slots 5-8)
+    // 3 cặp nhất-nhì + 1 cặp nhì-nhì + 2 BYE slots = 8
     matchPairs = [
-      [W(0),R(1)],[W(2),R(3)],[W(4),R(5)],[W(6),null],  // nhánh 1
-      [W(1),R(0)],[W(3),R(2)],[W(5),R(4)],[null,R(6)],  // nhánh 2
+      pair(playIdx[0], rSorted[0]),                    // V161
+      pair(playIdx[1], rSorted[1]),                    // V162
+      pair(playIdx[2], rSorted[2]),                    // V163
+      [W(byeIdx[0]), null],                            // V164: BYE winner 1
+      pair(playIdx[3], rSorted[3]),                    // V165
+      pair(playIdx[4], rSorted[4]),                    // V166
+      leftR.length>=2 ? [R(leftR[0]),R(leftR[1])] : [null,null], // V167: 2 nhì còn
+      [null, W(byeIdx[1])],                            // V168: BYE winner 2
     ];
   } else if (nb === 8) {
     // 8 bảng → 8 V16: nhánh 1=(V161-V164)→TK→BK1; nhánh 2=(V165-V168)→TK→BK2
