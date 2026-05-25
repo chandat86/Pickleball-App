@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.7777 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.888 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4263,6 +4263,9 @@ function switchNdTab(tab, _skipHash) {
   });
   if (!_skipHash) _writeHash();
 
+  if (tab === 'bangs' || tab === 'bracket') {
+    _savePLayersCtx(); // lưu players context khi rời tab danh sách
+  }
   if (tab === 'bracket') {
     _bkGiai = _curGiaiId || '';
     _bkNd   = _curNd     || '';
@@ -4270,6 +4273,7 @@ function switchNdTab(tab, _skipHash) {
     _ndBkRender();
   }
   if (tab === 'players') {
+    _switchPlayersCtx(_curGiaiId||'', _curNd||''); // đảm bảo context đúng trước khi render
     renderPlayersPanel();
   }
 }
@@ -4282,6 +4286,28 @@ function switchNdTab(tab, _skipHash) {
 let _players = []; // [{id, name, seed}]  — danh sách đội/VĐV
 let _bocThamGroups = {}; // {bangName: [playerName,...]}
 let _bocThamLocked = false;
+// Cache players/bocTham theo giaiId|nd — tránh dùng nhầm giữa các nội dung
+const _playersCache    = {}; // key: "giaiId|nd" → [{id,name,seed}]
+const _bocThamCache    = {}; // key: "giaiId|nd" → {bangName:[...]}
+let   _playersCtxKey   = ''; // context key hiện tại
+
+// Lưu state hiện tại vào cache
+function _savePLayersCtx() {
+  if (!_playersCtxKey) return;
+  _playersCache[_playersCtxKey]  = [..._players];
+  _bocThamCache[_playersCtxKey]  = JSON.parse(JSON.stringify(_bocThamGroups));
+}
+// Chuyển context → lưu cũ, tải mới
+function _switchPlayersCtx(giaiId, nd) {
+  _savePLayersCtx();
+  const newKey = (giaiId||'') + '|' + (nd||'');
+  if (newKey !== _playersCtxKey) {
+    _playersCtxKey  = newKey;
+    _players        = _playersCache[newKey]   ? [..._playersCache[newKey]]                     : [];
+    _bocThamGroups  = _bocThamCache[newKey]   ? JSON.parse(JSON.stringify(_bocThamCache[newKey])) : {};
+    _bocThamLocked  = false;
+  }
+}
 let _appShown = false;        // Đã nav lần đầu chưa
 let _bxhCollapsed = new Set(); // Track collapsed BXH bangs persistently
 
@@ -4801,6 +4827,7 @@ async function _swapBkWrap(altId, fn) {
 // ── Click nội dung → View Bảng ──
 function openNdDetail(giaiId, nd) {
   _curNd = nd; _curGiaiId = giaiId;
+  _switchPlayersCtx(giaiId, nd); // reset players/bocTham cho đúng nội dung
   const r = _T.find(t=>String(t[0]||'')===giaiId);
   if (!r) return;
   _curTourn = r;
