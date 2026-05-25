@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.7 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10377,9 +10377,11 @@ async function saveUser() {
   const originalCode = (document.getElementById('u-code').dataset.originalCode||'').trim();
   // Khi sửa: giữ nguyên mã cũ (originalCode). Khi thêm mới: dùng SĐT làm mã nếu không có mã
   const effectiveCode = _editU ? (originalCode || code) : (code || phone);
-  const user={code: effectiveCode, name,expire:document.getElementById('u-exp').value,
-    // Không truyền originalCode khi sửa vì mã không thay đổi (ô mã ẩn)
+  // origPhone: SĐT gốc của user đang sửa — để GAS tìm đúng row theo SĐT
+  const origPhone = _editU ? String(_editU.phone||'').trim().replace(/\D/g,'') : '';
+  const user={code: effectiveCode, name, expire:document.getElementById('u-exp').value,
     originalCode: undefined,
+    origPhone: origPhone, // SĐT cũ để GAS tìm row chính xác
     courts:document.getElementById('u-courts').value.trim(),
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
@@ -10387,7 +10389,6 @@ async function saveUser() {
     giai: document.getElementById('u-status').value === 'active'
       ? document.getElementById('u-giai-ref-sel').value
       : document.getElementById('u-giai').value,
-    // ownerCode được GAS tự set khi manager tạo (actor.code)
     noidung:document.getElementById('u-nd').value.trim(),
     phone:document.getElementById('u-phone').value.trim()};
   closeMo('mo-user');
