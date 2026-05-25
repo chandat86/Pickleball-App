@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.5454 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.1111 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -7650,68 +7650,33 @@ async function _bkAutoAdvanceIfNeeded() {
   try {
     const giaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
 
-    // 1. Fetch KetQua mới nhất để phát hiện KO match done
+    // 1. Fetch KetQua mới nhất
     const rd = await gGet({ action:'results', giai: giaiName }, 8000);
     if (!rd?.rows?.length) return;
-    buildDkFromResults(rd.rows.slice(1)); // cập nhật _dK, _dkScores
+    buildDkFromResults(rd.rows.slice(1));
 
-    // 2. Lấy tất cả KO matches của nội dung này
+    // 2. Reload matches để _M có data mới nhất (KO match với đội đã điền)
+    await loadMatchesCache(_bkGiai, true);
+
+    // 3. Lấy KO matches
     const allM = _M.filter(m => (String(m[0]||'')===giaiName||String(m[0]||'')===_bkGiai) && String(m[1]||'')===_bkNd);
-    const koMatches = allM.filter(m => { const v=String(m[9]||''); return v && v!=='Vòng bảng' && !v.includes('bảng'); });
-    if (!koMatches.length) return;
+    const koMatches = allM.filter(m => { const v=String(m[9]||''); return v&&v!=='Vòng bảng'&&!v.includes('bảng'); });
 
-    // 3. Kiểm tra có KO match mới done không
+    // 4. Tìm KO match mới done (có KQ nhưng chưa track)
     let hasNewDone = false;
     koMatches.forEach(m => {
-      const key = `${m[1]}|${m[2]}|${m[3]}`;
+      const key = `${String(m[1]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
       if (isMatchDone(m) && !_bkLastKoDoneKeys.has(key)) {
         hasNewDone = true;
         _bkLastKoDoneKeys.add(key);
+        console.log('[bkAutoAdvance] KO done mới:', key);
       }
     });
 
-    if (!hasNewDone && _bkLastKoDoneKeys.size > 0) return; // không có gì mới
+    if (!hasNewDone) return;
 
-    // 4. Kiểm tra cây hiện tại có chỗ nào cần điền đội thắng không
-    if (!_bkCurrentTree?.rounds?.length) return;
-    const koByCode = {};
-    koMatches.forEach(m => { koByCode[String(m[3]||'')] = m; });
-
-    // Xây map: code → nextRound matches (trận nào nhận winner từ code này)
-    let needFill = false;
-    for (const round of _bkCurrentTree.rounds) {
-      for (const slot of round.matches) {
-        const km = koByCode[slot.code];
-        if (!km) continue;
-        if (!isMatchDone(km)) continue; // chưa xong
-        // Trận này xong → winner cần điền vào vòng sau
-        const fs = getFinalScore(km);
-        if (!fs) continue;
-        const winner = fs.scoreA > fs.scoreB ? String(km[4]||'') : String(km[7]||'');
-        if (!winner) continue;
-        // Tìm slot vòng sau có teamA/teamB đang trống mà cần winner này
-        for (const nextRound of _bkCurrentTree.rounds) {
-          for (const nextSlot of nextRound.matches) {
-            const nkm = koByCode[nextSlot.code];
-            if (!nkm) continue;
-            if (isMatchDone(nkm)) continue; // đã xong rồi
-            // Nếu teamA hoặc teamB trống → cần điền
-            if (!String(nkm[4]||'').trim() || !String(nkm[7]||'').trim()) {
-              needFill = true; break;
-            }
-          }
-          if (needFill) break;
-        }
-        if (needFill) break;
-      }
-      if (needFill) break;
-    }
-
-    if (!needFill && _bkLastKoDoneKeys.size === 0) return;
-
-    // 5. Tự động điền + apply lên GAS
-    console.log('[bkAutoAdvance] Phát hiện KO match mới done → tự advance');
-    toast('🤖 Tự động điền vòng tiếp...', 'in');
+    // 5. Có kết quả mới → tự điền + apply GAS
+    toast('🤖 Có kết quả mới — tự động điền vòng tiếp...', 'in');
     await bkAutoFill();
 
   } catch(e) {
@@ -7827,11 +7792,23 @@ async function bkAutoFill() {
       });
     }
 
-    // 6. Re-render cây với data mới
+    // 6. Reload matches + re-render cây và bảng đấu
+    _invalidateMatchCache(_bkGiai);
+    await loadMatchesCache(_bkGiai, true);
     bkRender();
+    // Nếu đang ở tab bảng đấu của nội dung này → render luôn
+    if (_curGiaiId === _bkGiai && _curNd === _bkNd) {
+      const tvNd = document.getElementById('tv-nd');
+      if (tvNd && tvNd.style.display !== 'none') renderBangList(_bkGiai, _bkNd);
+    }
 
     const total = toCreate.length + toUpdate.length;
-    toast(`✅ Tạo xong! ${toCreate.length} trận mới · ${toUpdate.length} cập nhật — seeding chuẩn quốc tế`, 'ok');
+    if (toCreate.length && toUpdate.length)
+      toast(`✅ Cập nhật trận đấu thành công — ${toCreate.length} trận mới · ${toUpdate.length} cập nhật`, 'ok');
+    else if (toCreate.length)
+      toast(`✅ Cập nhật trận đấu thành công — Thêm ${toCreate.length} trận vào lịch thi đấu`, 'ok');
+    else
+      toast(`✅ Cập nhật trận đấu thành công — Cập nhật ${toUpdate.length} trận`, 'ok');
 
   } catch(e) {
     console.error('[bkAutoFill]', e);
