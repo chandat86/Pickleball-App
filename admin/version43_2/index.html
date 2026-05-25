@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v42.23 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.3323 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -959,7 +959,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   <main class="cn">
 
     <!-- ══ DASHBOARD ══ -->
-    <div class="page on" id="page-dashboard">
+    <div class="page on" id="page-dashboard" style="visibility:hidden">
 
       <!-- ── HEADER ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -2037,11 +2037,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
 
 // Filter tournaments theo quyền Manager — gọi mọi nơi trước khi gán _T
+// Manager thấy: (A) giải mình tạo (col[8]=ownerCode) + (B) giải được admin cấp (MY_GIAI_LIST)
 function _filterTournsForRole(rows) {
   if (ROLE !== 'manager') return rows;
-  if (!MY_GIAI_LIST.length) return []; // Manager chưa được cấp giải nào
-  const allowed = MY_GIAI_LIST.map(g => g.toUpperCase());
-  return rows.filter(r => allowed.includes(String(r[0]||'').trim().toUpperCase()));
+  const assignedUpper = MY_GIAI_LIST.map(g => g.toUpperCase());
+  return rows.filter(r => {
+    const giaiId    = String(r[0]||'').trim().toUpperCase();
+    const ownerCode = String(r[8]||'').trim().toUpperCase(); // Tournaments col[8] = Người tạo
+    return ownerCode === CODE.toUpperCase() || assignedUpper.includes(giaiId);
+  });
 }
 let _T=[],_U=[],_M=[],_R=[],_P=[];                // dữ liệu cache
 // _gasLast*: giá trị mới nhất từ GAS dashboard (-1 = chưa nhận)
@@ -2556,6 +2560,9 @@ function showApp() {
           MY_GIAI = dv.giai;
           MY_GIAI_LIST = MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean);
           localStorage.setItem('pb_adm3', JSON.stringify({u:GS,c:CODE,n:NAME,r:ROLE,g:MY_GIAI}));
+          // Re-filter _T now that we have the list
+          _T = _filterTournsForRole(_T);
+          if (document.getElementById('tv-list')?.style.display !== 'none') renderTournCards(_T);
         }
       }).catch(()=>{});
     }
@@ -2884,7 +2891,10 @@ function nav(p, _skipHash) {
   // Sync sidebar + mobile bottom nav
   document.querySelectorAll('.ni[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === p));
   document.querySelectorAll('.mni[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === p));
-  document.querySelectorAll('.page').forEach(el => el.classList.toggle('on', el.id === 'page-' + p));
+  document.querySelectorAll('.page').forEach(el => {
+    el.classList.toggle('on', el.id === 'page-' + p);
+    el.style.visibility = ''; // restore visibility hidden set on dashboard
+  });
   // Scroll to top on mobile
   window.scrollTo(0, 0);
   clearInterval(_dtimer);
