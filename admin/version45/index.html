@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.114 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1536,7 +1536,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
       <div class="tw">
         <table class="tbl">
-          <thead><tr><th>Mã</th><th>Họ tên</th><th>Vai trò</th><th>Giải phân</th><th>Nội dung</th><th>Sân</th><th>Vòng</th><th>Hết hạn</th><th>📞 SĐT</th><th>Ghi chú</th><th></th></tr></thead>
+          <thead><tr><th>Họ tên</th><th>📞 SĐT</th><th>Vai trò</th><th>Giải phân</th><th>Nội dung</th><th>Sân</th><th>Vòng</th><th>Hết hạn</th><th>Ghi chú</th><th></th></tr></thead>
           <tbody id="u-tb"><tr><td colspan="11" style="text-align:center;padding:28px"><span class="spin"></span></td></tr></tbody>
         </table>
       </div>
@@ -10166,7 +10166,7 @@ function filterUsers() {
 }
 function renderUsers(rows) {
   const tb = document.getElementById('u-tb');
-  if (!rows.length) { tb.innerHTML = emptyRow(10,'👥','Không có trọng tài'); return; }
+  if (!rows.length) { tb.innerHTML = emptyRow(9,'👥','Không có trọng tài'); return; }
   tb.innerHTML = rows.map(r => {
     const st=String(r[7]||'active').toLowerCase();
     const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':'bo';
@@ -10176,28 +10176,29 @@ function renderUsers(rows) {
     const rt=rts?rts.split(',').map(c=>`<span class="ptago ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
     const exp=r[2]?fmtD(r[2]):'<span style="color:var(--rd)">⚠️ Trống</span>';
     const cd=esc(r[0]),nm=esc(r[1]);
+    const phone=String(r[10]||'').trim();
+    // Dùng SĐT làm key xóa (unique); fallback mã nếu không có SĐT
+    const delKey=esc(phone||r[0]);
     const ownerCode = String(r[11]||'').trim();
     const grpTag = ownerCode
       ? `<span style="font-size:9px;background:rgba(6,182,212,.1);color:var(--cy);border:1px solid rgba(6,182,212,.2);padding:1px 5px;border-radius:8px;margin-left:4px" title="Nhóm của ${ownerCode}">${ownerCode}</span>`
       : '';
-    // Resolve giai: r[8] có thể là mã (SHCOL32026) hoặc tên — hiển thị tên
     const giaiRaw = String(r[8]||'').trim();
     const giaiDisplay = giaiRaw
       ? ((_T.find(t=>String(t[0]||'').toUpperCase()===giaiRaw.toUpperCase())||[])[1] || giaiRaw)
       : '—';
     return `<tr>
-      <td><span class="mono">${r[0]}</span></td>
       <td style="font-weight:600">${r[1]}${grpTag}</td>
+      <td style="font-size:11px;color:var(--ac2)">${phone?`<a href="tel:${phone}" style="color:var(--ac2);text-decoration:none">📞 ${esc(phone)}</a>`:''}</td>
       <td><span class="bdg ${bc}">${bl}</span></td>
       <td style="font-size:11px;color:var(--ac)">${esc(giaiDisplay)}</td>
       <td style="font-size:11px;color:var(--tx2)">${r[9]||'—'}</td>
       <td>${ct}</td><td>${rt}</td>
       <td style="font-size:12px;color:var(--tx3)">${exp}</td>
-      <td style="font-size:11px;color:var(--ac2)">${r[10]?`<a href="tel:${r[10]}" style="color:var(--ac2);text-decoration:none">📞 ${esc(String(r[10]))}</a>`:''}</td>
       <td style="font-size:12px;color:var(--tx3)">${r[6]||''}</td>
       <td><div style="display:flex;gap:3px">
         <button class="btn bh bsm" onclick="editUser('${cd}')">✏️</button>
-        <button class="btn br bsm" onclick="delUser('${cd}','${nm}')">🗑</button>
+        <button class="btn br bsm" onclick="delUser('${delKey}','${nm}')">🗑</button>
       </div></td></tr>`;
   }).join('');
 }
@@ -10398,37 +10399,44 @@ async function saveUser() {
     loadUsers();
   }catch(e){toast('Lỗi kết nối','er');}
 }
-async function delUser(code, name) {
+async function delUser(phoneOrCode, name) {
   if (!confirm(`Xóa trọng tài ${name}?`)) return;
 
-  // Xóa UI tạm thời
+  const cleanKey = String(phoneOrCode||'').trim();
+  const cleanPhone = cleanKey.replace(/\D/g,'');
+
+  // Xóa UI tạm thời — filter theo SĐT hoặc mã
   const prev_U = [..._U];
-  _U = _U.filter(r => String(r[0]||'').toUpperCase() !== String(code||'').toUpperCase());
+  _U = _U.filter(r => {
+    const rPhone = String(r[10]||'').trim().replace(/\D/g,'');
+    const rCode  = String(r[0]||'').trim().toUpperCase();
+    if (cleanPhone && rPhone && rPhone === cleanPhone) return false;
+    if (rCode === cleanKey.toUpperCase()) return false;
+    return true;
+  });
   delete _cache['users'];
   filterUsers();
   toast(`⏳ Đang xóa ${name}...`, 'in');
 
   try {
-    const d = await gPost({ action: 'deleteUser', adminCode: CODE, code });
+    // Gửi cả phone lẫn code để GAS có thể tìm chính xác
+    const d = await gPost({ action: 'deleteUser', adminCode: CODE, code: cleanKey, phone: cleanPhone });
     if (d?.ok) {
       toast(`🗑 Đã xóa ${name}`, 'ok');
       loadUsers(); // reload từ GAS để đồng bộ
     } else {
-      // GAS báo lỗi → rollback UI
       _U = prev_U;
       delete _cache['users'];
       filterUsers();
       toast(`❌ Xóa thất bại: ${d?.reason || 'Lỗi không xác định'}`, 'er');
     }
   } catch(e) {
-    // Lỗi mạng → rollback UI
     _U = prev_U;
     delete _cache['users'];
     filterUsers();
     toast(`❌ Lỗi kết nối khi xóa: ${e.message}`, 'er');
   }
 }
-
 // ════════════════════════════════════════════════════════════════
 //  PLAYERS
 // ════════════════════════════════════════════════════════════════
