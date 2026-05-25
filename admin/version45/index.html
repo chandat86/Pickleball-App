@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.5 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.114 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10351,12 +10351,20 @@ async function saveUser() {
     document.getElementById('u-phone').focus();
     toast('⚠️ Số điện thoại là bắt buộc!','er');return;
   }
+  // Đảm bảo _U đã load — nếu rỗng fetch từ GAS trước khi check unique
+  if (!_U.length) {
+    try {
+      const du = await gGet({ action:'getUsers', adminCode:CODE });
+      if (du?.ok && du.rows?.length > 1) _U = du.rows.slice(1);
+    } catch(e) {}
+  }
   // Kiểm tra SĐT unique phía client (bỏ qua chính user đang sửa)
   const cleanPhone = phone.replace(/\D/g,'');
+  const selfCode = _editU ? String(_editU.code||'').trim().toUpperCase() : null;
   const dupUser = (_U||[]).find(u => {
     const uPhone = String(u[10]||'').trim().replace(/\D/g,'');
     const uCode  = String(u[0]||'').trim().toUpperCase();
-    const isSelf = _editU && uCode === String(_editU.code||'').trim().toUpperCase();
+    const isSelf = selfCode && uCode === selfCode;
     return !isSelf && uPhone && uPhone === cleanPhone;
   });
   if (dupUser) {
@@ -10391,7 +10399,7 @@ async function saveUser() {
   }catch(e){toast('Lỗi kết nối','er');}
 }
 async function delUser(code, name) {
-  if (!confirm(`Xóa trọng tài ${name}?\nThao tác này sẽ xóa dữ liệu trên Google Sheets.`)) return;
+  if (!confirm(`Xóa trọng tài ${name}?`)) return;
 
   // Xóa UI tạm thời
   const prev_U = [..._U];
