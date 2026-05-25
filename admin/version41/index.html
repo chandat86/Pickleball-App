@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v41.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v25 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -3886,20 +3886,36 @@ async function loadTournaments() {
   // Clear context so polling doesn't re-render bang list while on list view
   _curNd = ''; _curTourn = null;
   showTournView('list');
-  document.getElementById('tourn-cards').innerHTML = '<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
+
+  // ── Render ngay từ cache nếu có (0 delay) ──
+  if (_T.length > 0) {
+    renderTournCards(_T);
+  } else {
+    document.getElementById('tourn-cards').innerHTML = '<div class="empty" style="grid-column:1/-1"><span class="spin"></span></div>';
+  }
+
+  // ── Fetch GAS để cập nhật mới nhất ──
   try {
     const d = await gGet({ action: 'tournaments', adminCode: CODE });
-    _T = d.rows?.slice(1) || [];
+    let rows = d.rows?.slice(1) || [];
     // Manager: filter client-side thêm (double-check)
     if (ROLE === 'manager') {
-      _T = _T.filter(r =>
+      rows = rows.filter(r =>
         String(r[8]||'').trim().toUpperCase() === CODE.trim().toUpperCase() ||
         String(r[0]||'').trim().toUpperCase() === MY_GIAI.trim().toUpperCase()
       );
     }
-    populateTournamentDropdowns();
+    // Chỉ cập nhật nếu kết quả hợp lệ
+    if (rows.length > 0 || _T.length === 0) {
+      _T = rows;
+      populateTournamentDropdowns();
+    }
     renderTournCards(_T);
-  } catch(e) { toast('Lỗi kết nối', 'er'); }
+  } catch(e) {
+    // Nếu lỗi nhưng đã có cache → giữ nguyên cache
+    if (_T.length === 0) toast('Lỗi kết nối', 'er');
+    else renderTournCards(_T); // render lại cache
+  }
 }
 
 // ── Render card giải đấu ──
