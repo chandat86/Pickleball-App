@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.623 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.7 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2552,10 +2552,24 @@ function showApp() {
   // → s-done KHÔNG được render từ cache này, chờ GAS
   let _dkFromCache = false;
   try {
-    const lsT = localStorage.getItem('pb_adm_T');
-    const lsM = localStorage.getItem('pb_adm_M');
-    const lsR = localStorage.getItem('pb_adm_R');
-    if (lsT) { _T = JSON.parse(lsT); populateTournamentDropdowns(); }
+    // Cache key theo từng user — tránh Admin/Manager dùng chung cache
+    const _lsCacheKey = 'pb_adm_T_' + CODE;
+    const _lsMKey     = 'pb_adm_M_' + CODE;
+    const _lsRKey     = 'pb_adm_R_' + CODE;
+    const lsT = localStorage.getItem(_lsCacheKey) || localStorage.getItem('pb_adm_T');
+    const lsM = localStorage.getItem(_lsMKey)     || localStorage.getItem('pb_adm_M');
+    const lsR = localStorage.getItem(_lsRKey)     || localStorage.getItem('pb_adm_R');
+    if (lsT) {
+      let cachedT = JSON.parse(lsT);
+      // Manager: chỉ giữ giải trong MY_GIAI_LIST — loại bỏ giải thừa từ cache cũ
+      if (ROLE === 'manager' && MY_GIAI_LIST.length > 0) {
+        cachedT = cachedT.filter(r =>
+          MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(String(r[0]||'').trim().toUpperCase())
+        );
+      }
+      _T = cachedT;
+      populateTournamentDropdowns();
+    }
     if (lsM) { _M = JSON.parse(lsM); dedupM(); }
     if (lsR) { buildDkFromResults(JSON.parse(lsR)); _dkFromCache = true; }
     if (_T.length || _M.length) _renderDashFromLocal('', '', '');
@@ -2783,8 +2797,10 @@ async function prefetchAll() {
     dedupM();
     // ── Lưu vào localStorage để lần sau render instant ──
     try {
-      if (_T.length) localStorage.setItem('pb_adm_T', JSON.stringify(_T));
-      if (_M.length) localStorage.setItem('pb_adm_M', JSON.stringify(_M));
+      const _lsCacheKey = 'pb_adm_T_' + CODE;
+      const _lsMKey     = 'pb_adm_M_' + CODE;
+      if (_T.length) localStorage.setItem(_lsCacheKey, JSON.stringify(_T));
+      if (_M.length) localStorage.setItem(_lsMKey,     JSON.stringify(_M));
       // Lưu _R (KetQua rows) cho buildDkFromResults
       const cachedR2 = cacheGet('results_' + (ROLE==='manager'?MY_GIAI:''));
       if (cachedR2?.length) {
@@ -4035,8 +4051,9 @@ async function loadTournaments() {
         return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
       });
     }
-    // Chỉ cập nhật nếu kết quả hợp lệ
-    if (rows.length > 0 || _T.length === 0) {
+    // Manager: luôn dùng GAS response (đã filter đúng quyền) — không giữ cache cũ
+    // Admin: chỉ cập nhật nếu có data (tránh ghi đè cache khi GAS lỗi)
+    if (ROLE === 'manager' || rows.length > 0 || _T.length === 0) {
       _T = rows;
       populateTournamentDropdowns();
     }
@@ -10592,7 +10609,11 @@ async function loadTournamentsForRestore() {
         return MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(giaiId);
       });
     }
-    if (rows.length > 0) { _T = rows; populateTournamentDropdowns(); }
+    if (ROLE === 'manager') {
+      // Manager: filter lại phòng trường hợp GAS cũ chưa deploy
+      rows = rows.filter(r => MY_GIAI_LIST.map(g=>g.toUpperCase()).includes(String(r[0]||'').trim().toUpperCase()));
+    }
+    if (rows.length > 0 || ROLE === 'manager') { _T = rows; populateTournamentDropdowns(); }
   } catch(e) {}
 }
 
