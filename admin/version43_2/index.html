@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.999 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.9898 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2613,9 +2613,11 @@ function showApp() {
       _T = _filterTournsForRole(cachedT);
       populateTournamentDropdowns();
     }
-    if (lsM) { _M = JSON.parse(lsM); dedupM(); }
+    // _M không restore từ localStorage — matches thay đổi thường xuyên (xóa/thêm/kết quả)
+    // → luôn fetch từ GAS để tránh hiện trận đã xóa sau reload
+    // if (lsM) { _M = JSON.parse(lsM); dedupM(); }
     if (lsR) { buildDkFromResults(JSON.parse(lsR)); _dkFromCache = true; }
-    if (_T.length || _M.length) _renderDashFromLocal('', '', '');
+    if (_T.length) _renderDashFromLocal('', '', '');
   } catch(e) {}
 
   // Tải dữ liệu nền (non-blocking — chạy nền, UI không chờ)
@@ -2700,6 +2702,11 @@ function _invalidateMatchCache(giaiId) {
   const giaiName = giaiId ? String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
   if (giaiName) cacheDel('matches_' + giaiName);
   if (giaiId && giaiId !== giaiName) cacheDel('matches_' + giaiId);
+  // Xóa luôn localStorage _M để reload không load data cũ
+  try {
+    localStorage.removeItem('pb_adm_M_' + CODE);
+    localStorage.removeItem('pb_adm_M');
+  } catch(e) {}
 }
 
 // ── Connection status helpers ──────────────────────────────────
@@ -2851,7 +2858,8 @@ async function prefetchAll() {
       const _lsCacheKey = 'pb_adm_T_' + CODE;
       const _lsMKey     = 'pb_adm_M_' + CODE;
       if (_T.length) localStorage.setItem(_lsCacheKey, JSON.stringify(_T));
-      if (_M.length) localStorage.setItem(_lsMKey,     JSON.stringify(_M));
+      // _M không lưu localStorage — tránh stale sau xóa/thêm trận
+      // if (_M.length) localStorage.setItem(_lsMKey, JSON.stringify(_M));
       // Lưu _R (KetQua rows) cho buildDkFromResults
       const cachedR2 = cacheGet('results_' + (ROLE==='manager'?MY_GIAI:''));
       if (cachedR2?.length) {
