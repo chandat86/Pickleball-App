@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.666 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.7777 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -3841,7 +3841,7 @@ function _renderMatchTable(matches) {
         style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg4);cursor:pointer;user-select:none;
           border-bottom:${collapsed?'none':'1px solid var(--bdr)'}">
         <span style="font-size:20px;color:var(--tx3);line-height:1;transition:transform .25s;transform:rotate(${collapsed?'-90deg':'0deg'})" id="arrow-${bangId}">▾</span>
-        <span style="font-weight:800;color:var(--ac2);font-size:15px">Bảng ${bang}</span>
+        <span style="font-weight:800;color:var(--ac2);font-size:15px">${bang}</span>
         <span style="font-size:11px;color:var(--tx3);font-weight:500">${ms.length} trận</span>
         ${lC>0?`<span class="bdg bw" style="font-size:10px;font-weight:700">⚡ ${lC} live</span>`:''}
         ${dC>0?`<span class="bdg bo" style="font-size:10px;font-weight:700">✅ ${dC} xong</span>`:''}
@@ -4432,7 +4432,7 @@ function renderBocThamResult() {
   return Object.entries(_bocThamGroups).map(([bang, teams]) => `
     <div style="margin-bottom:10px;background:var(--bg3);border-radius:8px;overflow:hidden">
       <div style="padding:6px 12px;background:rgba(14,165,233,.1);font-size:11px;font-weight:800;color:var(--ac);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between">
-        <span>Bảng ${bang}</span>
+        <span>${bang}</span>
         <span style="font-weight:500;color:var(--tx3)">${teams.length} đội</span>
       </div>
       ${teams.map((t,i) => `
@@ -4531,7 +4531,7 @@ function runBocTham() {
 
   // Generate bang names
   const bangNames = Array.from({length:numBangs}, (_,i) =>
-    bangStyle === 'alpha' ? String.fromCharCode(65+i) : String(i+1)
+    bangStyle === 'alpha' ? 'Bảng ' + String.fromCharCode(65+i) : 'Bảng ' + String(i+1)
   );
 
   // Sort/shuffle players
