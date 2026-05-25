@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.6 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.5 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10390,12 +10390,35 @@ async function saveUser() {
     loadUsers();
   }catch(e){toast('Lỗi kết nối','er');}
 }
-async function delUser(code,name) {
-  if(!confirm(`Xóa trọng tài ${name}?`))return;
-  _U=_U.filter(r=>String(r[0]||'').toUpperCase()!==code);
-  delete _cache['users']; // invalidate cache
-  filterUsers(); toast(`🗑 Đã xóa ${name}`,'in');
-  try{await gPost({action:'deleteUser',adminCode:CODE,code});}catch(e){}
+async function delUser(code, name) {
+  if (!confirm(`Xóa trọng tài ${name}?\nThao tác này sẽ xóa dữ liệu trên Google Sheets.`)) return;
+
+  // Xóa UI tạm thời
+  const prev_U = [..._U];
+  _U = _U.filter(r => String(r[0]||'').toUpperCase() !== String(code||'').toUpperCase());
+  delete _cache['users'];
+  filterUsers();
+  toast(`⏳ Đang xóa ${name}...`, 'in');
+
+  try {
+    const d = await gPost({ action: 'deleteUser', adminCode: CODE, code });
+    if (d?.ok) {
+      toast(`🗑 Đã xóa ${name}`, 'ok');
+      loadUsers(); // reload từ GAS để đồng bộ
+    } else {
+      // GAS báo lỗi → rollback UI
+      _U = prev_U;
+      delete _cache['users'];
+      filterUsers();
+      toast(`❌ Xóa thất bại: ${d?.reason || 'Lỗi không xác định'}`, 'er');
+    }
+  } catch(e) {
+    // Lỗi mạng → rollback UI
+    _U = prev_U;
+    delete _cache['users'];
+    filterUsers();
+    toast(`❌ Lỗi kết nối khi xóa: ${e.message}`, 'er');
+  }
 }
 
 // ════════════════════════════════════════════════════════════════
