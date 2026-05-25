@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.2211 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4947,7 +4947,7 @@ function openNdDetail(giaiId, nd) {
       .then(() => renderBangList(giaiId, nd))
       .catch(e => {
         document.getElementById('bang-list').innerHTML =
-          '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu: ' + (e.message||'unknown') + '</p><button class="btn bp" onclick="showTournView('nd')">↻ Thử lại</button></div>';
+          '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu: ' + (e.message||'unknown') + '</p><button class="btn bp" onclick="showTournView(\'nd\')">↻ Thử lại</button></div>';
       });
   }
 }
