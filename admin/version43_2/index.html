@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.441144 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.343434 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -9995,19 +9995,24 @@ function renderUsers(rows) {
     const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':'bo';
     const bl=st==='admin'?'👑 Admin':st==='manager'?'🔵 Manager':st==='khóa'?'🔒 Khóa':'✅ Active';
     const cts=String(r[3]||''),rts=String(r[4]||'');
-    const ct=cts?cts.split(',').map(c=>`<span class="ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--rd);font-size:11px">⚠️ Trống</span>';
-    const rt=rts?rts.split(',').map(c=>`<span class="ptago ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--rd);font-size:11px">⚠️ Trống</span>';
+    const ct=cts?cts.split(',').map(c=>`<span class="ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
+    const rt=rts?rts.split(',').map(c=>`<span class="ptago ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
     const exp=r[2]?fmtD(r[2]):'<span style="color:var(--rd)">⚠️ Trống</span>';
     const cd=esc(r[0]),nm=esc(r[1]);
     const ownerCode = String(r[11]||'').trim();
     const grpTag = ownerCode
       ? `<span style="font-size:9px;background:rgba(6,182,212,.1);color:var(--cy);border:1px solid rgba(6,182,212,.2);padding:1px 5px;border-radius:8px;margin-left:4px" title="Nhóm của ${ownerCode}">${ownerCode}</span>`
       : '';
+    // Resolve giai: r[8] có thể là mã (SHCOL32026) hoặc tên — hiển thị tên
+    const giaiRaw = String(r[8]||'').trim();
+    const giaiDisplay = giaiRaw
+      ? ((_T.find(t=>String(t[0]||'').toUpperCase()===giaiRaw.toUpperCase())||[])[1] || giaiRaw)
+      : '—';
     return `<tr>
       <td><span class="mono">${r[0]}</span></td>
       <td style="font-weight:600">${r[1]}${grpTag}</td>
       <td><span class="bdg ${bc}">${bl}</span></td>
-      <td style="font-size:11px;color:var(--ac)">${r[8]||'—'}</td>
+      <td style="font-size:11px;color:var(--ac)">${esc(giaiDisplay)}</td>
       <td style="font-size:11px;color:var(--tx2)">${r[9]||'—'}</td>
       <td>${ct}</td><td>${rt}</td>
       <td style="font-size:12px;color:var(--tx3)">${exp}</td>
