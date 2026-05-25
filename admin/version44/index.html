@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v44.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v44.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -6986,16 +6986,15 @@ function _bkBestWinnerIdx(seeds, bangs) {
   perf.sort((a, b) => (b.won - a.won) || (b.diff - a.diff) || (b.pf - a.pf));
   return perf.map(x => x.i); // Trả về mảng index bảng đã sắp xếp theo thành tích giảm dần
 }
-
 // ════════════════════════════════════════════════════════════════
-// Cross-seeding chuẩn: W(X) và R(X) LUÔN ở 2 nhánh đối nhau
-// → cùng bảng chỉ gặp nhau ở Chung kết
-// BYE trao theo alphabet (bảng A trước) — bracket chốt trước vòng bảng
+// Cross-seeding chuẩn — W(X) và R(X) luôn ở 2 nhánh đối nhau
+// 7 bảng ví dụ: N1=[1A(BYE)|2B-1C|2D-1E|2F-1G] N2=[1B(BYE)|2A-1D|2C-1F|2E-2G]
+// BYE trao bảng đầu alphabet — bracket chốt TRƯỚC vòng bảng
 // ════════════════════════════════════════════════════════════════
 function _bkCrossSeededSlots(globalSeeds, bangs, seeds) {
   const nb   = bangs ? bangs.length : Math.round(globalSeeds.length / 2);
   const cap  = _ceil2(nb * 2);
-  const half = cap / 4; // số trận mỗi nhánh (cap/2 tổng / 2 nhánh)
+  const half = cap / 4; // số trận mỗi nhánh
 
   // Build lookup bang → { w, r }
   const byBang = {};
@@ -7011,60 +7010,74 @@ function _bkCrossSeededSlots(globalSeeds, bangs, seeds) {
   const W = i => byBang[bangList[i]]?.w ?? null;
   const R = i => byBang[bangList[i]]?.r ?? null;
 
-  // BYE: gán cho bảng đầu alphabet (index 0,1,2...)
-  // vì bracket được chốt TRƯỚC khi vòng bảng có kết quả
+  // BYE: bảng đầu alphabet được BYE (bracket chốt trước vòng bảng)
   const numByes       = cap - nb * 2;
   const numWinnerByes = Math.min(numByes, nb);
 
-  // Xây participants cho 2 nhánh theo quy tắc:
-  //   Bảng i chẵn: W(i) → p1,  R(i) → p2
-  //   Bảng i lẻ:   R(i) → p1,  W(i) → p2
-  // → p1 và p2 không bao giờ chứa 2 người cùng bảng trong cùng trận ✅
-  // → W(i) và R(i) luôn ở 2 nhánh khác nhau ✅
-  const p1 = []; // participants nhánh 1, ghép từng đôi [0,1],[2,3]...
-  const p2 = []; // participants nhánh 2
-
+  // raw arrays: p1 chứa W của bảng chẵn + R của bảng lẻ (và ngược lại cho p2)
+  // → W(i) và R(i) luôn ở 2 array khác nhau ✅
+  const raw1 = [], raw2 = [];
   for (let i = 0; i < nb; i++) {
-    if (i % 2 === 0) { p1.push(W(i)); p2.push(R(i)); }
-    else             { p1.push(R(i)); p2.push(W(i)); }
+    if (i % 2 === 0) { raw1.push(W(i)); raw2.push(R(i)); }
+    else             { raw1.push(R(i)); raw2.push(W(i)); }
   }
-  // Pad null đến half*2
-  while (p1.length < half * 2) p1.push(null);
-  while (p2.length < half * 2) p2.push(null);
 
-  // Xác định ai được BYE: W(i) với i < numWinnerByes
-  // → trận chứa W(i) đó sẽ là BYE trận (đối thủ = null)
-  const byeWinnerBangs = new Set(
-    bangList.slice(0, numWinnerByes).map(b => b)
-  );
-  const isByeWinner = seed => seed && byeWinnerBangs.has(seed.bang) && seed.seedRank === 1;
-
-  // Fill slotMap
-  const slotMap = new Array(cap + 1).fill(null);
-
-  const fillBranch = (p, offset) => {
-    for (let mi = 0; mi < half; mi++) {
-      let top = p[mi * 2]     ?? null;
-      let bot = p[mi * 2 + 1] ?? null;
-      const base = offset + mi;
-      // Nếu BYE winner ở vị trí bot → đổi lên top để hiển thị đúng
-      if (!isByeWinner(top) && isByeWinner(bot)) {
-        [top, bot] = [bot, top];
+  // Build slots cho mỗi nhánh
+  // BYE winners được tách riêng (không "nuốt" đối thủ)
+  // Regular teams ghép cross: Winner vs Runner (khác bảng)
+  const buildBranch = (rawArr) => {
+    const byeSlots = [], regular = [];
+    rawArr.forEach(seed => {
+      const bi = bangList.indexOf(seed?.bang ?? '');
+      if (bi >= 0 && bi < numWinnerByes && seed?.seedRank === 1) {
+        byeSlots.push(seed);
+      } else {
+        regular.push(seed);
       }
-      slotMap[base * 2 + 1] = top;
-      // BYE winner không có đối thủ → slot dưới = null
-      slotMap[base * 2 + 2] = isByeWinner(top) ? null : bot;
-    }
+    });
+
+    // Ghép regular: ưu tiên Winner vs Runner khác bảng
+    const regW   = regular.filter(x => x?.seedRank === 1);
+    const regR   = regular.filter(x => x?.seedRank === 2);
+    const paired = [];
+    const usedR  = new Set();
+
+    regW.forEach(w => {
+      const match = regR.find(r => !usedR.has(r.bang) && r.bang !== w.bang);
+      if (match) { usedR.add(match.bang); paired.push({ top: w,    bot: match }); }
+      else         paired.push({ top: w, bot: null });
+    });
+    const leftR = regR.filter(r => !usedR.has(r.bang));
+    for (let k = 0; k < leftR.length; k += 2)
+      paired.push({ top: leftR[k], bot: leftR[k + 1] ?? null });
+
+    const slots = [
+      ...byeSlots.map(s => ({ top: s, bot: null })),
+      ...paired,
+    ];
+    while (slots.length < half) slots.push({ top: null, bot: null });
+    return slots.slice(0, half);
   };
 
-  fillBranch(p1, 0);    // nhánh 1: trận 0..half-1
-  fillBranch(p2, half); // nhánh 2: trận half..2*half-1
+  const slots1 = buildBranch(raw1);
+  const slots2 = buildBranch(raw2);
+
+  const slotMap = new Array(cap + 1).fill(null);
+  slots1.forEach((s, mi) => {
+    slotMap[mi * 2 + 1] = s.top;
+    slotMap[mi * 2 + 2] = s.bot;
+  });
+  slots2.forEach((s, mi) => {
+    const base = half + mi;
+    slotMap[base * 2 + 1] = s.top;
+    slotMap[base * 2 + 2] = s.bot;
+  });
 
   // Safety check
   for (let mi = 0; mi < cap / 2; mi++) {
     const a = slotMap[mi * 2 + 1], b = slotMap[mi * 2 + 2];
     if (a && b && a.bang === b.bang)
-      console.warn(`[CrossCheck] Match ${mi+1}: cùng bảng ${a.bang}!`);
+      console.warn(`[CrossCheck] Match ${mi + 1}: cùng bảng ${a.bang}!`);
   }
 
   return { slotMap, cap };
