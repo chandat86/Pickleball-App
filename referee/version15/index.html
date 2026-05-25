@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Referee v15.2 – Pickleball</title>
+<title>Da Nang Referee v8 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -3806,10 +3806,11 @@ async function pollMatches() {
       const tA=String(r[4]||'').trim(), tB=String(r[7]||'').trim();
       const sA=(r[5]!==''&&r[5]!=null) ? Number(r[5]) : null;
       const sB=(r[6]!==''&&r[6]!=null) ? Number(r[6]) : null;
-      const court=String(r[8]||'').trim();
-      const round=String(r[9]||'').trim();
+      const court    = String(r[8]||'').trim();
+      const round    = String(r[9]||'').trim();
+      const referee  = String(r[10]||'').trim(); // GhiChú / Trọng tài (v15)
       if (!nd||!code) return;
-      newMatches.push({giai,noidung:nd,bang,code,teamA:tA,teamB:tB,matchScoreA:sA,matchScoreB:sB,court,round,key:`${nd}|${bang}|${code}`});
+      newMatches.push({giai,noidung:nd,bang,code,teamA:tA,teamB:tB,matchScoreA:sA,matchScoreB:sB,court,round,referee,key:`${nd}|${bang}|${code}`});
     });
     const oldBangs  = [...new Set(matchList.map(m=>m.bang).filter(Boolean))].join(',');
     const newBangs  = [...new Set(newMatches.map(m=>m.bang).filter(Boolean))].join(',');
