@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.1212 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.2211 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4924,7 +4924,7 @@ async function _swapBkWrap(altId, fn) {
 // ── Click nội dung → View Bảng ──
 function openNdDetail(giaiId, nd) {
   _curNd = nd; _curGiaiId = giaiId;
-  _switchPlayersCtx(giaiId, nd); // reset players/bocTham cho đúng nội dung
+  _switchPlayersCtx(giaiId, nd);
   const r = _T.find(t=>String(t[0]||'')===giaiId);
   if (!r) return;
   _curTourn = r;
@@ -4932,23 +4932,23 @@ function openNdDetail(giaiId, nd) {
   document.getElementById('tv-nd-title').textContent = nd;
   document.getElementById('tv-nd-sub').textContent   = giaiName + ' · ' + (r[2]||'');
   showTournView('nd');
-  // Kiểm tra _M theo giaiName (GSheets luôn lưu tên, không lưu mã)
-  const hasData = giaiName
-    ? _M.some(m => String(m[0]||'') === giaiName && String(m[1]||'') === nd)
-    : _M.some(m => String(m[1]||'') === nd);
-  if (!hasData) {
-    // Chưa có → load lại từ GSheets rồi render
+
+  // Nếu đã có data của giải → render NGAY lập tức không chờ load
+  const giaiHasData = _M.some(m => String(m[0]||'') === giaiName || String(m[0]||'') === giaiId);
+  if (giaiHasData) {
+    renderBangList(giaiId, nd); // render ngay từ cache
+    // Load nền không block UI — cập nhật nếu có thay đổi mới
+    loadMatchesCache(giaiId, false).then(() => renderBangList(giaiId, nd)).catch(()=>{});
+  } else {
+    // Chưa có data giải → show loading rồi fetch
     document.getElementById('bang-list').innerHTML =
-      '<div style="text-align:center;padding:40px"><span class="spin"></span></div>';
-    // Hiện loading trước khi tải
-    document.getElementById('bang-list').innerHTML = '<div class="empty" style="padding:32px"><span class="spin"></span><p style="margin-top:12px;color:var(--tx3)">Đang tải bảng đấu...</p></div>';
+      '<div class="empty" style="padding:32px"><span class="spin"></span><p style="margin-top:12px;color:var(--tx3)">Đang tải bảng đấu...</p></div>';
     loadMatchesCache(giaiId)
       .then(() => renderBangList(giaiId, nd))
       .catch(e => {
-        document.getElementById('bang-list').innerHTML = '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu: ' + (e.message||'unknown') + '</p><button class="btn bp" onclick="showTournView(&apos;nd&apos;)">↻ Thử lại</button></div>';
+        document.getElementById('bang-list').innerHTML =
+          '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu: ' + (e.message||'unknown') + '</p><button class="btn bp" onclick="showTournView('nd')">↻ Thử lại</button></div>';
       });
-  } else {
-    renderBangList(giaiId, nd);
   }
 }
 
@@ -10311,51 +10311,137 @@ function openUserMoFromTourn() {
   _assignTournGiaiName = tourn ? String(tourn[1]||_curGiaiId) : _curGiaiId;
   _assignRefFound = null;
 
-  // Build modal nếu chưa có
+  // Tạo modal nếu chưa có
   let mo = document.getElementById('mo-assign-tourn-ref');
   if (!mo) {
     mo = document.createElement('div');
     mo.id = 'mo-assign-tourn-ref';
-    mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10500;display:flex;align-items:center;justify-content:center';
+    mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10500;display:flex;align-items:center;justify-content:center;padding:16px';
     mo.innerHTML = `
-      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(440px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.5)">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(560px,98vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.5)">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0">
           <span style="font-size:15px;font-weight:800">📌 Phân công Trọng tài</span>
           <span id="atr-giai-label" style="font-size:11px;color:var(--ac);background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.25);border-radius:20px;padding:2px 10px;font-weight:700"></span>
-          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--tx3)">✕</button>
+          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--tx3);line-height:1">✕</button>
         </div>
-        <div style="padding:18px 20px;display:grid;gap:12px">
-          <div style="display:flex;gap:8px">
-            <input id="atr-phone" type="tel" placeholder="Nhập số điện thoại trọng tài..."
-              onkeydown="if(event.key==='Enter') atrSearch()"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'')"
-              style="flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--tx);outline:none">
-            <button onclick="atrSearch()" style="padding:9px 16px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔍 Tìm</button>
+        <div style="overflow-y:auto;flex:1;padding:14px 18px;display:grid;gap:12px">
+          <!-- Tìm SĐT -->
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔍 Tìm theo số điện thoại</div>
+            <div style="display:flex;gap:8px">
+              <input id="atr-phone" type="tel" placeholder="Nhập SĐT..."
+                onkeydown="if(event.key==='Enter') atrSearch()"
+                oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+                style="flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--tx);outline:none">
+              <button onclick="atrSearch()" style="padding:8px 14px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔍 Tìm</button>
+            </div>
+            <div id="atr-result" style="display:none;margin-top:8px"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:6px">
+              <button id="atr-confirm-btn" onclick="atrConfirm()" style="display:none;padding:7px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Phân công</button>
+            </div>
           </div>
-          <div id="atr-result" style="display:none"></div>
-          <div id="atr-assigned-list" style="display:none;max-height:180px;overflow-y:auto;border-top:1px solid var(--bdr);padding-top:10px">
-            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Đã phân công giải này</div>
-            <div id="atr-assigned-rows"></div>
+          <!-- 2 cột: Đã PC | Chưa PC -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <!-- Đã phân công -->
+            <div>
+              <div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">✅ Đã phân công</div>
+              <div id="atr-assigned-rows" style="display:grid;gap:4px;max-height:260px;overflow-y:auto"></div>
+              <div id="atr-assigned-empty" style="font-size:12px;color:var(--tx3);padding:8px 0">Chưa có</div>
+            </div>
+            <!-- Chưa phân công -->
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">➕ Chưa phân công</div>
+              <div id="atr-unassigned-rows" style="display:grid;gap:4px;max-height:260px;overflow-y:auto"></div>
+              <div id="atr-unassigned-empty" style="font-size:12px;color:var(--tx3);padding:8px 0">Không có</div>
+            </div>
           </div>
         </div>
-        <div style="padding:12px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--tx)">Đóng</button>
-          <button id="atr-confirm-btn" onclick="atrConfirm()" style="display:none;padding:8px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Phân công</button>
+        <div style="padding:10px 18px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;flex-shrink:0">
+          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="padding:8px 18px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--tx)">Đóng</button>
         </div>
       </div>`;
     document.body.appendChild(mo);
   }
 
-  // Reset state
   document.getElementById('atr-giai-label').textContent = _assignTournGiaiName;
   document.getElementById('atr-phone').value = '';
   document.getElementById('atr-result').style.display = 'none';
   document.getElementById('atr-confirm-btn').style.display = 'none';
   mo.style.display = 'flex';
 
-  // Load danh sách TT đã gán
-  atrLoadAssigned();
-  setTimeout(() => document.getElementById('atr-phone').focus(), 100);
+  atrRenderLists();
+  setTimeout(() => document.getElementById('atr-phone').focus(), 80);
+}
+
+async function atrEnsureUsers() {
+  if (!_U.length) {
+    try { const d = await gGet({action:'getUsers',adminCode:CODE},8000); if(d?.ok) _U=d.rows?.slice(1)||[]; } catch(e){}
+  }
+}
+
+async function atrRenderLists() {
+  await atrEnsureUsers();
+  const giaiUp = _assignTournGiaiName.toUpperCase();
+  const giaiId = _assignTournGiaiId.toUpperCase();
+  const refs = (_U||[]).filter(u => {
+    const st = String(u[7]||'').toLowerCase();
+    return st === 'active' || st === 'khóa';
+  });
+  const assigned   = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return g&&(g===giaiUp||g===giaiId||g.includes(giaiId)||g.includes(giaiUp)); });
+  const unassigned = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return !g||(g!==giaiUp&&g!==giaiId&&!g.includes(giaiId)&&!g.includes(giaiUp)); });
+
+  const assignedEl   = document.getElementById('atr-assigned-rows');
+  const unassignedEl = document.getElementById('atr-unassigned-rows');
+  const aEmpty = document.getElementById('atr-assigned-empty');
+  const uEmpty = document.getElementById('atr-unassigned-empty');
+
+  aEmpty.style.display   = assigned.length   ? 'none' : '';
+  uEmpty.style.display   = unassigned.length ? 'none' : '';
+
+  assignedEl.innerHTML = assigned.map(u => `
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.2);border-radius:7px;padding:6px 9px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(String(u[1]||''))}</div>
+        <div style="font-size:10px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
+      </div>
+      <button onclick="atrUnassign('${esc(String(u[0]||''))}','${esc(String(u[10]||''))}','${esc(String(u[1]||''))}')"
+        style="padding:3px 8px;background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.2);border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Bỏ</button>
+    </div>`).join('');
+
+  unassignedEl.innerHTML = unassigned.map(u => `
+    <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:6px 9px;cursor:pointer"
+      onclick="atrAssignDirect('${esc(String(u[0]||''))}','${esc(String(u[10]||''))}','${esc(String(u[1]||''))}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(String(u[1]||''))}</div>
+        <div style="font-size:10px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
+      </div>
+      <span style="color:var(--ac);font-size:18px;line-height:1">＋</span>
+    </div>`).join('');
+}
+
+async function atrAssignDirect(code, phone, name) {
+  try {
+    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
+    if (d?.ok) {
+      toast(`✅ Đã phân công ${name} → ${_assignTournGiaiName}`, 'ok');
+      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+      if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
+      atrRenderLists();
+    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
+  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
+}
+
+async function atrUnassign(code, phone, name) {
+  if (!confirm(`Bỏ phân công ${name} khỏi giải này?`)) return;
+  try {
+    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:'',courts:'',rounds:'',noidung:''});
+    if (d?.ok) {
+      toast(`🗑 Đã bỏ phân công ${name}`, 'ok');
+      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+      if (idx >= 0) _U[idx][8] = '';
+      atrRenderLists();
+    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
+  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
 }
 
 async function atrSearch() {
@@ -10365,83 +10451,38 @@ async function atrSearch() {
   _assignRefFound = null;
   btn.style.display = 'none';
   if (!phone) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập số điện thoại</div>'; return; }
-
-  res.style.display = '';
-  res.innerHTML = '<span class="spin"></span>';
-
-  // Đảm bảo _U đã load
-  if (!_U.length) {
-    try { const d = await gGet({action:'getUsers',adminCode:CODE},8000); if(d?.ok) _U=d.rows?.slice(1)||[]; } catch(e){}
-  }
-
+  res.style.display=''; res.innerHTML='<span class="spin"></span>';
+  await atrEnsureUsers();
   const found = (_U||[]).find(u => String(u[10]||'').replace(/\D/g,'') === phone);
-  if (!found) {
-    res.innerHTML = `<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy TT với SĐT: ${phone}</div>`;
-    return;
-  }
-
-  _assignRefFound = {code:String(found[0]||''), name:String(found[1]||''), phone:String(found[10]||phone), giai:String(found[8]||'')};
-  const alreadyInGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase()) ||
-                        _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
-  res.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
-      <div style="width:38px;height:38px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${esc(_assignRefFound.name[0]||'?')}</div>
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:14px;color:var(--tx)">${esc(_assignRefFound.name)}</div>
-        <div style="font-size:11px;color:var(--tx3)">📞 ${esc(_assignRefFound.phone)}</div>
-        ${alreadyInGiai ? `<div style="font-size:11px;color:var(--or);margin-top:2px">⚠️ Đã phân công giải này</div>` : ''}
-      </div>
-      <span style="color:#16a34a;font-size:11px;font-weight:700">✅ Tìm thấy</span>
-    </div>`;
-  btn.style.display = '';
-  btn.textContent = alreadyInGiai ? '🔄 Cập nhật phân công' : '✅ Phân công';
+  if (!found) { res.innerHTML=`<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy TT với SĐT: ${phone}</div>`; return; }
+  _assignRefFound = {code:String(found[0]||''),name:String(found[1]||''),phone:String(found[10]||phone),giai:String(found[8]||'')};
+  const inGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase())||_assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
+  res.innerHTML=`<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${esc(_assignRefFound.name[0]||'?')}</div>
+    <div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--tx)">${esc(_assignRefFound.name)}</div>
+    <div style="font-size:11px;color:var(--tx3)">📞 ${esc(_assignRefFound.phone)}</div>
+    ${inGiai?'<div style="font-size:11px;color:var(--or)">⚠️ Đã phân công giải này</div>':''}</div>
+    <span style="color:#16a34a;font-size:11px;font-weight:700">✅ Tìm thấy</span></div>`;
+  btn.style.display=''; btn.textContent=inGiai?'🔄 Cập nhật':'✅ Phân công';
 }
 
 async function atrConfirm() {
   if (!_assignRefFound) return;
   const btn = document.getElementById('atr-confirm-btn');
-  btn.disabled = true; btn.textContent = '⏳ Đang gán...';
+  btn.disabled=true; btn.textContent='⏳ Đang gán...';
   try {
-    const d = await gPost({
-      action: 'assignRef', adminCode: CODE,
-      refCode: _assignRefFound.code,
-      giai: _assignTournGiaiName,
-      courts: '', rounds: '', noidung: ''
-    });
+    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:_assignRefFound.code,refPhone:_assignRefFound.phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
     if (d?.ok) {
-      toast(`✅ Đã phân công ${_assignRefFound.name} → ${_assignTournGiaiName}`, 'ok');
-      // Cập nhật _U local
-      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === _assignRefFound.code.toUpperCase());
-      if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
-      document.getElementById('atr-phone').value = '';
-      document.getElementById('atr-result').style.display = 'none';
-      btn.style.display = 'none';
-      _assignRefFound = null;
-      atrLoadAssigned();
-    } else {
-      toast(`❌ ${d?.reason||'Lỗi phân công'}`, 'er');
-    }
-  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
-  btn.disabled = false;
-}
-
-async function atrLoadAssigned() {
-  const wrap = document.getElementById('atr-assigned-list');
-  const rows = document.getElementById('atr-assigned-rows');
-  if (!_U.length) return;
-  const giaiUp = _assignTournGiaiName.toUpperCase();
-  const giaiId = _assignTournGiaiId.toUpperCase();
-  const list = (_U||[]).filter(u => {
-    const g = String(u[8]||'').toUpperCase();
-    return g && (g === giaiUp || g === giaiId || g.includes(giaiId) || g.includes(giaiUp));
-  });
-  if (!list.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
-  rows.innerHTML = list.map(u => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
-      <div style="flex:1;font-size:13px;font-weight:600;color:var(--tx)">${esc(String(u[1]||''))}</div>
-      <div style="font-size:11px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
-    </div>`).join('');
+      toast(`✅ Đã phân công ${_assignRefFound.name} → ${_assignTournGiaiName}`,'ok');
+      const idx=(_U||[]).findIndex(u=>String(u[0]||'').toUpperCase()===_assignRefFound.code.toUpperCase());
+      if(idx>=0) _U[idx][8]=_assignTournGiaiName;
+      document.getElementById('atr-phone').value='';
+      document.getElementById('atr-result').style.display='none';
+      btn.style.display='none'; _assignRefFound=null;
+      atrRenderLists();
+    } else toast(`❌ ${d?.reason||'Lỗi'}`,'er');
+  } catch(e){toast('❌ Lỗi kết nối','er');}
+  btn.disabled=false;
 }
 
 function openUserMo(pre=null) {
