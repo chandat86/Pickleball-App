@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.34 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2696,19 +2696,27 @@ function doLogout() {
 // ════════════════════════════════════════════════════════════════
 //  PREFETCH — tải nền 1 lần, sau đó dùng cache
 // ════════════════════════════════════════════════════════════════
-const _cache = {}; // { key: { ts, data } }
+const _cache = {}; // { key: { ts, data, ver } }
+let   _cacheVer = 0; // Tăng mỗi khi invalidate matches → cache cũ tự vô hiệu
 const CACHE_TTL = 120000; // 120s — giảm số lần hit GAS
 
 function cacheGet(key) {
   const c = _cache[key];
-  if (c && Date.now() - c.ts < CACHE_TTL) return c.data;
-  return null;
+  if (!c) return null;
+  // Kiểm tra TTL và version (matches cache phải đúng version hiện tại)
+  if (Date.now() - c.ts >= CACHE_TTL) return null;
+  if (key.startsWith('matches_') && c.ver !== _cacheVer) return null;
+  return c.data;
 }
-function cacheSet(key, data) { _cache[key] = { ts: Date.now(), data }; }
+function cacheSet(key, data) {
+  _cache[key] = { ts: Date.now(), data, ver: _cacheVer };
+}
 function cacheDel(key) { delete _cache[key]; }
-// Xóa cache matches cho 1 giải (dùng sau delete/update)
+// Xóa cache matches cho 1 giải (dùng sau delete/update/tạo lịch)
 function _invalidateMatchCache(giaiId) {
   const giaiName = giaiId ? String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
+  // Tăng version → tất cả matches cache cũ tự vô hiệu, kể cả các giải khác đang được hold bởi prefetch
+  _cacheVer++;
   if (giaiName) cacheDel('matches_' + giaiName);
   if (giaiId && giaiId !== giaiName) cacheDel('matches_' + giaiId);
   // Xóa luôn localStorage _M để reload không load data cũ
@@ -6537,12 +6545,13 @@ function normalizeMatchRows(rows) {
   return rows.map(r => [...r]); // chỉ clone, không thay đổi
 }
 
-// Dedup _M: giữ lại mỗi composite key (giaiName|bang|code) 1 lần duy nhất
+// Dedup _M: giữ lại mỗi composite key (giaiName|noidung|bang|code) 1 lần duy nhất
 // Gọi sau bất kỳ thao tác nào có thể gây duplicate
 function dedupM() {
   const seen = new Set();
   _M = _M.filter(m => {
-    const k = `${String(m[0]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
+    // Key đầy đủ: giaiName|noidung|bang|code — phân biệt các nội dung cùng giải
+    const k = `${String(m[0]||'')}|${String(m[1]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
