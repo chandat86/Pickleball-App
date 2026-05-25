@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.1 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4450,41 +4450,52 @@ function renderPlayersPanel() {
     </div>
   </div>
 
-  <!-- Tạo lịch thi đấu -->
-  ${Object.keys(_bocThamGroups).length > 0 ? `
+  <!-- Tạo lịch thi đấu — hiện luôn sau khi bốc thăm xong, không cần bước trung gian -->
+  ${Object.keys(_bocThamGroups).length > 0 ? (() => {
+    // Tính trước số trận để hiện trên nút
+    const _previewMatchCount = Object.entries(_bocThamGroups).reduce((total, [, teams]) => {
+      const n = teams.length;
+      if (n < 2) return total;
+      const listLen = n % 2 === 1 ? n + 1 : n;
+      const rounds  = listLen - 1;
+      const half    = listLen / 2;
+      // mỗi round có half cặp, trừ BYE
+      const byePerRound = n % 2 === 1 ? 1 : 0;
+      return total + rounds * (half - byePerRound);
+    }, 0);
+    const _previewBangCount  = Object.keys(_bocThamGroups).length;
+    const _previewTeamCount  = Object.values(_bocThamGroups).reduce((s,t)=>s+t.length,0);
+    return `
   <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;margin-top:4px">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:var(--bg3);display:flex;align-items:center;gap:8px">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:var(--bg3);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em">📅 Tạo lịch thi đấu</span>
       ${existingBangs.length ? `<span style="font-size:10px;color:var(--or);font-weight:700">⚠️ Đã có ${existingBangs.length} bảng (${existingMatches.length} trận)</span>` : ''}
     </div>
-    <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-      <div>
-        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Sân mặc định</label>
-        <input id="gen-court" type="text" placeholder="Sân A1"
-          value="${_curTourn?String(_curTourn[3]||'').split(',')[0].trim():''}"
-          style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
+    <!-- Stats preview -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--bdr)">
+      <div style="padding:12px;text-align:center;border-right:1px solid var(--bdr)">
+        <div style="font-size:22px;font-weight:800;color:var(--ac)">${_previewBangCount}</div>
+        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Bảng</div>
       </div>
-      <div>
-        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Mã trận bắt đầu</label>
-        <input id="gen-code-start" type="number" min="1" value="1"
-          style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
+      <div style="padding:12px;text-align:center;border-right:1px solid var(--bdr)">
+        <div style="font-size:22px;font-weight:800;color:#4ade80">${_previewTeamCount}</div>
+        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Đội</div>
       </div>
-      <div>
-        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Nếu đã có trận</label>
-        <select id="gen-conflict" style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
-          <option value="skip">Bỏ qua (giữ cũ)</option>
-          <option value="replace">Thay thế hết</option>
-        </select>
-      </div>
-      <div style="display:flex;align-items:flex-end">
-        <button onclick="generateSchedule('${nd}','${giaiId}')" style="width:100%;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">
-          ✅ Tạo lịch
-        </button>
+      <div style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--or)">${_previewMatchCount}</div>
+        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Trận</div>
       </div>
     </div>
-    <!-- Preview -->
-    <div id="gen-preview" style="padding:0 16px 16px"></div>
-  </div>` : ''}
+    <!-- Confirm button -->
+    <div style="padding:12px 14px">
+      <button onclick="quickGenerateSchedule('${nd}','${giaiId}')"
+        id="btn-quick-gen"
+        style="width:100%;padding:11px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">
+        ✅ Xác nhận tạo ${_previewMatchCount} trận đấu
+      </button>
+    </div>
+  </div>`;
+  })() : ''}
   `;
 }
 
@@ -4654,88 +4665,60 @@ function moveTeamDown(bang, idx) {
   document.getElementById('bt-result').innerHTML = renderBocThamResult();
 }
 
-// ── Generate Schedule (Round Robin) ──
+// ── Generate Schedule (Round Robin) — dùng cho flow cũ với preview ──
 function generateSchedule(nd, giaiId) {
   const court     = (document.getElementById('gen-court')?.value||'').trim();
   const codeStart = parseInt(document.getElementById('gen-code-start')?.value||'1');
-  const conflict  = document.getElementById('gen-conflict')?.value || 'skip';
   const gName     = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
+  _buildAndStorePending(nd, giaiId, gName, court, codeStart);
+  if (_pendingScheduleRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
+  confirmGenerateSchedule();
+}
 
+// ── Quick Generate — gọi trực tiếp từ nút sau bốc thăm, sân trống, code từ 1 ──
+async function quickGenerateSchedule(nd, giaiId) {
+  const gName = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
   if (Object.keys(_bocThamGroups).length === 0) {
     toast('Chưa có kết quả bốc thăm', 'er'); return;
   }
+  _buildAndStorePending(nd, giaiId, gName, '', 1); // sân trống, code từ 1
+  if (_pendingScheduleRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
 
-  // Build all matches using round-robin algorithm
+  const btn = document.getElementById('btn-quick-gen');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tạo...'; }
+
+  await confirmGenerateSchedule();
+
+  if (btn) { btn.disabled = false; btn.textContent = `✅ Xác nhận tạo trận đấu`; }
+}
+
+// ── Build allRows round-robin và lưu vào _pending* ──
+function _buildAndStorePending(nd, giaiId, gName, court, codeStart) {
   const allRows = [];
   Object.entries(_bocThamGroups).forEach(([bang, teams]) => {
     const n = teams.length;
     if (n < 2) return;
-    // Prefix từ tên bảng: "Bảng A" → "A", "Bảng 1" → "1"
     const bangPrefix = bang.replace(/^bảng\s*/i, '').trim() || bang;
     let codeCounter = codeStart;
-    // Standard round-robin: each pair plays once
-    const matches = [];
-    // For odd n, use bye
-    const list = n % 2 === 1 ? [...teams, 'BYE'] : [...teams];
+    const list   = n % 2 === 1 ? [...teams, 'BYE'] : [...teams];
     const rounds = list.length - 1;
     const half   = list.length / 2;
-
+    const matches = [];
     for (let r = 0; r < rounds; r++) {
       for (let i = 0; i < half; i++) {
-        const a = list[i];
-        const b = list[list.length - 1 - i];
-        if (a !== 'BYE' && b !== 'BYE') {
-          matches.push([a, b]);
-        }
+        const a = list[i], b = list[list.length - 1 - i];
+        if (a !== 'BYE' && b !== 'BYE') matches.push([a, b]);
       }
-      // Rotate: fix first element, rotate rest
       list.splice(1, 0, list.pop());
     }
-
     matches.forEach(([teamA, teamB]) => {
       const code = bangPrefix + codeCounter++;
-      // HDR_MATCHES: [Giải đấu, Nội dung, Bảng, Mã trận, Đội A, ĐiểmA, ĐiểmB, Đội B, Sân, VòngĐấu, GhiChú]
       allRows.push([gName, nd, bang, code, teamA, '', '', teamB, court, 'Vòng bảng', '']);
     });
   });
-
-  if (allRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
-
-  // Lưu vào global để tránh bug JSON-in-onclick (tên đội có dấu nháy/ký tự đặc biệt làm mất data)
   _pendingScheduleRows   = allRows;
   _pendingScheduleGiaiId = giaiId;
   _pendingScheduleNd     = nd;
-
-  // Show preview first
-  const bangCount = Object.keys(_bocThamGroups).length;
-  const teamsTotal = Object.values(_bocThamGroups).reduce((s,t)=>s+t.length,0);
-  document.getElementById('gen-preview').innerHTML = `
-    <div style="padding:12px;background:rgba(22,163,74,.06);border-top:1px solid var(--bdr);font-size:12px;color:var(--tx2)">
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:var(--ac)">${bangCount}</div>
-          <div style="font-size:10px;color:var(--tx3)">Bảng</div>
-        </div>
-        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:#4ade80">${teamsTotal}</div>
-          <div style="font-size:10px;color:var(--tx3)">Đội</div>
-        </div>
-        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:var(--or)">${allRows.length}</div>
-          <div style="font-size:10px;color:var(--tx3)">Trận</div>
-        </div>
-        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
-          <div style="font-size:20px;font-weight:800;color:var(--pu)">${court||'—'}</div>
-          <div style="font-size:10px;color:var(--tx3)">Sân</div>
-        </div>
-      </div>
-      <button onclick="confirmGenerateSchedule()"
-        style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">
-        ✅ Xác nhận tạo ${allRows.length} trận đấu
-      </button>
-    </div>`;
-
-  document.getElementById('gen-preview').scrollIntoView({behavior:'smooth'});
 }
 
 async function confirmGenerateSchedule() {
