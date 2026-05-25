@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v38.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v25 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4824,7 +4824,7 @@ function renderBangList(giaiId, nd) {
       <span style="font-size:10px;color:var(--tx4)">${poolBangs.length} bảng</span>
     </div>
     <!-- Container BXH - scrollable, max-height controlled by parent flex -->
-    <div id="${bxhId}" class="bxh-scroll" style="padding:8px 10px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;flex:1">
+    <div id="${bxhId}" class="bxh-scroll" style="padding:8px 10px;display:block;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;flex:1;min-height:0">
       ${poolBangs.map(bang=>{
         const rows=calcBxh(bang);
         const allInBang=[...new Set(allM.filter(m=>String(m[2]||'')===bang).flatMap(m=>[m[4],m[7]]).filter(Boolean))];
@@ -4835,7 +4835,7 @@ function renderBangList(giaiId, nd) {
         const hasResult=rows.length>0;
         const bid2=`bxh_${bang.replace(/[^a-zA-Z0-9]/g,'_')}`;
         const colBxh=false; // default mở
-        return `<div style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
+        return `<div style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden;margin-bottom:6px">
           <!-- Collapsible header -->
           <div onclick="toggleSection('${bid2}_body','${bid2}_arrow')"
             style="display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;background:var(--bg3);user-select:none">
