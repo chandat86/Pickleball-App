@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee v16 – Pickleball</title>
+<title>Da Nang Referee v16.1 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -304,15 +304,11 @@ select, input { font-family: inherit; }
   text-align:center;
 }
 
-.lic-inp { width:100%; box-sizing:border-box; border:2px solid #e2e8f0; border-radius:10px; padding:11px 14px; font-size:18px; font-family:'Oswald',sans-serif; font-weight:700; text-align:center; letter-spacing:3px; text-transform:uppercase; outline:none; transition:border .2s; }
-.lic-inp:focus { border-color:#22c55e; }
-.lic-inp.error { border-color:#ef4444; animation:shake .3s; }
-.lic-phone { width:100%; box-sizing:border-box; border:2px solid #e2e8f0; border-radius:10px; padding:11px 14px; font-size:15px; font-family:'Oswald',sans-serif; font-weight:600; text-align:center; letter-spacing:2px; outline:none; transition:border .2s; margin-top:10px; display:none; }
-.lic-phone.visible { display:block; }
+.lic-inp { display:none; } /* Ẩn ô mã — đăng nhập bằng SĐT */
+.lic-phone { width:100%; box-sizing:border-box; border:2px solid #e2e8f0; border-radius:10px; padding:11px 14px; font-size:20px; font-family:'Oswald',sans-serif; font-weight:700; text-align:center; letter-spacing:4px; outline:none; transition:border .2s; }
 .lic-phone:focus { border-color:#22c55e; }
 .lic-phone.error { border-color:#ef4444; animation:shake .3s; }
-.lic-phone-label { font-size:11px; color:#64748b; text-align:center; margin-top:6px; display:none; }
-.lic-phone-label.visible { display:block; }
+.lic-phone-label { font-size:11px; color:#64748b; text-align:center; margin-top:6px; display:block; }
 .lic-btn { width:100%; margin-top:12px; border:none; background:#22c55e; color:#fff; border-radius:10px; padding:12px; font-family:'Oswald',sans-serif; font-size:16px; font-weight:700; letter-spacing:.5px; cursor:pointer; transition:background .15s; }
 .lic-btn:hover { background:#16a34a; }
 .lic-btn:disabled { background:#94a3b8; cursor:not-allowed; }
@@ -4572,60 +4568,43 @@ function _matchAllowed(m) {
 }
 
 async function licValidate() {
-  const inp   = document.getElementById('lic-inp');
-  const btn   = document.getElementById('lic-btn');
-  const phoneInp   = document.getElementById('lic-phone');
-  const phoneLabel = document.getElementById('lic-phone-label');
-  const code  = inp.value.trim().toUpperCase();
-  const phone = phoneInp ? phoneInp.value.trim().replace(/\D/g,'') : '';
+  const phoneInp = document.getElementById('lic-phone');
+  const btn      = document.getElementById('lic-btn');
+  const phone    = phoneInp ? phoneInp.value.trim().replace(/\D/g,'') : '';
 
-  if (!code) { _licStatus('err', '⚠️ Nhập mã trước!'); return; }
-  if (!GS_URL) { _licStatus('err', '⚠️ Chưa cấu hình URL GSheets!'); return; }
-
-  // Nếu trường SĐT đang hiện (mã trùng) mà chưa nhập → báo lỗi
-  if (phoneInp && phoneInp.classList.contains('visible') && !phone) {
-    phoneInp.classList.add('error');
-    _licStatus('err', '⚠️ Vui lòng nhập số điện thoại để xác định tài khoản!');
+  if (!phone) {
+    if (phoneInp) phoneInp.classList.add('error');
+    _licStatus('err', '⚠️ Vui lòng nhập số điện thoại!');
     return;
   }
+  if (phone.length < 9) {
+    if (phoneInp) phoneInp.classList.add('error');
+    _licStatus('err', '⚠️ Số điện thoại không hợp lệ!');
+    return;
+  }
+  if (!GS_URL) { _licStatus('err', '⚠️ Chưa cấu hình URL GSheets!'); return; }
 
   btn.disabled = true;
   _licStatus('loading', '⏳ Đang xác thực...');
-  inp.classList.remove('error');
   if (phoneInp) phoneInp.classList.remove('error');
 
   try {
-    let url = `${GS_URL}?action=validate&code=${encodeURIComponent(code)}&device=${encodeURIComponent(_deviceId())}`;
-    if (phone) url += `&phone=${encodeURIComponent(phone)}`;
+    const url = `${GS_URL}?action=validate&phone=${encodeURIComponent(phone)}&device=${encodeURIComponent(_deviceId())}`;
     const res  = await fetch(url, {cache:'no-store'});
     const data = await res.json();
 
     if (data.ok && data.valid) {
-      // Ẩn trường SĐT sau khi đăng nhập thành công
-      if (phoneInp) { phoneInp.classList.remove('visible','error'); phoneInp.value=''; }
-      if (phoneLabel) phoneLabel.classList.remove('visible');
-
-      licSave({ code, name: data.name, expire: data.expire,
+      licSave({ code: data.code||phone, phone: phone, name: data.name, expire: data.expire,
                 courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
                 assignment: data.assignment || null,
                 giai: data.giai || '', noidung: data.noidung || '' });
       _applyPerm(data);
-
       const giaiInfo = data.giai ? `Giải: ${data.giai}` : 'Tất cả giải';
-      _licStatus('ok', `✅ ${data.name} · ${giaiInfo} · Lọc theo tên TT`);
+      _licStatus('ok', `✅ ${data.name} · ${giaiInfo}`);
       setTimeout(licEnter, 1000);
-
-    } else if (data.ok && data.reason === 'duplicate_code' && data.needPhone) {
-      // Mã trùng → hiện trường SĐT, không disable nút
-      if (phoneInp) { phoneInp.classList.add('visible'); phoneInp.focus(); }
-      if (phoneLabel) phoneLabel.classList.add('visible');
-      _licStatus('err', '📞 ' + (data.message || 'Nhập số điện thoại để xác định tài khoản'));
-      btn.disabled = false;
-
     } else {
-      inp.classList.add('error');
-      if (phone && phoneInp) phoneInp.classList.add('error');
-      _licStatus('err', `❌ ${data.reason||'Mã không hợp lệ'}`);
+      if (phoneInp) phoneInp.classList.add('error');
+      _licStatus('err', `❌ ${data.reason||'Số điện thoại không hợp lệ'}`);
       btn.disabled = false;
     }
   } catch(e) {
@@ -4771,7 +4750,7 @@ function licEnter() {
 async function licCheckOnStart() {
   const saved  = licLoad();
   const screen = document.getElementById('license-screen');
-  const inp    = document.getElementById('lic-inp');
+  const phoneInp = document.getElementById('lic-phone');
   const savedBox = document.getElementById('lic-saved-box');
   const btn    = document.getElementById('lic-btn');
 
@@ -4781,8 +4760,7 @@ async function licCheckOnStart() {
     const roundStr = saved.rounds?.length ? saved.rounds.join(', ') : 'Tất cả vòng';
     document.getElementById('lic-saved-name').textContent = `👤 ${saved.name||saved.code}`;
     document.getElementById('lic-saved-exp').textContent  =
-      `Mã: ${saved.code} · HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
-    inp.value = saved.code;
+      `HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
     btn.textContent = '▶ Vào app';
     btn.style.background = '#16a34a';
 
@@ -4795,11 +4773,15 @@ async function licCheckOnStart() {
 
     if (GS_URL) {
       try {
-        const url  = `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
+        // Validate lại bằng SĐT đã lưu (nếu có) hoặc fallback mã cũ
+        const savedPhone = saved.phone || '';
+        const url = savedPhone
+          ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
+          : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
         const res  = await fetch(url, {cache:'no-store'});
         const data = await res.json();
         if (data.ok && data.valid) {
-          licSave({ code: saved.code, name: data.name, expire: data.expire,
+          licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
                     courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
                     assignment: data.assignment || null,
                     giai: data.giai || '', noidung: data.noidung || '' });
@@ -4808,7 +4790,7 @@ async function licCheckOnStart() {
           return;
         } else {
           licClear();
-          _licStatus('err', `❌ ${data.reason||'Mã không còn hợp lệ, nhập lại'}`);
+          _licStatus('err', `❌ ${data.reason||'Tài khoản không còn hợp lệ, đăng nhập lại'}`);
           screen.style.display = 'flex';
         }
       } catch(e) {
@@ -4864,17 +4846,16 @@ licCheckOnStart();
       <div class="lic-saved-exp" id="lic-saved-exp"></div>
     </div>
 
-    <input class="lic-inp" id="lic-inp" type="text" placeholder="NHẬP MÃ" maxlength="20"
-      onkeydown="if(event.key==='Enter') licValidate()"
-      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+    <input class="lic-inp" id="lic-inp" type="hidden" value="">
 
-    <!-- Trường SĐT — chỉ hiện khi mã trùng, bắt buộc điền để phân biệt -->
+    <!-- Đăng nhập bằng SĐT -->
     <input class="lic-phone" id="lic-phone" type="tel" placeholder="SỐ ĐIỆN THOẠI" maxlength="15"
+      autofocus
       onkeydown="if(event.key==='Enter') licValidate()"
-      oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-    <div class="lic-phone-label" id="lic-phone-label">📞 Mã đăng nhập bị trùng — nhập SĐT để xác định tài khoản</div>
+      oninput="this.value=this.value.replace(/[^0-9]/g,'');this.classList.remove('error')">
+    <div class="lic-phone-label" id="lic-phone-label">📞 Nhập số điện thoại đã đăng ký với admin</div>
 
-    <button class="lic-btn" id="lic-btn" onclick="licValidate()">✓ XÁC NHẬN MÃ</button>
+    <button class="lic-btn" id="lic-btn" onclick="licValidate()">✓ ĐĂNG NHẬP</button>
     <div class="lic-status" id="lic-status"></div>
 
     <div class="lic-info">Liên hệ admin để nhận mã kích hoạt</div>
