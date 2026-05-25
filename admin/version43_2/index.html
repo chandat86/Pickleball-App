@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.44223 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.5454 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2689,6 +2689,7 @@ function doLogout() {
   // Giữ lại pb_gs_url để không phải nhập lại URL lần sau
   clearInterval(_dtimer); clearInterval(_rtimer);
   clearInterval(_liveTimer); clearInterval(_liveTimer2);
+  _bkStopAutoPolling();
   location.reload();
 }
 
@@ -2990,8 +2991,7 @@ async function updateLiveScores() {
     }
     if (_curPage === 'bracket' && _bkGiai && _bkNd) {
       bkRender();
-      // Tự động điền nếu đang ở chế độ tự động
-      if (_bkAutoMode) _bkAutoAdvanceIfNeeded();
+      // Auto advance handled by dedicated _bkAutoTimer
     }
   } catch(e) { /* silent */ }
 }
@@ -7592,10 +7592,10 @@ function bkToggleMode() {
   _bkAutoMode = !_bkAutoMode;
   _bkUpdateModeUI();
   if (_bkAutoMode) {
-    toast('🤖 Chế độ TỰ ĐỘNG — cây thi đấu sẽ tự điền khi có kết quả', 'ok');
-    // Điền ngay nếu đã có data
-    if (_bkGiai && _bkNd) bkAutoFill();
+    toast('🤖 Chế độ TỰ ĐỘNG — tự điền ngay khi có kết quả trận KO', 'ok');
+    _bkStartAutoPolling(); // bắt đầu poll + điền ngay
   } else {
+    _bkStopAutoPolling();
     toast('🖊 Chế độ THỦ CÔNG — chỉnh sửa từng ô theo ý muốn', 'in');
   }
 }
@@ -7624,45 +7624,98 @@ function _bkUpdateModeUI() {
   });
 }
 
-// Gọi từ polling khi phát hiện KO match vừa có KQ → tự advance
+// ── Auto-advance: poll KetQua → phát hiện KO match done → tự điền + apply GAS ──
+let _bkLastKoDoneKeys = new Set(); // track các KO match đã done để detect mới
+let _bkAutoTimer = null;
+
+async function _bkStartAutoPolling() {
+  if (_bkAutoTimer) return; // đã chạy
+  _bkLastKoDoneKeys = new Set();
+  // Poll mỗi 8s khi ở chế độ tự động
+  _bkAutoTimer = setInterval(async () => {
+    if (!_bkAutoMode) { clearInterval(_bkAutoTimer); _bkAutoTimer = null; return; }
+    await _bkAutoAdvanceIfNeeded();
+  }, 8000);
+  // Chạy ngay lần đầu
+  await _bkAutoAdvanceIfNeeded();
+}
+
+function _bkStopAutoPolling() {
+  if (_bkAutoTimer) { clearInterval(_bkAutoTimer); _bkAutoTimer = null; }
+  _bkLastKoDoneKeys = new Set();
+}
+
 async function _bkAutoAdvanceIfNeeded() {
   if (!_bkAutoMode || !_bkGiai || !_bkNd) return;
-  const giaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
-  const allM = _M.filter(m => String(m[0]||'') === giaiName && String(m[1]||'') === _bkNd);
-  const koMatches = allM.filter(m => { const v=String(m[9]||''); return v && v!=='Vòng bảng' && !v.includes('bảng'); });
-  // Check nếu có KO match vừa xong mà chưa có đội ở vòng sau
-  const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
-  const tree = _bkCurrentTree;
-  if (!tree || !tree.rounds?.length) return;
+  try {
+    const giaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
 
-  let needAdvance = false;
-  const koByCode = {};
-  koMatches.forEach(m => { koByCode[String(m[3]||'')] = m; });
+    // 1. Fetch KetQua mới nhất để phát hiện KO match done
+    const rd = await gGet({ action:'results', giai: giaiName }, 8000);
+    if (!rd?.rows?.length) return;
+    buildDkFromResults(rd.rows.slice(1)); // cập nhật _dK, _dkScores
 
-  for (const round of tree.rounds) {
-    for (const m of round.matches) {
-      // Trận KO đã có KQ nhưng vòng sau chưa có đội → cần advance
-      const km = koByCode[m.code];
-      if (km && isMatchDone(km)) {
+    // 2. Lấy tất cả KO matches của nội dung này
+    const allM = _M.filter(m => (String(m[0]||'')===giaiName||String(m[0]||'')===_bkGiai) && String(m[1]||'')===_bkNd);
+    const koMatches = allM.filter(m => { const v=String(m[9]||''); return v && v!=='Vòng bảng' && !v.includes('bảng'); });
+    if (!koMatches.length) return;
+
+    // 3. Kiểm tra có KO match mới done không
+    let hasNewDone = false;
+    koMatches.forEach(m => {
+      const key = `${m[1]}|${m[2]}|${m[3]}`;
+      if (isMatchDone(m) && !_bkLastKoDoneKeys.has(key)) {
+        hasNewDone = true;
+        _bkLastKoDoneKeys.add(key);
+      }
+    });
+
+    if (!hasNewDone && _bkLastKoDoneKeys.size > 0) return; // không có gì mới
+
+    // 4. Kiểm tra cây hiện tại có chỗ nào cần điền đội thắng không
+    if (!_bkCurrentTree?.rounds?.length) return;
+    const koByCode = {};
+    koMatches.forEach(m => { koByCode[String(m[3]||'')] = m; });
+
+    // Xây map: code → nextRound matches (trận nào nhận winner từ code này)
+    let needFill = false;
+    for (const round of _bkCurrentTree.rounds) {
+      for (const slot of round.matches) {
+        const km = koByCode[slot.code];
+        if (!km) continue;
+        if (!isMatchDone(km)) continue; // chưa xong
+        // Trận này xong → winner cần điền vào vòng sau
         const fs = getFinalScore(km);
-        if (fs) {
-          const winner = fs.scoreA > fs.scoreB ? String(km[4]||'') : String(km[7]||'');
-          // Tìm trận tiếp theo dùng kết quả này
-          if (winner && m.nextCode) {
-            const nextM = koByCode[m.nextCode];
-            if (nextM && !String(nextM[4]||'') && !String(nextM[7]||'')) {
-              needAdvance = true; break;
+        if (!fs) continue;
+        const winner = fs.scoreA > fs.scoreB ? String(km[4]||'') : String(km[7]||'');
+        if (!winner) continue;
+        // Tìm slot vòng sau có teamA/teamB đang trống mà cần winner này
+        for (const nextRound of _bkCurrentTree.rounds) {
+          for (const nextSlot of nextRound.matches) {
+            const nkm = koByCode[nextSlot.code];
+            if (!nkm) continue;
+            if (isMatchDone(nkm)) continue; // đã xong rồi
+            // Nếu teamA hoặc teamB trống → cần điền
+            if (!String(nkm[4]||'').trim() || !String(nkm[7]||'').trim()) {
+              needFill = true; break;
             }
           }
+          if (needFill) break;
         }
+        if (needFill) break;
       }
+      if (needFill) break;
     }
-    if (needAdvance) break;
-  }
 
-  if (needAdvance) {
-    console.log('[bkAutoAdvance] Phát hiện cần advance — tự điền...');
+    if (!needFill && _bkLastKoDoneKeys.size === 0) return;
+
+    // 5. Tự động điền + apply lên GAS
+    console.log('[bkAutoAdvance] Phát hiện KO match mới done → tự advance');
+    toast('🤖 Tự động điền vòng tiếp...', 'in');
     await bkAutoFill();
+
+  } catch(e) {
+    console.warn('[bkAutoAdvance]', e.message);
   }
 }
 
