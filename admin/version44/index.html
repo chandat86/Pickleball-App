@@ -6987,14 +6987,24 @@ function _bkBestWinnerIdx(seeds, bangs) {
   return perf.map(x => x.i); // Trả về mảng index bảng đã sắp xếp theo thành tích giảm dần
 }
 
-// Cross-seeding chuẩn: Nhất X gặp Nhì Y (khác bảng) ở vòng đầu
-// Slot table cố định theo tên bảng (A,B,C,D...) — label luôn đúng 1A,2B,1C,2D...
-// Quy tắc: cùng bảng chỉ gặp nhau TẠI Chung kết
-// BYE trao cho nhất bảng có thành tích TỐT NHẤT (sort theo won↓, hiệu số↓, điểm ghi↓)
+// ════════════════════════════════════════════════════════════════
+// Cross-seeding tổng quát — đảm bảo KHÔNG bao giờ ghép cùng bảng ở vòng đầu
+// Thuật toán:
+//   1. BYE trao cho (cap - nb) nhất bảng có THÀNH TÍCH TỐT NHẤT
+//   2. Các nhất còn lại + mọi nhì → ghép cross (nhất X vs nhì Y, X≠Y)
+//   3. Xếp nhánh đối nhau: nhất X và nhì X nằm ở 2 nhánh khác nhau → chỉ gặp ở CK
+//   4. Đảm bảo cùng bảng KHÔNG gặp nhau ở vòng đầu bằng thuật toán derangement
+// ════════════════════════════════════════════════════════════════
 function _bkCrossSeededSlots(globalSeeds, bangs, seeds) {
-  const N   = globalSeeds.length;
-  const nb  = bangs ? bangs.length : N / 2; // số bảng
-  const cap = _ceil2(nb * 2); // cap dựa trên số bảng thực tế
+  const nb  = bangs ? bangs.length : Math.round(globalSeeds.length / 2);
+  const cap = _ceil2(nb * 2); // bracket size (power of 2)
+  const numByes = cap - nb * 2; // số BYE tổng = cap - số đội thực tế
+  // Mỗi BYE slot tương đương 1 nhất bảng vào thẳng vòng sau
+  // Số nhất bảng được BYE = numByes (vì BYE chỉ ghép với nhất, không ghép với nhì)
+  // Thực ra: cap slots / 2 matches mỗi vòng đầu = cap/2 matches
+  // Trong số đó, numByes/2 matches là BYE-BYE (trống), còn lại là real matches
+  // Mỗi nhất bảng chưa được BYE phải đánh; mỗi nhì bảng phải đánh
+  // → Số nhất được BYE = numByes (1 BYE slot = 1 nhất vào thẳng)
 
   // Lookup bang → { w: nhất, r: nhì }
   const byBang = {};
@@ -7003,205 +7013,163 @@ function _bkCrossSeededSlots(globalSeeds, bangs, seeds) {
     if (s.seedRank === 1) byBang[s.bang].w = s;
     else                  byBang[s.bang].r = s;
   });
-  const bangList = bangs || [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb); // [A,B,C,D...]
-  const W = i => byBang[bangList[i]]?.w || null; // Nhất bảng thứ i
-  const R = i => byBang[bangList[i]]?.r || null; // Nhì bảng thứ i
+  const bangList = bangs
+    ? [...bangs]
+    : [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb);
 
-  // ── Match pairs theo quy tắc cố định ──
-  // matchPairs[i] = [entryTop, entryBot] cho match i
-  // null = BYE slot
-  let matchPairs;
+  const W = i => byBang[bangList[i]]?.w || null;
+  const R = i => byBang[bangList[i]]?.r || null;
+  const allIdx = bangList.map((_, i) => i); // [0,1,2,...,nb-1]
 
-  if (nb === 1) {
-    // 1 bảng: Nhất A vs Nhì A
-    matchPairs = [[W(0), R(0)]];
-  } else if (nb === 2) {
-    // 2 bảng → BK: BK1=1A vs 2B, BK2=1B vs 2A
-    matchPairs = [[W(0),R(1)], [W(1),R(0)]];
-  } else if (nb === 3) {
-    // 3 bảng → cap=8, 2 BYE
-    // BYE trao cho nhất bảng CÓ THÀNH TÍCH TỐT NHẤT (won↓, hiệu số↓, pf↓)
-    // Đội được BYE vào thẳng Bán kết, không qua Tứ kết
-    // Cross-seed: nhất X gặp nhì Y (khác bảng), không có cùng bảng trong TK
-    //
-    // Xác định byeIdx = index bảng có nhất bảng giỏi nhất
-    const perfOrder3 = seeds ? _bkBestWinnerIdx(seeds, bangList) : [0, 1, 2];
-    const byeIdx3 = perfOrder3[0]; // nhất bảng tốt nhất được BYE
-    // 2 bảng còn lại đánh TK, cross nhau (nhất X vs nhì Y, Y≠X)
-    const playIdx3 = [0,1,2].filter(i => i !== byeIdx3);
-    // Đảm bảo cross: play[0] nhất gặp play[1] nhì và ngược lại (khác bảng)
-    // TK1 = W(playIdx3[0]) vs R(playIdx3[1])
-    // TK2 = W(playIdx3[1]) vs R(playIdx3[0])
-    // TK3 = BYE (byeIdx3 nhất đi thẳng BK) — ghép với W(byeIdx3) dummy
-    // TK4 = BYE
-    matchPairs = [
-      [W(playIdx3[0]), R(playIdx3[1])],  // TK1: nhất bảng 2 vs nhì bảng 3 (hoặc tương tự)
-      [W(playIdx3[1]), R(playIdx3[0])],  // TK2: nhất bảng 3 vs nhì bảng 2
-      [W(byeIdx3),     null],            // TK3: nhất bảng tốt nhất BYE thẳng BK
-      [null,           null],            // TK4: BYE trống
-    ];
-  } else if (nb === 4) {
-    // 4 bảng → 4 TK: nhánh 1=(TK1,TK2)→BK1; nhánh 2=(TK3,TK4)→BK2
-    // TK1=1A vs 2B, TK2=1C vs 2D  (nhánh 1)
-    // TK3=1B vs 2A, TK4=1D vs 2C  (nhánh 2)
-    // → 1A và 2A chỉ gặp ở CK ✅; 1C và 2C chỉ gặp ở CK ✅
-    matchPairs = [
-      [W(0),R(1)], [W(2),R(3)],  // nhánh 1
-      [W(1),R(0)], [W(3),R(2)],  // nhánh 2
-    ];
-  } else if (nb === 5) {
-    // 5 bảng → cap=16, 10 đội, 6 BYE
-    // BYE trao cho 3 nhất bảng có THÀNH TÍCH TỐT NHẤT (top 3 được BYE, đi thẳng TK)
-    // 2 nhất còn lại + 5 nhì đánh Vòng 16 (cross, khác bảng)
-    //
-    // Xác định thứ tự nhất bảng theo performance
-    const perfOrder5 = seeds ? _bkBestWinnerIdx(seeds, bangList) : [0,1,2,3,4];
-    const byeIdx5 = perfOrder5.slice(0, 3);   // 3 bảng tốt nhất được BYE vào TK
-    const playW5  = perfOrder5.slice(3);       // 2 nhất phải đánh V16
+  // ── Bước 1: Xác định bảng nào được BYE (theo performance) ────────
+  const perfOrder = seeds
+    ? _bkBestWinnerIdx(seeds, bangList)
+    : allIdx.slice(); // fallback: thứ tự tự nhiên nếu chưa có kết quả
 
-    // Cross playW5 với nhì bảng khác bảng
-    // playW5[0] vs R(x), playW5[1] vs R(y), x≠playW5[0], y≠playW5[1]
-    const rCandidates5 = [0,1,2,3,4].filter(i => !byeIdx5.includes(i));
-    // rotate rCandidates để tránh cùng bảng
-    const rSorted5 = [...rCandidates5];
-    for (let k=0; k<playW5.length && k<rSorted5.length; k++) {
-      if (rSorted5[k] === playW5[k]) {
-        const sw = rSorted5.findIndex((r,j) => j > k && r !== playW5[k]);
-        if (sw > 0) { [rSorted5[k], rSorted5[sw]] = [rSorted5[sw], rSorted5[k]]; }
+  // Số nhất được BYE = numByes (tối đa nb)
+  const numWinnerByes = Math.min(numByes, nb);
+  const byeWinners  = perfOrder.slice(0, numWinnerByes);  // index bảng được BYE
+  const playWinners = perfOrder.slice(numWinnerByes);      // index bảng nhất phải đánh
+
+  // ── Bước 2: Cross-ghép nhất (playWinners) với nhì (allIdx) ───────
+  // Điều kiện: playWinners[k] ≠ nhì được ghép (khác bảng)
+  // Thuật toán derangement đơn giản: shift nhì đi 1 (và check, swap nếu cùng)
+
+  // Tất cả nhì phải đánh (không ai được BYE trừ khi nb lẻ và cap < nb*2 + 1)
+  // Số cặp nhất-nhì = playWinners.length (= nb - numWinnerByes)
+  // Số nhì còn dư = nb - playWinners.length = numWinnerByes → ghép nhì-nhì hoặc nhì-BYE
+
+  // Tạo runner pool: tất cả nb nhì
+  const runnerPool = allIdx.slice(); // 0..nb-1, sẽ xáo để cross
+
+  // Cross: shift runnerPool sao cho runnerPool[k] ≠ playWinners[k]
+  // Dùng shift +1 mod nb rồi kiểm tra từng vị trí
+  const nPlay = playWinners.length;
+  // Tách runner pool: rForWinners = nhì ghép với nhất (nPlay nhì đầu tiên sau shift)
+  // rLeft = nhì dư lại (numWinnerByes nhì)
+
+  // Strategy: rotate runnerPool by ceil(nb/2) để tránh cùng bảng tối đa
+  const shift = Math.ceil(nb / 2);
+  const rShifted = [...runnerPool.slice(shift), ...runnerPool.slice(0, shift)];
+
+  // Fix từng cặp nếu vẫn cùng bảng
+  const rForWinners = rShifted.slice(0, nPlay);
+  for (let k = 0; k < nPlay; k++) {
+    if (rForWinners[k] === playWinners[k]) {
+      // Swap với next available trong rForWinners
+      let swapped = false;
+      for (let j = k + 1; j < rForWinners.length; j++) {
+        if (rForWinners[j] !== playWinners[k] && rForWinners[k] !== playWinners[j]) {
+          [rForWinners[k], rForWinners[j]] = [rForWinners[j], rForWinners[k]];
+          swapped = true;
+          break;
+        }
+      }
+      if (!swapped) {
+        // Try swap với rLeft pool
+        const rLeft2 = rShifted.slice(nPlay);
+        for (let j = 0; j < rLeft2.length; j++) {
+          if (rLeft2[j] !== playWinners[k]) {
+            [rForWinners[k], rLeft2[j]] = [rLeft2[j], rForWinners[k]];
+            // Put rLeft2 back
+            rShifted.splice(nPlay, rLeft2.length, ...rLeft2);
+            break;
+          }
+        }
       }
     }
-    // 2 nhì còn lại (chưa ghép với nhất) đánh với nhau nếu khác bảng, hoặc BYE
-    const usedR5 = new Set(rSorted5.slice(0, playW5.length));
-    const leftR5 = rCandidates5.filter(r => !usedR5.has(r));
-
-    // 8 slot V16 (cap=16):
-    // Nhánh 1 (slots 1-8): byeIdx5[0] BYE→TK, byeIdx5[1] BYE→TK, playW5[0] vs R, leftR5 nhì vs nhì
-    // Nhánh 2 (slots 9-16): byeIdx5[2] BYE→TK, playW5[1] vs R, leftR5 nhì còn lại BYE, và BYE
-    const pair5 = (wi, ri) => [wi != null ? W(wi) : null, ri != null ? R(ri) : null];
-    matchPairs = [
-      [W(byeIdx5[0]), null],                                           // V161: BYE top1
-      pair5(playW5[0], rSorted5[0]),                                   // V162: nhất phải đánh
-      leftR5.length >= 1 ? [R(leftR5[0]), null] : [null, null],        // V163: nhì lẻ BYE
-      [W(byeIdx5[1]), null],                                           // V164: BYE top2
-      [W(byeIdx5[2]), null],                                           // V165: BYE top3
-      pair5(playW5[1], rSorted5[1]),                                   // V166: nhất phải đánh
-      leftR5.length >= 2 ? [R(leftR5[0]), R(leftR5[1])] : leftR5.length >= 1 ? [R(leftR5[0]), null] : [null, null], // V167
-      [null, null],                                                    // V168: BYE trống
-    ];
-  } else if (nb === 6) {
-    // 6 bảng → cap=16, 12 đội, 4 BYE
-    // BYE trao cho 4 nhất bảng có THÀNH TÍCH TỐT NHẤT → vào thẳng TK
-    // 2 nhất còn lại + 6 nhì đánh V16 (4 cặp cross + 4 BYE slots)
-    const perfOrder6 = seeds ? _bkBestWinnerIdx(seeds, bangList) : [0,1,2,3,4,5];
-    const byeIdx6 = perfOrder6.slice(0, 4);   // 4 nhất tốt nhất được BYE
-    const playW6  = perfOrder6.slice(4);       // 2 nhất phải đánh V16
-    const rIdx6   = [0,1,2,3,4,5];
-    // Cross: đảm bảo nhất X không gặp nhì X
-    const rSorted6 = [...rIdx6];
-    for (let k = 0; k < playW6.length && k < rSorted6.length; k++) {
-      if (rSorted6[k] === playW6[k]) {
-        const sw = rSorted6.findIndex((r, j) => j > k && r !== playW6[k]);
-        if (sw > 0) { [rSorted6[k], rSorted6[sw]] = [rSorted6[sw], rSorted6[k]]; }
-      }
-    }
-    const usedR6 = new Set(rSorted6.slice(0, playW6.length));
-    const leftR6 = rIdx6.filter(r => !usedR6.has(r));
-    // 2 nhì đã ghép với nhất; 4 nhì còn lại cần ghép chéo nhau (tránh cùng bảng)
-    // Ghép leftR6 thành 2 cặp cross: leftR6[0] vs leftR6[3], leftR6[1] vs leftR6[2]
-    const pairR6 = (a, b) => [a != null ? R(a) : null, b != null ? R(b) : null];
-    matchPairs = [
-      [W(byeIdx6[0]), null],                                // V161 BYE
-      [W(playW6[0]),  R(rSorted6[0])],                     // V162 cross
-      leftR6.length >= 2 ? pairR6(leftR6[0], leftR6[3 < leftR6.length ? 3 : leftR6.length-1]) : [null, null], // V163
-      [W(byeIdx6[1]), null],                                // V164 BYE
-      [W(byeIdx6[2]), null],                                // V165 BYE
-      [W(playW6[1]),  R(rSorted6[1])],                     // V166 cross
-      leftR6.length >= 2 ? pairR6(leftR6[1 < leftR6.length ? 1 : 0], leftR6[2 < leftR6.length ? 2 : leftR6.length-1]) : [null, null], // V167
-      [W(byeIdx6[3]), null],                                // V168 BYE
-    ];
-  } else if (nb === 7) {
-    // 7 bảng → cap=16, 14 đội, 2 BYE
-    // NGUYÊN TẮC: BYE trao cho 2 nhất bảng có THÀNH TÍCH TỐT NHẤT toàn giải
-    // (không cố định theo tên bảng — đảm bảo công bằng)
-    //
-    // Sort nhất theo: thắng↓ → hiệu số↓ → điểm ghi↓
-    const wByPerf = bangList
-      .map((b,i) => ({ i, w: byBang[b]?.w }))
-      .filter(x => x.w)
-      .sort((a,b) => {
-        const sa=a.w, sb=b.w;
-        return (sb.won-sa.won) || ((sb.pf-sb.pa)-(sa.pf-sa.pa)) || (sb.pf-sa.pf);
-      });
-
-    const byeIdx  = [wByPerf[0]?.i, wByPerf[1]?.i].filter(x=>x!=null); // 2 bảng được BYE
-    const playIdx = wByPerf.slice(2).map(x=>x.i);  // 5 bảng nhất phải đánh V16
-    // 7 nhì — tất cả phải đánh V16
-    const rIdx = bangList.map((_,i)=>i); // 0..6
-
-    // Cross-seed 5 nhất với 5 nhì (khác bảng):
-    // Sắp xếp rIdx để tránh cùng bảng: rIdx[k] ≠ playIdx[k]
-    const rSorted = [...rIdx].filter(r => !byeIdx.includes(r));
-    // Rotate để tránh cùng bảng: nếu rSorted[k] === playIdx[k] → swap với next
-    for (let k=0; k<playIdx.length && k<rSorted.length; k++) {
-      if (rSorted[k] === playIdx[k]) {
-        const swapWith = rSorted.findIndex((r,j)=>j>k && r!==playIdx[k] && (j>=playIdx.length||r!==playIdx[j]));
-        if (swapWith>0) { [rSorted[k],rSorted[swapWith]]=[rSorted[swapWith],rSorted[k]]; }
-      }
-    }
-
-    // Tạo 5 cặp nhất-nhì + 1 cặp nhì-nhì (2 nhì còn lại)
-    const usedR   = new Set(rSorted.slice(0,5));
-    const leftR   = rIdx.filter(r=>!usedR.has(r)); // 2 nhì chưa ghép
-
-    const pair = (wi,ri) => [wi!=null?W(wi):null, ri!=null?R(ri):null];
-
-    // 8 slots V16: nhánh 1 (slots 1-4), nhánh 2 (slots 5-8)
-    // 3 cặp nhất-nhì + 1 cặp nhì-nhì + 2 BYE slots = 8
-    matchPairs = [
-      pair(playIdx[0], rSorted[0]),                    // V161
-      pair(playIdx[1], rSorted[1]),                    // V162
-      pair(playIdx[2], rSorted[2]),                    // V163
-      [W(byeIdx[0]), null],                            // V164: BYE winner 1
-      pair(playIdx[3], rSorted[3]),                    // V165
-      pair(playIdx[4], rSorted[4]),                    // V166
-      leftR.length>=2 ? [R(leftR[0]),R(leftR[1])] : [null,null], // V167: 2 nhì còn
-      [null, W(byeIdx[1])],                            // V168: BYE winner 2
-    ];
-  } else if (nb === 8) {
-    // 8 bảng → 8 V16: nhánh 1=(V161-V164)→TK→BK1; nhánh 2=(V165-V168)→TK→BK2
-    // V161=1A vs 2B, V162=1C vs 2D, V163=1E vs 2F, V164=1G vs 2H (nhánh 1)
-    // V165=1B vs 2A, V166=1D vs 2C, V167=1F vs 2E, V168=1H vs 2G (nhánh 2)
-    matchPairs = [
-      [W(0),R(1)],[W(2),R(3)],[W(4),R(5)],[W(6),R(7)],  // nhánh 1
-      [W(1),R(0)],[W(3),R(2)],[W(5),R(4)],[W(7),R(6)],  // nhánh 2
-    ];
-  } else {
-    matchPairs = null;
   }
+  const rLeft = rShifted.slice(nPlay); // nhì dư (ghép nhì-nhì hoặc nhì-BYE)
 
-  const slotMap = new Array(cap + 1).fill(null);
+  // ── Bước 3: Xếp slots đảm bảo cùng bảng ở 2 nhánh đối nhau ────
+  // cap/2 = số match vòng đầu
+  // Chia thành 2 nhánh: nhánh 1 = slot 1..cap/2, nhánh 2 = slot cap/2+1..cap
+  // Quy tắc: nhánh 1 chứa nhất bảng chẵn (0,2,4...), nhánh 2 chứa nhất bảng lẻ (1,3,5...)
+  // → nhất X và nhì X ở 2 nhánh khác nhau → chỉ gặp ở CK hoặc BK muộn nhất
 
-  if (matchPairs) {
-    matchPairs.forEach(([a, b], mi) => {
-      slotMap[mi * 2 + 1] = a || null;
-      slotMap[mi * 2 + 2] = b || null;
-    });
-  } else {
-    // Fallback tổng quát: cross pattern — nhất i gặp nhì i+1
-    // KHÔNG dùng mod để tránh duplicate (seed xuất hiện 2 lần)
-    const topPairs = [], botPairs = [];
-    for (let i = 0; i < nb; i += 2) {
-      // top: W(i) vs R(i+1) nếu có, không thì BYE
-      topPairs.push([W(i), i+1 < nb ? R(i+1) : null]);
-      // bot: W(i+1) vs R(i) nếu có, không thì BYE
-      if (i+1 < nb) botPairs.push([W(i+1), R(i)]);
-      else botPairs.push([null, R(i)]); // lẻ: BYE vs Nhì cuối
+  // Tạo danh sách cặp đấu:
+  // Cặp loại A: nhất (phải đánh) vs nhì (cross)
+  const pairsA = playWinners.map((wi, k) => ({ type:'WR', wi, ri: rForWinners[k] }));
+  // Cặp loại B: BYE winner (nhất vào thẳng)
+  const pairsB = byeWinners.map(wi => ({ type:'W-BYE', wi }));
+  // Cặp loại C: nhì còn dư → ghép nhì-nhì (tránh cùng bảng) hoặc nhì-BYE
+  const pairsC = [];
+  for (let i = 0; i < rLeft.length; i += 2) {
+    if (i + 1 < rLeft.length) {
+      // Ghép nhì-nhì: đảm bảo khác bảng
+      let a = rLeft[i], b = rLeft[i+1];
+      if (a === b) { /* không thể xảy ra vì Set */ }
+      pairsC.push({ type:'RR', ri1: a, ri2: b });
+    } else {
+      pairsC.push({ type:'R-BYE', ri: rLeft[i] });
     }
-    let slot = 1;
-    [...topPairs, ...botPairs].forEach(([a, b]) => {
-      slotMap[slot++] = a || null;
-      slotMap[slot++] = b || null;
-    });
+  }
+  // Cặp loại D: BYE-BYE (slot trống nếu cap > nb*2 + pairsC*2)
+  const totalPairs = pairsA.length + pairsB.length + pairsC.length;
+  const totalSlots = cap / 2; // số match vòng đầu
+  const emptyPairs = totalSlots - totalPairs;
+
+  // Phân bổ vào 2 nhánh (mỗi nhánh cap/4 matches)
+  // Nhánh 1 (top): nửa đầu của allPairs
+  // Nhánh 2 (bot): nhánh đối
+  // Quy tắc xen kẽ: pairsA[0] vào nhánh 1, pairsA mirror vào nhánh 2
+  // Để cùng bảng ở 2 nhánh: pair của nhất[i] và nhì[i] phải ở 2 nhánh khác
+
+  // Build final slot order: nhánh 1 trước, nhánh 2 sau
+  // Nhánh 1: pairsA[0,2,4...] + pairsB[0,2...] + pairsC[0,...] + empties
+  // Nhánh 2: pairsA[1,3,5...] + pairsB[1,3...] + pairsC[...] + empties
+
+  const half = totalSlots / 2; // số match mỗi nhánh
+  const branch1 = [], branch2 = [];
+
+  // Xen kẽ pairsA vào 2 nhánh: pair[0]→B1, pair[1]→B2, pair[2]→B1...
+  pairsA.forEach((p, i) => {
+    (i % 2 === 0 ? branch1 : branch2).push(p);
+  });
+  // BYE winners: xen kẽ
+  pairsB.forEach((p, i) => {
+    (i % 2 === 0 ? branch1 : branch2).push(p);
+  });
+  // Nhì dư + empty: fill vào nhánh còn thiếu
+  [...pairsC, ...Array(emptyPairs).fill({ type:'BYE-BYE' })].forEach(p => {
+    if (branch1.length <= branch2.length) branch1.push(p);
+    else branch2.push(p);
+  });
+
+  // Đảm bảo mỗi nhánh đúng half slots (pad empty nếu cần)
+  while (branch1.length < half) branch1.push({ type:'BYE-BYE' });
+  while (branch2.length < half) branch2.push({ type:'BYE-BYE' });
+
+  // Tạo slotMap từ branch1 + branch2
+  const slotMap = new Array(cap + 1).fill(null);
+  const allBranches = [...branch1, ...branch2];
+  allBranches.forEach((p, mi) => {
+    const slotT = mi * 2 + 1, slotB = mi * 2 + 2;
+    if (p.type === 'WR') {
+      slotMap[slotT] = W(p.wi);
+      slotMap[slotB] = R(p.ri);
+    } else if (p.type === 'W-BYE') {
+      slotMap[slotT] = W(p.wi);
+      slotMap[slotB] = null;
+    } else if (p.type === 'RR') {
+      slotMap[slotT] = R(p.ri1);
+      slotMap[slotB] = R(p.ri2);
+    } else if (p.type === 'R-BYE') {
+      slotMap[slotT] = R(p.ri);
+      slotMap[slotB] = null;
+    } else { // BYE-BYE
+      slotMap[slotT] = null;
+      slotMap[slotB] = null;
+    }
+  });
+
+  // ── Kiểm tra an toàn: không cặp nào cùng bảng ───────────────────
+  // (chỉ log warning ở console nếu vi phạm)
+  for (let mi = 0; mi < totalSlots; mi++) {
+    const a = slotMap[mi * 2 + 1], b = slotMap[mi * 2 + 2];
+    if (a && b && a.bang === b.bang) {
+      console.warn(`[BracketWarning] Match ${mi+1}: cùng bảng ${a.bang} — ${a.team} vs ${b.team}`);
+    }
   }
 
   return { slotMap, cap };
