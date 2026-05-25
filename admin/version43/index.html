@@ -1267,7 +1267,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
 
         <!-- Seeding preview + Apply panel -->
-        <div id="bk-seed-panel" style="display:none;margin-top:14px">
+        <div id="bk-seed-panel" style="display:none!important;margin-top:14px">
           <div class="card" style="padding:0;overflow:hidden">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg3);border-bottom:1px solid var(--bdr)">
               <div>
@@ -7176,7 +7176,7 @@ function bkRender() {
 
   // ── Seeding summary bar (compact, ngoài cây) ──
   let html = '';
-  if (allSeeds?.length) {
+  if (false && allSeeds?.length) {
     // Group seeds by rank (Nhất / Nhì / Ba / Tư)
     const rankOrder = ['Nhất','Nhì','Ba','Tư'];
     const rankLabels = ['1ST','2ND','3RD','4TH'];
