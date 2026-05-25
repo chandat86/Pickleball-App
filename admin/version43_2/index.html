@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.343434 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.41414 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10116,7 +10116,9 @@ function openUserMo(pre=null) {
       statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
     }
   }
-  document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=!!pre;
+  document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=false;
+  // Lưu mã gốc để GAS biết cần đổi mã nào (nếu user thay đổi)
+  document.getElementById('u-code').dataset.originalCode = pre?.code||'';
   document.getElementById('u-name').value=pre?.name||'';
   document.getElementById('u-status').value=pre?.status||'active';
   document.getElementById('u-exp').value=pre?.expire||nxtYr();
@@ -10157,7 +10159,10 @@ async function saveUser() {
   const name=document.getElementById('u-name').value.trim();
   if(!code||!name){toast('Vui lòng nhập mã và họ tên','er');return;}
   btn.disabled=true;
+  const originalCode = (document.getElementById('u-code').dataset.originalCode||'').trim().toUpperCase();
   const user={code,name,expire:document.getElementById('u-exp').value,
+    // Nếu mã thay đổi khi sửa → truyền originalCode để GAS biết cần rename
+    originalCode: (_editU && originalCode && originalCode !== code) ? originalCode : undefined,
     courts:document.getElementById('u-courts').value.trim(),
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
