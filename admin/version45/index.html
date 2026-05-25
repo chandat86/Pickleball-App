@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.5 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.6 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10318,14 +10318,15 @@ function openUserMo(pre=null) {
   _buildManagerGiaiPicker(selectedList);
   document.getElementById('u-giai').value = giaiRaw;
 
-  // Set ref giai — ưu tiên: giải đang xem > MY_GIAI (manager) > trống
+  // Set ref giai — chỉ pre-select khi ĐANG SỬA và TT đã có giải
+  // Thêm mới: luôn để trống (— Chọn giải —) để admin chọn thủ công
   if (pre?.status==='active' && pre?.giai) {
     refSel.value = pre.giai;
-  } else if (ROLE === 'manager') {
+  } else if (ROLE === 'manager' && pre) {
+    // Manager sửa TT của mình → set MY_GIAI nếu TT chưa có giải
     refSel.value = MY_GIAI;
-  } else if (!pre && _curGiaiId) {
-    // Thêm mới: pre-select giải đang xem hiện tại (nếu có)
-    refSel.value = _curGiaiId;
+  } else {
+    refSel.value = ''; // mặc định trống
   }
 
   _updateUserRoleFields();
@@ -10365,9 +10366,11 @@ async function saveUser() {
   }
   btn.disabled=true;
   const originalCode = (document.getElementById('u-code').dataset.originalCode||'').trim();
-  const user={code,name,expire:document.getElementById('u-exp').value,
-    // Nếu mã thay đổi khi sửa → truyền originalCode để GAS biết cần rename
-    originalCode: (_editU && originalCode && originalCode !== code) ? originalCode : undefined,
+  // Khi sửa: giữ nguyên mã cũ (originalCode). Khi thêm mới: dùng SĐT làm mã nếu không có mã
+  const effectiveCode = _editU ? (originalCode || code) : (code || phone);
+  const user={code: effectiveCode, name,expire:document.getElementById('u-exp').value,
+    // Không truyền originalCode khi sửa vì mã không thay đổi (ô mã ẩn)
+    originalCode: undefined,
     courts:document.getElementById('u-courts').value.trim(),
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
