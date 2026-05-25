@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.112211 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.44223 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1215,7 +1215,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn">↻ Làm mới</button>
               <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)"
                 onclick="bkShowRules()">📋 Quy tắc</button>
-              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Tự động điền</button>
+              <button class="btn bsm" id="nd-btn-bk-mode" onclick="bkToggleMode()"
+                style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
+                🖊 Thủ công
+              </button>
+              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Điền ngay</button>
               <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3)"
                 onclick="ndBkSave()">💾 Lưu cây</button>
               <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25)"
@@ -1256,7 +1260,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button class="rfbtn" onclick="bkRefresh()">↻ Làm mới</button>
             <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)" onclick="bkShowRules()">📋 Quy tắc</button>
-            <button class="btn bp bsm" id="btn-bk-autofill" onclick="bkAutoFill()">⚡ Tự động điền</button>
+            <button class="btn bsm" id="btn-bk-mode" onclick="bkToggleMode()"
+              style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
+              🖊 Thủ công
+            </button>
+            <button class="btn bp bsm" id="btn-bk-autofill" onclick="bkAutoFill()">⚡ Điền ngay</button>
             <button class="btn bsm" style="background:var(--gn);color:#fff" onclick="bkSave()">💾 Lưu cây</button>
             <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)" onclick="bkDeleteTree()" title="Xóa toàn bộ cây thi đấu (trận KO) khỏi lịch thi đấu">🗑 Xóa cây</button>
           </div>
@@ -2980,7 +2988,11 @@ async function updateLiveScores() {
     if (_curPage === 'tournaments' && document.getElementById('tv-nd')?.style.display !== 'none') {
       renderBangList(_curGiaiId||'', _curNd||'');
     }
-    if (_curPage === 'bracket' && _bkGiai && _bkNd) bkRender();
+    if (_curPage === 'bracket' && _bkGiai && _bkNd) {
+      bkRender();
+      // Tự động điền nếu đang ở chế độ tự động
+      if (_bkAutoMode) _bkAutoAdvanceIfNeeded();
+    }
   } catch(e) { /* silent */ }
 }
 
@@ -4814,6 +4826,8 @@ async function ndBkApply() {
   _bkNd   = _curNd     || _bkNd;
   _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
   await _swapBkWrap('nd-bk-wrap', () => bkApplyAndSave());
+  // Nếu auto mode: sau khi apply xong → điền tiếp nếu đã có KQ
+  if (_bkAutoMode) setTimeout(() => _bkAutoAdvanceIfNeeded(), 1000);
 }
 
 async function ndBkDelete() {
@@ -7573,6 +7587,85 @@ function bkShowRules() {
   document.body.appendChild(el);
 }
 
+// ── Bracket mode: Tự động / Thủ công ──
+function bkToggleMode() {
+  _bkAutoMode = !_bkAutoMode;
+  _bkUpdateModeUI();
+  if (_bkAutoMode) {
+    toast('🤖 Chế độ TỰ ĐỘNG — cây thi đấu sẽ tự điền khi có kết quả', 'ok');
+    // Điền ngay nếu đã có data
+    if (_bkGiai && _bkNd) bkAutoFill();
+  } else {
+    toast('🖊 Chế độ THỦ CÔNG — chỉnh sửa từng ô theo ý muốn', 'in');
+  }
+}
+
+function _bkUpdateModeUI() {
+  const btns = ['btn-bk-mode', 'nd-btn-bk-mode'];
+  btns.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    if (_bkAutoMode) {
+      btn.textContent = '🤖 Tự động';
+      btn.style.background = 'rgba(14,165,233,.15)';
+      btn.style.color = 'var(--ac)';
+      btn.style.border = '1px solid rgba(14,165,233,.3)';
+    } else {
+      btn.textContent = '🖊 Thủ công';
+      btn.style.background = 'rgba(100,116,139,.15)';
+      btn.style.color = 'var(--tx3)';
+      btn.style.border = '1px solid var(--bdr)';
+    }
+  });
+  // Ẩn/hiện nút điền ngay
+  ['btn-bk-autofill','nd-btn-autofill'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = _bkAutoMode ? 'none' : '';
+  });
+}
+
+// Gọi từ polling khi phát hiện KO match vừa có KQ → tự advance
+async function _bkAutoAdvanceIfNeeded() {
+  if (!_bkAutoMode || !_bkGiai || !_bkNd) return;
+  const giaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  const allM = _M.filter(m => String(m[0]||'') === giaiName && String(m[1]||'') === _bkNd);
+  const koMatches = allM.filter(m => { const v=String(m[9]||''); return v && v!=='Vòng bảng' && !v.includes('bảng'); });
+  // Check nếu có KO match vừa xong mà chưa có đội ở vòng sau
+  const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
+  const tree = _bkCurrentTree;
+  if (!tree || !tree.rounds?.length) return;
+
+  let needAdvance = false;
+  const koByCode = {};
+  koMatches.forEach(m => { koByCode[String(m[3]||'')] = m; });
+
+  for (const round of tree.rounds) {
+    for (const m of round.matches) {
+      // Trận KO đã có KQ nhưng vòng sau chưa có đội → cần advance
+      const km = koByCode[m.code];
+      if (km && isMatchDone(km)) {
+        const fs = getFinalScore(km);
+        if (fs) {
+          const winner = fs.scoreA > fs.scoreB ? String(km[4]||'') : String(km[7]||'');
+          // Tìm trận tiếp theo dùng kết quả này
+          if (winner && m.nextCode) {
+            const nextM = koByCode[m.nextCode];
+            if (nextM && !String(nextM[4]||'') && !String(nextM[7]||'')) {
+              needAdvance = true; break;
+            }
+          }
+        }
+      }
+    }
+    if (needAdvance) break;
+  }
+
+  if (needAdvance) {
+    console.log('[bkAutoAdvance] Phát hiện cần advance — tự điền...');
+    await bkAutoFill();
+  }
+}
+
 async function bkAutoFill() {
   if (!_bkGiai || !_bkNd) { toast('Chọn giải và nội dung trước', 'er'); return; }
   const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
@@ -7870,6 +7963,7 @@ function bkClearOverride(code) {
 
 // Biến lưu tree hiện tại để dùng cho Apply
 let _bkCurrentTree = null;
+let _bkAutoMode = false; // true = tự động điền khi có KQ, false = thủ công
 
 // Gọi sau bkRender để cập nhật seeding panel
 function _bkUpdateSeedPanel(tree, seeds, bangs, bangDone) {
@@ -8198,6 +8292,8 @@ async function bkSave() {
   _invalidateMatchCache(_bkGiai);
   await loadMatchesCache(_bkGiai, true);
   bkRender();
+  // Auto mode: tự điền vòng tiếp ngay sau khi lưu
+  if (_bkAutoMode) setTimeout(() => _bkAutoAdvanceIfNeeded(), 800);
 }
 
 // ── Xóa toàn bộ cây thi đấu (KO matches) ───────────────────────
