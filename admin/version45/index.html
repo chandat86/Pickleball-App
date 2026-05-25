@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.34 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2146,7 +2146,7 @@ function _buildLiveFromRows(rows) {
     const nd   = parts[0];
     const bang = parts[1];
     const code = parts.slice(2).join('|');
-    const bc   = `${bang}|${code}`;
+    const bc   = `${nd}|${bang}|${code}`; // noidung|bang|code — khớp với key mới của _dkBangCode
     // Tìm giải từ _liveScores hoặc _M
     const ls = newLS[liveKey];
     const matchInM = _M.find(m => String(m[1]||'')===nd && String(m[2]||'')===bang && String(m[3]||'')===code);
@@ -2229,19 +2229,20 @@ async function _syncFinishedMatches(finishedKeys) {
 // Gọi sau mỗi lần có resultData mới
 function buildDkFromResults(rRows) {
   const dkSet = new Set();
-  const bcSet = new Map(); // ── FIX Bug trùng sân: Map "bang|code" → Set(giai) thay vì Set đơn giản
+  const bcSet = new Map(); // Map "noidung|bang|code" → Set(giai) — bao gồm noidung để phân biệt các nội dung cùng giải
   const scores = {};
   (rRows||[]).forEach(r => {
     const g  = String(r[1]||'').trim();
+    const nd = String(r[2]||'').trim(); // noidung ở cột 2 trong KetQua
     const bg = String(r[3]||'').trim();
     const cd = String(r[4]||'').trim();
     if (!bg || !cd) return;
     // Thêm key đầy đủ (tên giải|bang|code)
     dkSet.add(`${g}|${bg}|${cd}`);
-    // ── FIX: lưu theo Map giải → Set bangCode ──
-    // Không dùng Set thuần vì "Bảng A|A1" của giải A ≠ "Bảng A|A1" của giải B
-    if (!bcSet.has(`${bg}|${cd}`)) bcSet.set(`${bg}|${cd}`, new Set());
-    bcSet.get(`${bg}|${cd}`).add(g);
+    // Key Map bao gồm noidung để tránh kết quả nội dung khác (Đôi Nữ) làm ô nhiễm (Đôi Nam-Nữ)
+    const bcKey = `${nd}|${bg}|${cd}`;
+    if (!bcSet.has(bcKey)) bcSet.set(bcKey, new Set());
+    bcSet.get(bcKey).add(g);
     // Thêm key mã giải nếu có trong _T
     const tByName = _T.find(t => String(t[1]||'') === g);
     if (tByName) dkSet.add(`${String(tByName[0]||'')}|${bg}|${cd}`);
@@ -2261,7 +2262,7 @@ function buildDkFromResults(rRows) {
     }
   });
   _dK = dkSet;
-  _dkBangCode = bcSet; // Giờ là Map: "bang|code" → Set(giaiName)
+  _dkBangCode = bcSet; // Map: "noidung|bang|code" → Set(giaiName)
   _dkScores   = scores;
 }
 
@@ -2284,7 +2285,9 @@ function isMatchDone(m) {
 
   // ── KETQUA: kiểm tra bảng kết quả (cho dữ liệu cũ trước khi fix) ──
   if (_dK.has(`${g}|${bg}|${cd}`)) return true;
-  const bc = `${bg}|${cd}`;
+  // Key bao gồm noidung (m[1]) để phân biệt "Đôi Nữ C2" với "Đôi Nam-Nữ C2"
+  const nd = String(m[1]||'').trim();
+  const bc = `${nd}|${bg}|${cd}`;
   if (_dkBangCode instanceof Map) {
     const giaiSet = _dkBangCode.get(bc);
     if (giaiSet) {
@@ -3479,7 +3482,8 @@ async function loadDash() {
       if (Array.isArray(d.recentResults) && d.recentResults.length) {
         d.recentResults.forEach(r => {
           if (!r || !r.bang || !r.code) return;
-          const bc    = String(r.bang) + '|' + String(r.code);
+          const ndVal = String(r.nd||r.noidung||'').trim(); // noidung từ recentResults
+          const bc    = `${ndVal}|${String(r.bang)}|${String(r.code)}`; // noidung|bang|code
           const gName = String(r.giai||'').trim();
           // ── FIX: _dkBangCode là Map → dùng get/set thay vì .add ──
           if (_dkBangCode instanceof Map) {
