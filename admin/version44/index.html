@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v44.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v44.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -6988,100 +6988,88 @@ function _bkBestWinnerIdx(seeds, bangs) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// Cross-seeding chuẩn quốc tế — ĐẢM BẢO tuyệt đối:
-//   1. Không bao giờ ghép cùng bảng ở vòng đầu
-//   2. Nhất X và Nhì X LUÔN ở 2 NHÁNH ĐỐI NHAU → chỉ gặp nhau tại CK
-//   3. BYE trao theo VỊ TRÍ BẢNG CỐ ĐỊNH (alphabet) vì bracket được
-//      chốt TRƯỚC khi vòng bảng kết thúc — không thể biết thành tích.
-//      BTC kiểm soát bảng nào được BYE bằng cách đặt tên bảng
-//      theo seed (bảng A = hạt giống #1 → được BYE đầu tiên).
-//
-// Nguyên lý phân nhánh:
-//   Bảng chẵn (0,2,4...): W(i) → Nhánh 1 | R(i) → Nhánh 2
-//   Bảng lẻ  (1,3,5...): W(i) → Nhánh 2 | R(i) → Nhánh 1
-//   → W(X) và R(X) LUÔN ở 2 nhánh khác nhau ✅
+// Cross-seeding chuẩn: W(X) và R(X) LUÔN ở 2 nhánh đối nhau
+// → cùng bảng chỉ gặp nhau ở Chung kết
+// BYE trao theo alphabet (bảng A trước) — bracket chốt trước vòng bảng
 // ════════════════════════════════════════════════════════════════
 function _bkCrossSeededSlots(globalSeeds, bangs, seeds) {
-  const nb  = bangs ? bangs.length : Math.round(globalSeeds.length / 2);
-  const cap = _ceil2(nb * 2);
-  const totalSlots = cap / 2; // số trận vòng đầu
-  const half = totalSlots / 2; // số trận mỗi nhánh
+  const nb   = bangs ? bangs.length : Math.round(globalSeeds.length / 2);
+  const cap  = _ceil2(nb * 2);
+  const half = cap / 4; // số trận mỗi nhánh (cap/2 tổng / 2 nhánh)
 
-  // Lookup
+  // Build lookup bang → { w, r }
   const byBang = {};
   globalSeeds.forEach(s => {
     if (!byBang[s.bang]) byBang[s.bang] = {};
     if (s.seedRank === 1) byBang[s.bang].w = s;
     else                  byBang[s.bang].r = s;
   });
-  const bangList = bangs ? [...bangs] : [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb);
-  const W = i => byBang[bangList[i]]?.w || null;
-  const R = i => byBang[bangList[i]]?.r || null;
+  const bangList = bangs
+    ? [...bangs]
+    : [...new Set(globalSeeds.map(s => s.bang))].slice(0, nb);
 
-  // ── BYE theo vị trí bảng CỐ ĐỊNH (alphabet) ──────────────────────
-  // Bracket được tạo TRƯỚC khi vòng bảng có kết quả.
-  // → Không thể dùng performance để trao BYE.
-  // → BYE gán cho bảng đầu tiên theo alphabet (index 0, 1, 2...).
-  // → BTC muốn bảng nào được BYE thì đặt tên bảng đó đứng đầu (A, B...).
-  const numByes = cap - nb * 2;
+  const W = i => byBang[bangList[i]]?.w ?? null;
+  const R = i => byBang[bangList[i]]?.r ?? null;
+
+  // BYE: gán cho bảng đầu alphabet (index 0,1,2...)
+  // vì bracket được chốt TRƯỚC khi vòng bảng có kết quả
+  const numByes       = cap - nb * 2;
   const numWinnerByes = Math.min(numByes, nb);
-  // byeSet = index 0..numWinnerByes-1 (bảng đầu alphabet được BYE)
-  const byeSet = new Set(Array.from({ length: numWinnerByes }, (_, i) => i));
 
-  // ── Phân nhánh: W(X) và R(X) luôn ở 2 nhánh khác nhau ───────────
-  const flat1 = [];
-  const flat2 = [];
+  // Xây participants cho 2 nhánh theo quy tắc:
+  //   Bảng i chẵn: W(i) → p1,  R(i) → p2
+  //   Bảng i lẻ:   R(i) → p1,  W(i) → p2
+  // → p1 và p2 không bao giờ chứa 2 người cùng bảng trong cùng trận ✅
+  // → W(i) và R(i) luôn ở 2 nhánh khác nhau ✅
+  const p1 = []; // participants nhánh 1, ghép từng đôi [0,1],[2,3]...
+  const p2 = []; // participants nhánh 2
 
   for (let i = 0; i < nb; i++) {
-    const isEven = (i % 2 === 0);
-    const hasBye = byeSet.has(i);
-    if (isEven) {
-      flat1.push({ seed: W(i), isBye: hasBye }); // W(chẵn) → nhánh 1
-      flat2.push({ seed: R(i), isBye: false });   // R(chẵn) → nhánh 2
-    } else {
-      flat2.push({ seed: W(i), isBye: hasBye }); // W(lẻ) → nhánh 2
-      flat1.push({ seed: R(i), isBye: false });   // R(lẻ) → nhánh 1
-    }
+    if (i % 2 === 0) { p1.push(W(i)); p2.push(R(i)); }
+    else             { p1.push(R(i)); p2.push(W(i)); }
   }
+  // Pad null đến half*2
+  while (p1.length < half * 2) p1.push(null);
+  while (p2.length < half * 2) p2.push(null);
 
-  // Pad đến half*2
-  while (flat1.length < half * 2) flat1.push({ seed: null, isBye: true });
-  while (flat2.length < half * 2) flat2.push({ seed: null, isBye: true });
+  // Xác định ai được BYE: W(i) với i < numWinnerByes
+  // → trận chứa W(i) đó sẽ là BYE trận (đối thủ = null)
+  const byeWinnerBangs = new Set(
+    bangList.slice(0, numWinnerByes).map(b => b)
+  );
+  const isByeWinner = seed => seed && byeWinnerBangs.has(seed.bang) && seed.seedRank === 1;
 
   // Fill slotMap
-  // Cặp (flat[2k], flat[2k+1]) = 1 trận.
-  // flat[2k].isBye = true → BYE trận: slot trên = seed, slot dưới = null
-  const slotMap2 = new Array(cap + 1).fill(null);
+  const slotMap = new Array(cap + 1).fill(null);
 
-  const fillBranch = (flat, miOffset) => {
+  const fillBranch = (p, offset) => {
     for (let mi = 0; mi < half; mi++) {
-      const a = flat[mi * 2]     || { seed: null, isBye: true };
-      const b = flat[mi * 2 + 1] || { seed: null, isBye: true };
-      const base = miOffset + mi;
-      if (a.isBye) {
-        // BYE trận: chỉ có 1 đội (nếu có), đối thủ là BYE
-        slotMap2[base * 2 + 1] = a.seed || null;
-        slotMap2[base * 2 + 2] = null;
-      } else {
-        slotMap2[base * 2 + 1] = a.seed || null;
-        slotMap2[base * 2 + 2] = b.seed || null;
+      let top = p[mi * 2]     ?? null;
+      let bot = p[mi * 2 + 1] ?? null;
+      const base = offset + mi;
+      // Nếu BYE winner ở vị trí bot → đổi lên top để hiển thị đúng
+      if (!isByeWinner(top) && isByeWinner(bot)) {
+        [top, bot] = [bot, top];
       }
+      slotMap[base * 2 + 1] = top;
+      // BYE winner không có đối thủ → slot dưới = null
+      slotMap[base * 2 + 2] = isByeWinner(top) ? null : bot;
     }
   };
 
-  fillBranch(flat1, 0);    // nhánh 1: match 0..half-1
-  fillBranch(flat2, half); // nhánh 2: match half..totalSlots-1
+  fillBranch(p1, 0);    // nhánh 1: trận 0..half-1
+  fillBranch(p2, half); // nhánh 2: trận half..2*half-1
 
-  // ── Safety check ─────────────────────────────────────────────────
-  for (let mi = 0; mi < totalSlots; mi++) {
-    const a = slotMap2[mi * 2 + 1], b = slotMap2[mi * 2 + 2];
-    if (a && b && a.bang === b.bang) {
-      console.warn(`[BracketCrossCheck] Vi phạm cross-seeding tại match ${mi+1}: ${a.bang} — ${a.team||'?'} vs ${b.team||'?'}`);
-    }
+  // Safety check
+  for (let mi = 0; mi < cap / 2; mi++) {
+    const a = slotMap[mi * 2 + 1], b = slotMap[mi * 2 + 2];
+    if (a && b && a.bang === b.bang)
+      console.warn(`[CrossCheck] Match ${mi+1}: cùng bảng ${a.bang}!`);
   }
 
-  return { slotMap: slotMap2, cap };
+  return { slotMap, cap };
 }
+
 function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
   const nb = bangs.length;
   const tree = { vongBang: bangs, rounds: [] };
