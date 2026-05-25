@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v41.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v41.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2413,8 +2413,12 @@ function showApp() {
       if (!MANAGER_ALLOWED_PAGES.includes(btn.dataset.p)) btn.style.display = 'none';
     });
     // Điều hướng thẳng vào Quản lý giải khi login
-    setTimeout(() => nav('tournaments'), 100);
+    if (!_appShown) setTimeout(() => nav('tournaments'), 100);
+  } else {
+    // Admin: điều hướng về Dashboard khi mới load
+    if (!_appShown) setTimeout(() => nav('dashboard'), 100);
   }
+  _appShown = true;
 
   // ── TỐI ƯU: Khôi phục từ localStorage để render instant (không cần GAS) ──
   // NOTE: _dK từ localStorage có thể stale (đã xóa data trên sheet)
@@ -4041,6 +4045,7 @@ function switchNdTab(tab) {
 let _players = []; // [{id, name, seed}]  — danh sách đội/VĐV
 let _bocThamGroups = {}; // {bangName: [playerName,...]}
 let _bocThamLocked = false;
+let _appShown = false;        // Đã nav lần đầu chưa
 let _bxhCollapsed = new Set(); // Track collapsed BXH bangs persistently
 
 // ── Render toàn bộ panel ──
