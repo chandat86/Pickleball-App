@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v45.9 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.1212 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1791,6 +1791,22 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="btn bp" onclick="saveAssign()">💾 Lưu phân công</button>
   </div>
 </div></div>
+
+<!-- Modal Phân công TT nhanh từ màn hình giải -->
+<div class="mo" id="mo-phancong-tourn" style="z-index:9500">
+  <div class="mbox" style="max-width:860px;width:96%;max-height:90vh;overflow-y:auto">
+    <div class="mh" style="position:sticky;top:0;background:var(--bg2);z-index:1">
+      <div>
+        <div class="mtt">📌 Phân công Trọng tài</div>
+        <div style="font-size:12px;color:var(--tx3);margin-top:2px">Giải: <strong id="pct-giai-name" style="color:var(--ac)"></strong></div>
+      </div>
+      <button class="mc" onclick="closeMo('mo-phancong-tourn')">✕</button>
+    </div>
+    <div id="pct-body" style="padding:4px 0">
+      <div style="text-align:center;padding:40px"><span class="spin"></span></div>
+    </div>
+  </div>
+</div>
 
 <!-- Match Modal (thêm/sửa trận, có sửa tỉ số) -->
 <div class="mo" id="mo-match"><div class="mbox w">
@@ -10283,19 +10299,149 @@ function _removeGiaiPill(id) {
   const cb = document.querySelector(`#u-giai-checkboxes input[value="${id}"]`);
   if (cb) { cb.checked = false; _syncGiaiPicker(); }
 }
-// Mở trang Phân công TT từ màn hình giải — pre-select giải hiện tại
+// Phân công TT vào giải đang xem — mở modal tìm SĐT và gán thẳng
+let _assignTournGiaiId = '';
+let _assignTournGiaiName = '';
+let _assignRefFound = null;
+
 function openUserMoFromTourn() {
   if (!_curGiaiId) { toast('Không xác định được giải đấu', 'er'); return; }
-  // Navigate đến trang Phân công TT
-  nav('assign');
-  // Sau khi trang load xong, set giải hiện tại vào dropdown
-  setTimeout(() => {
-    const sel = document.getElementById('asgn-giai');
-    if (sel) {
-      sel.value = _curGiaiId;
-      onAsgnGiaiChange(); // trigger load TT theo giải
+  const tourn = _T.find(t => String(t[0]||'') === _curGiaiId);
+  _assignTournGiaiId   = _curGiaiId;
+  _assignTournGiaiName = tourn ? String(tourn[1]||_curGiaiId) : _curGiaiId;
+  _assignRefFound = null;
+
+  // Build modal nếu chưa có
+  let mo = document.getElementById('mo-assign-tourn-ref');
+  if (!mo) {
+    mo = document.createElement('div');
+    mo.id = 'mo-assign-tourn-ref';
+    mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10500;display:flex;align-items:center;justify-content:center';
+    mo.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(440px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px">
+          <span style="font-size:15px;font-weight:800">📌 Phân công Trọng tài</span>
+          <span id="atr-giai-label" style="font-size:11px;color:var(--ac);background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.25);border-radius:20px;padding:2px 10px;font-weight:700"></span>
+          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--tx3)">✕</button>
+        </div>
+        <div style="padding:18px 20px;display:grid;gap:12px">
+          <div style="display:flex;gap:8px">
+            <input id="atr-phone" type="tel" placeholder="Nhập số điện thoại trọng tài..."
+              onkeydown="if(event.key==='Enter') atrSearch()"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+              style="flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--tx);outline:none">
+            <button onclick="atrSearch()" style="padding:9px 16px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">🔍 Tìm</button>
+          </div>
+          <div id="atr-result" style="display:none"></div>
+          <div id="atr-assigned-list" style="display:none;max-height:180px;overflow-y:auto;border-top:1px solid var(--bdr);padding-top:10px">
+            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Đã phân công giải này</div>
+            <div id="atr-assigned-rows"></div>
+          </div>
+        </div>
+        <div style="padding:12px 20px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--tx)">Đóng</button>
+          <button id="atr-confirm-btn" onclick="atrConfirm()" style="display:none;padding:8px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Phân công</button>
+        </div>
+      </div>`;
+    document.body.appendChild(mo);
+  }
+
+  // Reset state
+  document.getElementById('atr-giai-label').textContent = _assignTournGiaiName;
+  document.getElementById('atr-phone').value = '';
+  document.getElementById('atr-result').style.display = 'none';
+  document.getElementById('atr-confirm-btn').style.display = 'none';
+  mo.style.display = 'flex';
+
+  // Load danh sách TT đã gán
+  atrLoadAssigned();
+  setTimeout(() => document.getElementById('atr-phone').focus(), 100);
+}
+
+async function atrSearch() {
+  const phone = (document.getElementById('atr-phone').value||'').trim().replace(/\D/g,'');
+  const res   = document.getElementById('atr-result');
+  const btn   = document.getElementById('atr-confirm-btn');
+  _assignRefFound = null;
+  btn.style.display = 'none';
+  if (!phone) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập số điện thoại</div>'; return; }
+
+  res.style.display = '';
+  res.innerHTML = '<span class="spin"></span>';
+
+  // Đảm bảo _U đã load
+  if (!_U.length) {
+    try { const d = await gGet({action:'getUsers',adminCode:CODE},8000); if(d?.ok) _U=d.rows?.slice(1)||[]; } catch(e){}
+  }
+
+  const found = (_U||[]).find(u => String(u[10]||'').replace(/\D/g,'') === phone);
+  if (!found) {
+    res.innerHTML = `<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy TT với SĐT: ${phone}</div>`;
+    return;
+  }
+
+  _assignRefFound = {code:String(found[0]||''), name:String(found[1]||''), phone:String(found[10]||phone), giai:String(found[8]||'')};
+  const alreadyInGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase()) ||
+                        _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
+  res.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${esc(_assignRefFound.name[0]||'?')}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px;color:var(--tx)">${esc(_assignRefFound.name)}</div>
+        <div style="font-size:11px;color:var(--tx3)">📞 ${esc(_assignRefFound.phone)}</div>
+        ${alreadyInGiai ? `<div style="font-size:11px;color:var(--or);margin-top:2px">⚠️ Đã phân công giải này</div>` : ''}
+      </div>
+      <span style="color:#16a34a;font-size:11px;font-weight:700">✅ Tìm thấy</span>
+    </div>`;
+  btn.style.display = '';
+  btn.textContent = alreadyInGiai ? '🔄 Cập nhật phân công' : '✅ Phân công';
+}
+
+async function atrConfirm() {
+  if (!_assignRefFound) return;
+  const btn = document.getElementById('atr-confirm-btn');
+  btn.disabled = true; btn.textContent = '⏳ Đang gán...';
+  try {
+    const d = await gPost({
+      action: 'assignRef', adminCode: CODE,
+      refCode: _assignRefFound.code,
+      giai: _assignTournGiaiName,
+      courts: '', rounds: '', noidung: ''
+    });
+    if (d?.ok) {
+      toast(`✅ Đã phân công ${_assignRefFound.name} → ${_assignTournGiaiName}`, 'ok');
+      // Cập nhật _U local
+      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === _assignRefFound.code.toUpperCase());
+      if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
+      document.getElementById('atr-phone').value = '';
+      document.getElementById('atr-result').style.display = 'none';
+      btn.style.display = 'none';
+      _assignRefFound = null;
+      atrLoadAssigned();
+    } else {
+      toast(`❌ ${d?.reason||'Lỗi phân công'}`, 'er');
     }
-  }, 300);
+  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
+  btn.disabled = false;
+}
+
+async function atrLoadAssigned() {
+  const wrap = document.getElementById('atr-assigned-list');
+  const rows = document.getElementById('atr-assigned-rows');
+  if (!_U.length) return;
+  const giaiUp = _assignTournGiaiName.toUpperCase();
+  const giaiId = _assignTournGiaiId.toUpperCase();
+  const list = (_U||[]).filter(u => {
+    const g = String(u[8]||'').toUpperCase();
+    return g && (g === giaiUp || g === giaiId || g.includes(giaiId) || g.includes(giaiUp));
+  });
+  if (!list.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  rows.innerHTML = list.map(u => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">
+      <div style="flex:1;font-size:13px;font-weight:600;color:var(--tx)">${esc(String(u[1]||''))}</div>
+      <div style="font-size:11px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
+    </div>`).join('');
 }
 
 function openUserMo(pre=null) {
