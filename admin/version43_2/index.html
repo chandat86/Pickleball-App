@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.9898 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v44.1111 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -4095,6 +4095,9 @@ function showTournView(v, _skipHash) {
   document.getElementById('tv-list').style.display   = v === 'list'   ? 'block' : 'none';
   document.getElementById('tv-detail').style.display = v === 'detail' ? 'block' : 'none';
   document.getElementById('tv-nd').style.display     = v === 'nd'     ? 'block' : 'none';
+  // Render ngay từ cache khi quay lại detail — không chờ GAS
+  if (v === 'detail' && _curTourn) renderNdCards(_curTourn);
+  if (v === 'list'   && _T.length) renderTournCards(_T);
   if (!_skipHash) _writeHash();
 }
 
