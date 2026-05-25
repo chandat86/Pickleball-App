@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee v15 + Jsv21 – Pickleball</title>
+<title>Referee v15.2 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1612,13 +1612,14 @@ async function loadAllFromGS() {
       const sA    = (r[5]!==''&&r[5]!==null&&r[5]!==undefined) ? Number(r[5]) : null;
       const sB    = (r[6]!==''&&r[6]!==null&&r[6]!==undefined) ? Number(r[6]) : null;
       const tB    = String(r[7]||'').trim();
-      const court = String(r[8]||'').trim(); // Sân
-      const round = String(r[9]||'').trim(); // Vòng đấu
+      const court    = String(r[8]||'').trim();  // Sân
+      const round    = String(r[9]||'').trim();  // Vòng đấu
+      const referee  = String(r[10]||'').trim(); // GhiChú / Trọng tài (v15)
       if (!nd || !code) return;
       const key = `${nd}|${bang}|${code}`;
       newMatches.push({ giai, noidung:nd, bang, code, teamA:tA, teamB:tB,
                         matchScoreA:sA, matchScoreB:sB,
-                        court, round, // phân quyền
+                        court, round, referee, // phân quyền
                         key });
     });
     matchList = newMatches;
@@ -2299,8 +2300,8 @@ function renderMatchGrid() {
     // Chưa được phân sân → không thấy trận
     grid.innerHTML = `<div class="empty-msg" style="grid-column:1/-1;text-align:center;padding:24px 16px">
       <div style="font-size:36px;margin-bottom:10px">🔒</div>
-      <strong style="color:var(--red);font-size:14px">Bạn chưa được phân công sân thi đấu.</strong><br>
-      <span style="color:var(--g500);font-size:12px;margin-top:6px;display:block">Liên hệ Ban tổ chức để được phân sân.</span>
+      <strong style="color:var(--red);font-size:14px">Chưa có trận nào được phân công cho bạn.</strong><br>
+      <span style="color:var(--g500);font-size:12px;margin-top:6px;display:block">Liên hệ Ban tổ chức để được phân công trận đấu.</span>
     </div>`;
     return;
   }
@@ -4537,7 +4538,8 @@ function _matchAllowed(m) {
   // Admin gán TT vào bảng/trận → m.referee (m[10]) = tên TT
   // TT chỉ thấy trận có tên mình trong trường referee
   const myName     = (_userPerm.name || '').trim().toLowerCase();
-  const matchRef   = (m.referee || m.note || '').trim().toLowerCase();
+  // m.referee = col 10 (GhiChú) - assigned by admin per-match or per-bang
+  const matchRef   = (m.referee || '').trim().toLowerCase();
 
   if (myName && matchRef) {
     // Hỗ trợ nhiều TT: "CƯƠNG,THANH NGUYET" → TT nào có tên trong list đều thấy
