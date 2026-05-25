@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.55 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.623 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10468,24 +10468,16 @@ async function saveAllPhanQuyen() {
     const mgr = _pqManagers.find(r=>String(r[0]||'').trim().toUpperCase()===mgrCode);
     if (!mgr) continue;
     const giaiStr = Array.from(_pqDirty[mgrCode]).join(',');
-    const user = {
-      code:    String(mgr[0]||''),
-      name:    String(mgr[1]||''),
-      expire:  isoD(mgr[2]),
-      courts:  String(mgr[3]||''),
-      rounds:  String(mgr[4]||''),
-      note:    String(mgr[6]||''),
-      status:  'manager',
-      giai:    giaiStr,
-      noidung: String(mgr[9]||''),
-      phone:   String(mgr[10]||''),
-    };
     try {
-      const d = await gPost({ action:'updateUser', adminCode:CODE, user });
+      // Dùng action riêng cho phân quyền — tránh bị block bởi manager guard
+      const d = await gPost({ action:'assignManagerGiai', adminCode:CODE, mgrCode, giai:giaiStr });
       if (d.ok) {
-        mgr[8] = giaiStr; // update local
+        mgr[8] = giaiStr; // update local cache
         saved++;
-      } else { failed++; }
+      } else {
+        console.warn('assignManagerGiai failed:', d.reason);
+        failed++;
+      }
     } catch(e) { failed++; }
   }
 
@@ -10552,6 +10544,13 @@ async function _restoreFromHash() {
     if (!raw) return false;
     const state = JSON.parse(decodeURIComponent(raw));
     if (!state?.p) return false;
+
+    // Guard: Manager chỉ được vào tournaments — nếu hash lưu trang khác thì bỏ qua
+    const MANAGER_ALLOWED = ['tournaments'];
+    if (ROLE === 'manager' && !MANAGER_ALLOWED.includes(state.p)) {
+      history.replaceState(null, '', location.pathname); // clear hash
+      return false;
+    }
 
     // Navigate to page (skipHash to avoid double-write)
     nav(state.p, true);
