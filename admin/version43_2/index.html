@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v43.3323 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v43.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10181,23 +10181,39 @@ let _pqDirty    = {};  // { mgrCode: Set<giaiId> } — pending changes
 async function loadPhanQuyen() {
   const wrap = document.getElementById('pq-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '<div class="empty"><span class="spin"></span><p style="margin-top:10px;color:var(--tx3)">Đang tải...</p></div>';
   _pqDirty = {};
   _pqHideSaveAll();
+
+  // ── Render ngay từ cache (_U, _T) — không chờ GAS ──
+  const cachedManagers = _U.filter(r => String(r[7]||'').toLowerCase() === 'manager');
+  const cachedTourns   = _T.length ? _T : [];
+  if (cachedManagers.length || cachedTourns.length) {
+    _pqManagers = cachedManagers;
+    _pqTourns   = cachedTourns;
+    renderPhanQuyen(_pqManagers, _pqTourns);
+  } else {
+    wrap.innerHTML = '<div class="empty"><span class="spin"></span><p style="margin-top:10px;color:var(--tx3)">Đang tải...</p></div>';
+  }
+
+  // ── Fetch nền để cập nhật mới nhất ──
   try {
     const [dU, dT] = await Promise.all([
-      gGet({ action: 'getUsers', adminCode: CODE }),
-      gGet({ action: 'tournaments', adminCode: CODE })
+      gGet({ action: 'getUsers',     adminCode: CODE }),
+      gGet({ action: 'tournaments',  adminCode: CODE })
     ]);
-    const allUsers  = dU.rows?.slice(1) || _U;
-    const allTourns = dT.rows?.slice(1) || _T;
-    if (allTourns.length) { _T = _filterTournsForRole(allTourns); }
-    _pqManagers = allUsers.filter(r => String(r[7]||'').toLowerCase() === 'manager');
-    _pqTourns   = allTourns;
-    renderPhanQuyen(_pqManagers, allTourns);
+    const freshUsers  = dU.rows?.slice(1) || _U;
+    const freshTourns = dT.rows?.slice(1) || _T;
+    if (freshUsers.length)  _U = freshUsers;
+    if (freshTourns.length) _T = _filterTournsForRole(freshTourns);
+
+    _pqManagers = freshUsers.filter(r => String(r[7]||'').toLowerCase() === 'manager');
+    _pqTourns   = freshTourns;
+    renderPhanQuyen(_pqManagers, _pqTourns);
   } catch(e) {
-    wrap.innerHTML = '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu</p></div>';
-    toast('Lỗi tải phân quyền', 'er');
+    if (!cachedManagers.length) {
+      wrap.innerHTML = '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu</p></div>';
+    }
+    toast('Lỗi làm mới phân quyền', 'er');
   }
 }
 
