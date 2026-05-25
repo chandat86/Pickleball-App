@@ -856,6 +856,30 @@ function doPost(e) {
       return jsonOk({ ok: false, reason: 'Không tìm thấy: ' + giai + '|' + bang + '|' + code });
     }
 
+    // ── XÓA TOÀN BỘ BẢNG (1 lần, nhanh hơn loop từng trận) ──────────
+    if (action === 'deleteBang') {
+      const actor = requireAdminOrManager(data, ss);
+      if (!actor) return jsonOk({ ok: false, reason: 'Không có quyền' });
+      const sh   = getOrCreateSheet(ss, SH_MATCHES, HDR_MATCHES);
+      const giai = String(data.giai||'').trim();
+      const bang = String(data.bang||'').trim();
+      if (!giai || !bang) return jsonOk({ ok: false, reason: 'Thiếu giai/bang' });
+      // Đọc tất cả rows, tìm index cần xóa (từ dưới lên để không lệch index)
+      const rows = sh.getDataRange().getValues();
+      const toDelete = [];
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const rGiai = String(rows[i][0]||'').trim();
+        const rBang = String(rows[i][2]||'').trim();
+        if ((rGiai === giai) && rBang === bang) {
+          toDelete.push(i + 1); // 1-based sheet row
+        }
+      }
+      if (toDelete.length === 0) return jsonOk({ ok: true, deleted: 0 });
+      // Xóa theo batch: dùng deleteRows nếu có, hoặc loop từ dưới lên (đã sort ngược)
+      toDelete.forEach(rowNum => sh.deleteRow(rowNum));
+      return jsonOk({ ok: true, deleted: toDelete.length });
+    }
+
     // Phân sân cho cả bảng (cập nhật cột Sân của tất cả trận trong bảng)
     if (action === 'assignCourtToBang') {
       const actor = requireAdminOrManager(data, ss);
