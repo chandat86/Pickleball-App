@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.6 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.222 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -26,7 +26,7 @@
   /* Spacing */
   --sb:220px;   /* sidebar width desktop */
   --sbs:58px;   /* sidebar width tablet */
-  --nav-h:62px; /* bottom nav height mobile */
+  --nav-h:60px; /* bottom nav height mobile */
   /* Effects */
   --shadow:0 4px 24px rgba(0,0,0,.4);
   --shadow-lg:0 16px 48px rgba(0,0,0,.5);
@@ -191,34 +191,24 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);
 /* ═══ MOBILE BOTTOM NAV ═══ */
 #mob-nav{
   display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
-  background:rgba(13,27,48,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid var(--bdr2);
+  background:var(--bg2);border-top:1px solid var(--bdr);
   height:var(--nav-h);
-  box-shadow:0 -4px 32px rgba(0,0,0,.5);
-  /* Safe area for iPhone notch */
-  padding-bottom:env(safe-area-inset-bottom,0px);
+  box-shadow:0 -8px 24px rgba(0,0,0,.3);
 }
 #mob-nav .mnav{
-  display:flex;height:100%;align-items:stretch;padding:0 4px;
+  display:flex;height:100%;align-items:stretch;
 }
 .mni{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;cursor:pointer;border:none;background:none;
+  gap:3px;cursor:pointer;border:none;background:none;
   color:var(--tx3);font-family:var(--fn);font-size:9px;font-weight:600;
-  padding:4px 2px;transition:color .15s;position:relative;min-width:0;
+  padding:6px 2px;transition:color var(--tr);position:relative;
 }
 .mni.on{color:var(--ac)}
-.mni.on .mni-ic{
-  background:rgba(14,165,233,.15);color:var(--ac);
-  box-shadow:0 0 0 1px rgba(14,165,233,.2);
-}
-.mni .mni-ic{
-  font-size:17px;width:38px;height:26px;display:flex;align-items:center;justify-content:center;
-  border-radius:10px;transition:all .15s;margin-bottom:1px;
-}
-.mni:active .mni-ic{transform:scale(.88);opacity:.7}
-.mni span{font-size:9px;line-height:1;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis;max-width:100%;display:block}
+.mni.on .mni-ic{background:rgba(14,165,233,.12);color:var(--ac)}
+.mni .mni-ic{font-size:18px;width:36px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:8px;transition:all var(--tr);}
+.mni:active .mni-ic{transform:scale(.9)}
 
 /* ═══ CONTENT ═══ */
 .cn{margin-left:var(--sb);flex:1;padding:22px;min-height:100vh}
@@ -299,7 +289,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bm{background:rgba(6,182,212,.1);color:var(--cy);border:1px solid rgba(6,182,212,.2)}
 .bk{background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.15)}
 .bo{background:rgba(34,197,94,.1);color:var(--gn);border:1px solid rgba(34,197,94,.15)}
-.bp{background:rgba(34,197,94,.08);color:#4ade80;border:1px solid rgba(34,197,94,.2)}
 .bw{background:rgba(245,158,11,.1);color:var(--or);border:1px solid rgba(245,158,11,.15)}
 .bg0{background:rgba(100,116,139,.1);color:var(--tx3);border:1px solid rgba(100,116,139,.15)}
 .live-nd-body{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;}
@@ -754,121 +743,79 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
    RESPONSIVE — MOBILE (<640px)
 ══════════════════════════════════════════════════════ */
 @media(max-width:640px){
-  /* ── Layout ── */
+  /* Hide desktop sidebar, show bottom nav */
   .sb{display:none}
   #mob-nav{display:block}
-  .cn{
-    margin-left:0;
-    padding:12px 12px calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 12px);
-    min-height:calc(100dvh - var(--nav-h));
-  }
+  #toast{bottom:calc(var(--nav-h) + 10px);right:12px;left:12px}
+  .ti{min-width:0;max-width:100%}
 
-  /* ── Toast above bottom nav ── */
-  #toast{bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 10px);right:12px;left:12px;text-align:center}
+  /* Content full width */
+  .cn{margin-left:0;padding:12px 12px calc(var(--nav-h) + 16px);min-height:calc(100vh - var(--nav-h))}
 
-  /* ── Page header ── */
+  /* Page header */
   .ptitle{font-size:17px}
-  .psub{font-size:11px}
-  .ph{
-    margin-bottom:10px;flex-direction:row;align-items:center;
-    flex-wrap:wrap;gap:6px;
-  }
-  .ph > div:first-child{flex:1;min-width:0}
-  .ph > div:last-child{display:flex;gap:6px;flex-wrap:wrap}
-  .ph .btn{font-size:12px;padding:7px 10px}
+  .ph{margin-bottom:12px;flex-direction:column;gap:8px}
+  .ph > div:last-child{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+  .ph .btn{flex:1;justify-content:center;font-size:12px;padding:8px 10px}
 
-  /* ── Stats cards ── */
+  /* Stats: 2×2 + 1 on mobile */
   .stats{grid-template-columns:1fr 1fr;gap:8px}
-  .stats .sc:last-child:nth-child(odd){grid-column:1/-1}
-  .sv{font-size:22px}
-  .sk{font-size:10px}
-  .sc{padding:10px 12px}
+  .stats .sc:last-child{grid-column:1/-1}
+  .sv{font-size:24px}
+  .sc{padding:11px}
 
-  /* ── Dashboard grid ── */
+  /* Dashboard grid → 1 col */
   .dgrid{grid-template-columns:1fr;gap:10px}
 
-  /* ── Filter / search bar ── */
-  .fbar{overflow-x:auto;flex-wrap:nowrap;padding:8px 10px;gap:6px;scrollbar-width:none}
+  /* Filter bar → scroll horizontally */
+  .fbar{overflow-x:auto;flex-wrap:nowrap;padding:8px 10px;gap:6px;border-radius:8px}
   .fbar::-webkit-scrollbar{display:none}
-  .fbar select,.fsel{min-width:100px;font-size:12px;padding:7px 10px}
-  .sbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-  .si{width:100%;flex:none}
-  .rfbtn{padding:7px 12px;font-size:12px}
+  .fbar select{min-width:100px;font-size:11px;padding:6px 8px}
 
-  /* ── Tables ── */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
-  .tbl{font-size:12px;min-width:480px}
-  .tbl thead th{padding:7px 8px;font-size:9px;white-space:nowrap}
-  .tbl tbody td{padding:8px 8px;white-space:nowrap}
+  /* Tables → horizontal scroll */
+  .tw{-webkit-overflow-scrolling:touch;border-radius:8px}
+  .tbl{font-size:12px}
+  .tbl thead th{padding:7px 8px;font-size:9px}
+  .tbl tbody td{padding:8px 8px}
 
-  /* ── Cards ── */
-  .card{padding:12px 14px}
-  .rc{padding:10px 12px}
+  /* Forms */
+  .fgrid,.fgrid.t3,.rg{grid-template-columns:1fr}
+  .fg input,.fg select,.fg textarea{padding:11px 12px;font-size:14px} /* iOS needs 16px or no zoom */
 
-  /* ── Forms ── */
-  .fgrid,.fgrid.t3,.rg{grid-template-columns:1fr !important}
-  .fg{margin-bottom:10px}
-  .fg input,.fg select,.fg textarea{padding:11px 12px;font-size:16px;border-radius:10px}
-  .fg label{font-size:11px}
-  .fg .hint{font-size:10px}
-  .full{grid-column:1 !important}
-
-  /* ── Modals → bottom sheet ── */
+  /* Modal — full bottom sheet on mobile */
   .mo{align-items:flex-end;padding:0}
   .mbox{
-    width:100%;max-width:100% !important;
-    border-radius:20px 20px 0 0;
-    padding:0 0 env(safe-area-inset-bottom,0px);
-    max-height:92dvh;
-    box-shadow:0 -16px 60px rgba(0,0,0,.6);
+    width:100%;max-width:100%;border-radius:var(--r3) var(--r3) 0 0;
+    padding:20px 16px;max-height:85vh;
+    box-shadow:0 -20px 60px rgba(0,0,0,.5);
   }
-  .mh{padding:14px 16px;position:sticky;top:0;background:var(--bg2);z-index:1;
-    border-radius:20px 20px 0 0}
-  .mh::before{content:'';display:block;width:36px;height:4px;background:var(--bdr3);
-    border-radius:2px;margin:0 auto 10px}
-  .mtt{font-size:17px}
-  .fgrid{padding:0 16px}
-  .mb{padding:0 16px 16px}
-  .mf{padding:12px 16px;border-top:1px solid var(--bdr);gap:8px;
-    flex-direction:row;flex-wrap:wrap;position:sticky;bottom:0;background:var(--bg2)}
-  .mf .btn{flex:1;justify-content:center;min-height:44px;font-size:14px}
+  .mbox.w,.mbox.ww,.mbox.xl{width:100%;max-width:100%}
+  .mf{flex-direction:column-reverse}
+  .mf .btn{width:100%;justify-content:center}
 
-  /* ── Tabs ── */
-  .tb{font-size:11px;padding:8px 8px;white-space:nowrap}
-  .tabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
-  .tabs::-webkit-scrollbar{display:none}
+  /* Tabs */
+  .tb{font-size:11px;padding:8px 6px}
 
-  /* ── Tourn detail / ND cards ── */
-  .ti{min-width:0;max-width:100%}
-  #nd-cards{grid-template-columns:1fr 1fr !important}
+  /* Search */
+  .sbar{flex-wrap:wrap}
+  .si{width:100%;flex:none}
 
-  /* ── Buttons ── */
+  /* Card */
+  .card{padding:12px}
+
+  /* Rule grid */
+  .rg{grid-template-columns:1fr}
+
+  /* Buttons */
   .btn{font-size:13px}
-  .bsm{padding:6px 10px;font-size:11px}
-
-  /* ── BXH table hide less important cols ── */
-  .bxh-tbl th:nth-child(5),
-  .bxh-tbl td:nth-child(5),
-  .bxh-tbl th:nth-child(6),
-  .bxh-tbl td:nth-child(6){display:none}
-
-  /* ── TT / Users table: hide less important cols ── */
-  .tbl .col-hide-mob{display:none}
+  .bsm{padding:6px 10px;font-size:12px}
 }
 
-/* ── Touch targets ── */
+/* Touch targets (all interactive) */
 @media(hover:none){
   .btn,.ni,.mni,.rfbtn,.sc{min-height:44px}
   .bsm{min-height:36px}
-  .fg input,.fg select{min-height:44px;font-size:16px}
-}
-
-/* ── Very small phones (SE, Galaxy A) ── */
-@media(max-width:375px){
-  .cn{padding-left:10px;padding-right:10px}
-  .mni span{display:none}
-  .mni .mni-ic{width:42px;height:32px;font-size:20px}
-  #nd-cards{grid-template-columns:1fr !important}
+  .fg input,.fg select{min-height:44px;font-size:16px} /* prevent iOS zoom */
 }
 
 /* Assign inline edit */
@@ -890,141 +837,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bxh-scroll::-webkit-scrollbar { width:5px; }
 .bxh-scroll::-webkit-scrollbar-track { background:transparent; }
 .bxh-scroll::-webkit-scrollbar-thumb { background:var(--bdr2,rgba(255,255,255,.15));border-radius:3px; }
-
-/* ══ MOBILE BRACKET — dọc ══ */
-@media(max-width:640px){
-  /* Bracket toolbar: 2 hàng gọn */
-  .bk-toolbar-info{display:none}
-  #nd-panel-bracket > div:first-child,
-  #bk-panel-giai .ph{
-    flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;
-  }
-  /* Nút bracket: scroll ngang trong 1 hàng */
-  .bk-btn-group{
-    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
-    padding-bottom:4px;flex-wrap:nowrap;
-  }
-  .bk-btn-group::-webkit-scrollbar{display:none}
-  .bk-btn-group .btn,.bk-btn-group .rfbtn{flex-shrink:0;font-size:11px;padding:6px 10px;white-space:nowrap}
-
-  /* Bracket scroll container */
-  #nd-bk-wrap, #bk-wrap{
-    overflow-x:auto;overflow-y:visible;
-    -webkit-overflow-scrolling:touch;
-  }
-  .bk-bracket{
-    /* Mobile: giảm kích thước match card */
-  }
-  .bk-round{min-width:160px}
-  .bk-card{margin:0 6px}
-  .bk-row{padding:6px 8px;min-height:32px}
-  .bk-pill{width:22px;height:22px;font-size:9px}
-  .bk-tname{font-size:11px}
-  .bk-sbox{min-width:28px;height:24px;font-size:13px}
-  .bk-round-label{font-size:9px;padding:0 6px 10px;height:30px}
-  .bk-card-hd{padding:3px 8px}
-
-  /* nd-panel header: compact */
-  #tv-nd-wrap .ph{flex-direction:column;gap:6px}
-  #tv-nd-wrap .ph > div:first-child{flex-direction:row;align-items:center}
-  #tv-nd-wrap .ph > div:last-child{
-    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
-  }
-  #tv-nd-wrap .ph > div:last-child::-webkit-scrollbar{display:none}
-  #tv-nd-wrap .ph > div:last-child .btn,
-  #tv-nd-wrap .ph > div:last-child .rfbtn{flex-shrink:0;white-space:nowrap;font-size:11px}
-
-  /* Bracket toolbar buttons: scroll ngang */
-  #nd-panel-bracket > div:first-child > div:last-child,
-  #bk-panel-giai .ph > div:last-child{
-    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
-    padding-bottom:2px;
-  }
-  #nd-panel-bracket > div:first-child > div:last-child::-webkit-scrollbar,
-  #bk-panel-giai .ph > div:last-child::-webkit-scrollbar{display:none}
-  #nd-panel-bracket > div:first-child > div:last-child .btn,
-  #nd-panel-bracket > div:first-child > div:last-child .rfbtn,
-  #bk-panel-giai .ph > div:last-child .btn,
-  #bk-panel-giai .ph > div:last-child .rfbtn{
-    flex-shrink:0;white-space:nowrap;font-size:11px;padding:6px 10px;
-  }
-
-  /* Segmented mode control */
-  .bk-mode-seg{flex-shrink:0}
-  .bk-seg-btn{padding:5px 10px;font-size:11px}
-
-  /* Bracket tabs */
-  .bkt-tabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
-  .bkt-tabs::-webkit-scrollbar{display:none}
-  .bkt-tab{flex-shrink:0;font-size:12px;padding:8px 12px}
-
-  /* ND detail header: title + back compact */
-  #tv-nd-title{font-size:16px}
-  #tv-nd-sub{font-size:11px}
-
-  /* Tab buttons in nd-panel */
-  #tv-nd-wrap > div[style*="border-bottom"]{
-    overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
-  }
-  #tv-nd-wrap > div[style*="border-bottom"] button{
-    flex-shrink:0;padding:8px 14px;font-size:12px;
-  }
-
-  /* Stats cards: scroll ngang */
-  .stats{
-    display:flex;overflow-x:auto;scrollbar-width:none;gap:8px;
-    grid-template-columns:unset;padding-bottom:4px;
-  }
-  .stats::-webkit-scrollbar{display:none}
-  .stats .sc{flex:0 0 140px;min-width:140px}
-  .stats .sc:last-child{grid-column:unset}
-
-  /* Dashboard filter bar */
-  .fbar{gap:6px;padding:8px 10px}
-  .fbar > *{flex-shrink:0}
-
-  /* Dashboard results table: ẩn cột ít quan trọng */
-  .tbl-res .col-nd,.tbl-res .col-bang,.tbl-res .col-ref{display:none}
-
-  /* Match table mobile */
-  .tbl-matches .col-note,.tbl-matches .col-rule{display:none}
-
-  /* BXH table: compact */
-  .bxh-tbl th:nth-child(6),.bxh-tbl td:nth-child(6),
-  .bxh-tbl th:nth-child(7),.bxh-tbl td:nth-child(7){display:none}
-
-  /* Tournament detail page header */
-  #tv-detail .ph{flex-direction:column;gap:8px}
-  #tv-detail .ph > *{width:100%}
-  #tv-detail .ph button{width:auto}
-
-  /* ND cards: 1 cột trên màn nhỏ */
-  #nd-cards{grid-template-columns:1fr !important}
-
-  /* Scrollbar cho nd-bk */
-  #nd-bk-scrollbar-wrap{display:none}
-
-  /* Dash filter: wrap các select */
-  #dash-filter-wrap{flex-wrap:wrap;gap:6px}
-  #dash-filter-wrap select{max-width:calc(50% - 4px);flex:1;min-width:100px}
-
-  /* Tourn view header mobile */
-  #tv-nd-wrap{padding:10px 12px}
-
-  /* Bang list max height */
-  #bang-list{max-height:none !important}
-
-  /* Table wrapper force scroll */
-  .tbl-wrap-mob{overflow-x:auto;-webkit-overflow-scrolling:touch}
-
-  /* Dash matches card: compact table */
-  #dash-matches-wrap .tbl{font-size:11px;min-width:0}
-  #dash-matches-wrap .tbl td{padding:7px 6px}
-
-  /* Kết quả recent: ẩn cột thừa */
-  #rec-wrap2 .tbl th:nth-child(2),
-  #rec-wrap2 .tbl td:nth-child(2){display:none}
-}
 </style>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script></head>
@@ -1045,7 +857,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <label class="lbl">🔗 Google Apps Script URL</label>
-      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec"
+      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"
         oninput="localStorage.setItem('pb_gs_url',this.value.trim())"
         onpaste="setTimeout(()=>localStorage.setItem('pb_gs_url',this.value.trim()),50)">
       <label class="lbl">🔑 Mã đăng nhập</label>
@@ -1089,28 +901,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 </div>
 
 <!-- Mobile "More" drawer -->
-<div id="mob-more-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:299" onclick="toggleMobMore()"></div>
-<div id="mob-more" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;
-  background:rgba(13,27,48,.98);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  border-top:1px solid var(--bdr2);border-radius:20px 20px 0 0;
-  padding:0 0 calc(env(safe-area-inset-bottom,0px) + 8px);
-  box-shadow:0 -8px 40px rgba(0,0,0,.6);animation:slideUpMore .2s cubic-bezier(.4,0,.2,1)">
-  <div style="text-align:center;padding:10px 0 4px">
-    <div style="width:36px;height:4px;background:var(--bdr3);border-radius:2px;display:inline-block"></div>
-  </div>
-  <div style="padding:0 14px 12px">
-    <div style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--tx3);text-transform:uppercase;padding:8px 4px 10px">Thêm tính năng</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-      <button class="mob-more-btn" onclick="nav('assign');toggleMobMore()"><span>📌</span>Phân công</button>
-      <button class="mob-more-btn" onclick="nav('results');toggleMobMore()"><span>🎯</span>Kết quả</button>
-      <button class="mob-more-btn" onclick="nav('users');toggleMobMore()"><span>👥</span>Trọng tài</button>
-      <button class="mob-more-btn" onclick="nav('playerusers');toggleMobMore()"><span>👁</span>Player</button>
-      <button class="mob-more-btn" onclick="nav('players');toggleMobMore()"><span>🏓</span>VĐV</button>
-      <button class="mob-more-btn" onclick="nav('phanquyen');toggleMobMore()"><span>🔑</span>Phân quyền</button>
-    </div>
-    <button style="width:100%;padding:13px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
-      border-radius:12px;color:#fca5a5;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--fn)"
-      onclick="doLogout()">↩ Đăng xuất</button>
+<div id="mob-more" style="display:none;position:fixed;bottom:60px;left:0;right:0;z-index:300;
+  background:var(--bg2);border-top:1px solid var(--bdr);padding:12px 16px;
+  box-shadow:0 -8px 24px rgba(0,0,0,.4);animation:fadeIn .15s ease">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('assign');toggleMobMore()">📌 Phân công TT</button>
+    <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('results');toggleMobMore()">🎯 Kết quả</button>
+    <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('users');toggleMobMore()">👥 Trọng tài</button>
+    <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('players');toggleMobMore()">🏓 VĐV</button>
+    <button class="btn br" style="grid-column:1/-1;justify-content:center" onclick="doLogout()">↩ Đăng xuất</button>
   </div>
 </div>
 
@@ -1147,7 +946,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <button class="ni" data-p="users"><span class="ic">👥</span><span>Trọng tài</span></button>
       <button class="ni" data-p="phanquyen"><span class="ic">🔑</span><span>Phân quyền</span></button>
       <button class="ni" data-p="players"><span class="ic">🏓</span><span>Vận động viên</span></button>
-      <button class="ni" data-p="playerusers"><span class="ic">👁</span><span>Player viewers</span></button>
     </div>
     <div class="sbbm">
       <div class="sbu" id="sb-usr">—</div>
@@ -1222,7 +1020,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
 
       <!-- ── STAT CARDS ── -->
-      <div class="stats" id="dash-stats-main" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;overflow-x:auto;scrollbar-width:none">
+      <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
         <div class="sc b" onclick="showStatMo('total')" title="Click xem chi tiết" style="cursor:pointer">
           <div class="slb">Tổng trận <small>↗</small></div>
           <div class="sv b" id="s-total">—</div><div class="ss">lịch đấu</div></div>
@@ -1341,17 +1139,16 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <!-- VIEW 2: Chi tiết giải (Nội dung thi đấu) -->
       <div id="tv-detail" style="display:none">
         <div class="ph">
-          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
-            <button class="rfbtn" onclick="showTournView('list')" style="padding:6px 10px;flex-shrink:0">← Quay lại</button>
-            <div style="min-width:0">
-              <div class="ptitle" id="td-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
-              <div class="psub" id="td-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="rfbtn" onclick="showTournView('list')" style="padding:6px 10px">← Quay lại</button>
+            <div>
+              <div class="ptitle" id="td-name">—</div>
+              <div class="psub" id="td-sub">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;padding-bottom:2px">
-            <button class="btn bsm" style="background:rgba(14,165,233,.15);color:var(--ac);border:1px solid rgba(14,165,233,.3);flex-shrink:0" onclick="openUserMoFromTourn()">📌 Phân công TT</button>
-            <button class="btn bh bsm" onclick="openAddNdMo()" style="flex-shrink:0">＋ Thêm nội dung</button>
-            <button class="btn bp bsm" onclick="openBracketMo()" style="flex-shrink:0">🏆 Xem bracket</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn bh" onclick="openAddNdMo()">＋ Thêm nội dung</button>
+            <button class="btn bp" onclick="openBracketMo()">🏆 Xem bracket</button>
           </div>
         </div>
 
@@ -1364,18 +1161,18 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <!-- VIEW 3: Chi tiết nội dung (Bảng + Cây thi đấu) -->
       <div id="tv-nd" style="display:none">
         <!-- Header -->
-        <div id="tv-nd-wrap">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <button class="rfbtn" onclick="showTournView('detail')" style="padding:6px 10px;flex-shrink:0">← Quay lại</button>
-            <div style="min-width:0;flex:1">
-              <div class="ptitle" id="tv-nd-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
-              <div class="psub" id="tv-nd-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+        <div class="ph" style="margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="rfbtn" onclick="showTournView('detail')" style="padding:6px 10px">← Quay lại</button>
+            <div>
+              <div class="ptitle" id="tv-nd-title">—</div>
+              <div class="psub" id="tv-nd-sub">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
-            <button class="rfbtn" onclick="ndRefresh()" id="nd-refresh-btn" style="flex-shrink:0">↻ Làm mới</button>
-            <button class="btn bp bsm" onclick="openAddBangMo()" style="flex-shrink:0">＋ Thêm bảng</button>
-            <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);flex-shrink:0" onclick="cleanupDuplicateMatches()">🧹 Dọn trùng</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <button class="rfbtn" onclick="ndRefresh()" id="nd-refresh-btn" title="Làm mới dữ liệu">↻ Làm mới</button>
+            <button class="btn bp bsm" onclick="openAddBangMo()" title="Thêm bảng đấu mới">＋ Thêm bảng</button>
+            <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);font-size:12px" onclick="cleanupDuplicateMatches()" title="Xóa trận bị trùng">🧹 Dọn trùng</button>
           </div>
         </div>
 
@@ -1414,20 +1211,28 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <div style="font-size:13px;font-weight:800;color:var(--tx)">🏆 Cây thi đấu</div>
               <div style="font-size:11px;color:var(--tx3);margin-top:2px">Tự động từ BXH vòng bảng · Có thể chỉnh tay</div>
             </div>
-            <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;flex-wrap:nowrap">
-              <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn" style="flex-shrink:0">↻ Làm mới</button>
-              <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25);flex-shrink:0"
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn">↻ Làm mới</button>
+              <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)"
                 onclick="bkShowRules()">📋 Quy tắc</button>
-              <div class="bk-mode-seg" id="nd-bk-mode-seg" style="flex-shrink:0">
-                <button id="nd-btn-bk-auto"   onclick="bkSetMode(true)"  class="bk-seg-btn">🤖 Tự động</button>
-                <button id="nd-btn-bk-manual" onclick="bkSetMode(false)" class="bk-seg-btn active-manual">🖊 Thủ công</button>
-              </div>
-              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()" style="flex-shrink:0">⚡ Điền ngay</button>
-              <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3);flex-shrink:0"
+              <span id="nd-btn-bk-mode-wrap" style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);flex-shrink:0">
+                <button id="nd-btn-bk-auto" onclick="bkSetMode(true)"
+                  style="padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;border:none;border-right:1px solid var(--bdr);background:rgba(100,116,139,.12);color:var(--tx3);display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-family:var(--fn);line-height:1">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                  Tự động
+                </button>
+                <button id="nd-btn-bk-manual" onclick="bkSetMode(false)"
+                  style="padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:rgba(14,165,233,.15);color:var(--ac);display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-family:var(--fn);line-height:1">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  Thủ công
+                </button>
+              </span>
+              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Điền ngay</button>
+              <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3)"
                 onclick="ndBkSave()">💾 Lưu cây</button>
-              <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25);flex-shrink:0"
+              <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25)"
                 onclick="ndBkApply()">⚡ Áp dụng & Tạo lịch</button>
-              <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3);flex-shrink:0"
+              <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)"
                 onclick="ndBkDelete()">🗑 Xóa cây</button>
             </div>
           </div>
@@ -1460,13 +1265,21 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
             <div class="ptitle">🏆 Cây thi đấu</div>
             <div class="psub">Tự động từ BXH vòng bảng · Có thể chỉnh tay</div>
           </div>
-          <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;padding-bottom:2px">
-            <button class="rfbtn" onclick="bkRefresh()" style="flex-shrink:0">↻ Làm mới</button>
-            <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25);flex-shrink:0" onclick="bkShowRules()">📋 Quy tắc</button>
-            <button class="btn bsm" id="btn-bk-mode" onclick="bkToggleMode()"
-              style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
-              🖊 Thủ công
-            </button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="rfbtn" onclick="bkRefresh()">↻ Làm mới</button>
+            <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)" onclick="bkShowRules()">📋 Quy tắc</button>
+            <span id="btn-bk-mode-wrap" style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--bdr);flex-shrink:0">
+              <button id="btn-bk-auto" onclick="bkSetMode(true)"
+                style="padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;border:none;border-right:1px solid var(--bdr);background:rgba(100,116,139,.12);color:var(--tx3);display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-family:var(--fn);line-height:1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                Tự động
+              </button>
+              <button id="btn-bk-manual" onclick="bkSetMode(false)"
+                style="padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:rgba(14,165,233,.15);color:var(--ac);display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-family:var(--fn);line-height:1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Thủ công
+              </button>
+            </span>
             <button class="btn bp bsm" id="btn-bk-autofill" onclick="bkAutoFill()">⚡ Điền ngay</button>
             <button class="btn bsm" style="background:var(--gn);color:#fff" onclick="bkSave()">💾 Lưu cây</button>
             <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)" onclick="bkDeleteTree()" title="Xóa toàn bộ cây thi đấu (trận KO) khỏi lịch thi đấu">🗑 Xóa cây</button>
@@ -1722,7 +1535,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <div class="rc adm"><h4>👑 Admin</h4>Toàn quyền mọi giải<br>Tạo/xóa giải đấu<br>Quản lý mọi TT</div>
           <div class="rc mgr"><h4>🔵 Manager</h4>Quản lý 1 giải được phân<br>Phân công TT trong giải<br>Xem dashboard giải</div>
           <div class="rc ref"><h4>🟢 Trọng tài (active)</h4>Chấm điểm theo sân/vòng<br>Sân trống → không thấy trận<br>Vòng trống → không thấy vòng</div>
-          <div class="rc" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)"><h4>👁 Player viewer</h4>Xem tỉ số · BXH · lịch<br>Không thể chấm điểm<br>Vào trang index_player.html</div>
         </div>
         <p style="font-size:11px;color:var(--rd);margin-top:8px">⚠️ Hết hạn để trống = đã quá hạn. Sân để trống = trọng tài không thấy bất kỳ trận nào.</p>
       </div>
@@ -1734,14 +1546,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <option value="admin">Admin</option>
           <option value="manager">Manager</option>
           <option value="active">Trọng tài</option>
-          <option value="player">Player viewer</option>
           <option value="khóa">Bị khóa</option>
         </select>
         <button class="rfbtn" onclick="loadUsers()">↻</button>
       </div>
       <div class="tw">
         <table class="tbl">
-          <thead><tr><th>Họ tên</th><th>📞 SĐT</th><th>Vai trò</th><th>Giải phân</th><th>Nội dung</th><th>Sân</th><th>Vòng</th><th>Hết hạn</th><th>Ghi chú</th><th></th></tr></thead>
+          <thead><tr><th>Mã</th><th>Họ tên</th><th>Vai trò</th><th>Giải phân</th><th>Nội dung</th><th>Sân</th><th>Vòng</th><th>Hết hạn</th><th>📞 SĐT</th><th>Ghi chú</th><th></th></tr></thead>
           <tbody id="u-tb"><tr><td colspan="11" style="text-align:center;padding:28px"><span class="spin"></span></td></tr></tbody>
         </table>
       </div>
@@ -1784,50 +1595,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
       <div id="pq-wrap">
         <div class="empty"><span class="spin"></span></div>
-      </div>
-    </div>
-
-    <!-- ══ PLAYER VIEWERS ══ -->
-    <div class="page" id="page-playerusers">
-      <div class="ph">
-        <div>
-          <div class="ptitle">👁 Player Viewers</div>
-          <div class="psub">Tài khoản dành cho VĐV / khán giả xem tỉ số · BXH · lịch thi đấu</div>
-        </div>
-        <button class="btn bp" onclick="openPlayerUserMo()">＋ Thêm Player</button>
-      </div>
-      <!-- Role info card -->
-      <div class="card" style="margin-bottom:12px;padding:12px 16px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
-          <div class="rc" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)">
-            <h4 style="color:var(--gn)">👁 Player (full giải)</h4>
-            Xem tất cả nội dung thi đấu<br>
-            Tỉ số · BXH · Lịch đấu<br>
-            <span style="font-size:10px;color:var(--tx3)">Để trống Nội dung = full giải</span>
-          </div>
-          <div class="rc" style="border-color:rgba(14,165,233,.3);background:rgba(14,165,233,.05)">
-            <h4 style="color:var(--ac)">👁 Player (1 nội dung)</h4>
-            Chỉ xem nội dung được phân<br>
-            VD: "Đôi Nữ" hoặc "Đôi Nam-Nữ"<br>
-            <span style="font-size:10px;color:var(--tx3)">Điền Nội dung để giới hạn</span>
-          </div>
-          <div class="rc" style="border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.05)">
-            <h4 style="color:var(--pu)">🔗 Link đăng nhập Player</h4>
-            Trang xem riêng: <code id="player-url-display" style="font-size:10px;color:var(--ac);word-break:break-all">index_player.html</code><br>
-            <button class="btn bsm" style="margin-top:6px;background:rgba(168,85,247,.12);color:var(--pu);border:1px solid rgba(168,85,247,.3)" onclick="copyPlayerUrl()">📋 Copy link</button>
-          </div>
-        </div>
-      </div>
-      <div class="sbar">
-        <input class="si" id="puq" placeholder="🔍 Tìm tên, SĐT..." oninput="dbt(filterPlayerUsers)">
-        <select class="fsel" id="pu-giai-f" onchange="filterPlayerUsers()"><option value="">Tất cả giải</option></select>
-        <button class="rfbtn" onclick="loadPlayerUsers()">↻</button>
-      </div>
-      <div class="tw">
-        <table class="tbl">
-          <thead><tr><th>Họ tên</th><th>📞 SĐT</th><th>Mã</th><th>Giải được xem</th><th>Nội dung</th><th>Hết hạn</th><th>Ghi chú</th><th></th></tr></thead>
-          <tbody id="pu-tb"><tr><td colspan="8" style="text-align:center;padding:28px"><span class="spin"></span></td></tr></tbody>
-        </table>
       </div>
     </div>
 
@@ -1925,18 +1692,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <div class="mo" id="mo-user"><div class="mbox w">
   <div class="mh"><div class="mtt" id="user-tt">Thêm Trọng tài</div><button class="mc" onclick="closeMo('mo-user')">✕</button></div>
   <div class="fgrid">
-    <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label>
-      <input type="tel" id="u-phone" placeholder="0901234567" oninput="this.value=this.value.replace(/[^0-9+]/g,'')">
-      <span class="hint" style="color:var(--tx3)">Bắt buộc và phải là số duy nhất — dùng để đăng nhập.</span></div>
-    <div class="fg"><label>Họ tên <span style="color:var(--rd)">*</span></label><input type="text" id="u-name" placeholder="Nguyễn Văn An"></div>
-    <!-- Mã đăng nhập — ẩn, tự sinh hoặc để trống -->
-    <div class="fg" style="display:none"><label>Mã đăng nhập</label>
+    <div class="fg"><label>Mã đăng nhập *</label>
       <input type="text" id="u-code" placeholder="ref001" style="font-family:var(--mo)">
-      <span class="hint">Không bắt buộc. Để trống hệ thống sẽ dùng SĐT làm mã.</span></div>
+      <span class="hint">Chữ thường + số. Hệ thống tự uppercase khi xác thực.</span></div>
+    <div class="fg"><label>Họ tên *</label><input type="text" id="u-name" placeholder="Nguyễn Văn An"></div>
     <div class="fg"><label>Vai trò</label>
       <select id="u-status">
         <option value="active">🟢 Trọng tài (active)</option>
-        <option value="player">👁 Player viewer</option>
         <option value="manager">🔵 Manager giải</option>
         <option value="admin">👑 Admin</option>
         <option value="khóa">🔒 Khóa tài khoản</option>
@@ -1968,48 +1730,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg full"><label>Vòng đấu được phân</label>
       <input type="text" id="u-rounds" placeholder="Vòng bảng, Tứ kết  (để trống = không thấy vòng nào)">
       <span class="hint">⚠️ Để trống = trọng tài không thấy vòng đấu nào.</span></div>
+    <div class="fg"><label>📞 Điện thoại</label><input type="tel" id="u-phone" placeholder="0901234567"></div>
     <div class="fg full"><label>Ghi chú</label><input type="text" id="u-note" placeholder=""></div>
   </div>
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-user')">Hủy</button>
     <button class="btn bp" id="u-save" onclick="saveUser()">💾 Lưu</button>
-  </div>
-</div></div>
-
-<!-- Player User Modal -->
-<div class="mo" id="mo-player-user"><div class="mbox w">
-  <div class="mh">
-    <div class="mtt" id="pu-tt">Thêm Player Viewer</div>
-    <button class="mc" onclick="closeMo('mo-player-user')">✕</button>
-  </div>
-  <div class="fgrid" style="padding:16px 18px">
-    <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label>
-      <input type="tel" id="pu-phone" placeholder="0901234567" oninput="this.value=this.value.replace(/[^0-9+]/g,'')">
-      <span class="hint">Dùng để đăng nhập vào trang Player. Phải là số duy nhất.</span></div>
-    <div class="fg"><label>Họ tên <span style="color:var(--rd)">*</span></label>
-      <input type="text" id="pu-name" placeholder="Nguyễn Văn An"></div>
-    <div class="fg full">
-      <label>🏆 Giải đấu được xem <span style="color:var(--rd)">*</span></label>
-      <select id="pu-giai-sel" style="width:100%" class="fsel" onchange="onPuGiaiChange()">
-        <option value="">— Chọn giải —</option>
-      </select>
-      <span class="hint">Player chỉ xem được giải này.</span>
-    </div>
-    <div class="fg full">
-      <label>Nội dung thi đấu <span style="font-size:10px;color:var(--tx3);font-weight:400">(để trống = xem tất cả nội dung)</span></label>
-      <div id="pu-nd-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:32px"></div>
-      <input type="hidden" id="pu-nd">
-      <span class="hint">Chọn nội dung muốn giới hạn, hoặc để trống cho xem full giải.</span>
-    </div>
-    <div class="fg"><label>Hết hạn</label>
-      <input type="date" id="pu-exp">
-      <span class="hint">Để trống = hết hạn ngay. Khuyến nghị đặt cuối ngày giải đấu.</span></div>
-    <div class="fg full"><label>Ghi chú</label>
-      <input type="text" id="pu-note" placeholder="Tên đội, HLV, BTC..."></div>
-  </div>
-  <div class="mf">
-    <button class="btn bh" onclick="closeMo('mo-player-user')">Hủy</button>
-    <button class="btn bp" id="pu-save" onclick="savePlayerUser()">💾 Lưu</button>
   </div>
 </div></div>
 
@@ -2077,22 +1803,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="btn bp" onclick="saveAssign()">💾 Lưu phân công</button>
   </div>
 </div></div>
-
-<!-- Modal Phân công TT nhanh từ màn hình giải -->
-<div class="mo" id="mo-phancong-tourn" style="z-index:9500">
-  <div class="mbox" style="max-width:860px;width:96%;max-height:90vh;overflow-y:auto">
-    <div class="mh" style="position:sticky;top:0;background:var(--bg2);z-index:1">
-      <div>
-        <div class="mtt">📌 Phân công Trọng tài</div>
-        <div style="font-size:12px;color:var(--tx3);margin-top:2px">Giải: <strong id="pct-giai-name" style="color:var(--ac)"></strong></div>
-      </div>
-      <button class="mc" onclick="closeMo('mo-phancong-tourn')">✕</button>
-    </div>
-    <div id="pct-body" style="padding:4px 0">
-      <div style="text-align:center;padding:40px"><span class="spin"></span></div>
-    </div>
-  </div>
-</div>
 
 <!-- Match Modal (thêm/sửa trận, có sửa tỉ số) -->
 <div class="mo" id="mo-match"><div class="mbox w">
@@ -2452,7 +2162,7 @@ function _buildLiveFromRows(rows) {
     const nd   = parts[0];
     const bang = parts[1];
     const code = parts.slice(2).join('|');
-    const bc   = `${nd}|${bang}|${code}`; // noidung|bang|code — khớp với key mới của _dkBangCode
+    const bc   = `${bang}|${code}`;
     // Tìm giải từ _liveScores hoặc _M
     const ls = newLS[liveKey];
     const matchInM = _M.find(m => String(m[1]||'')===nd && String(m[2]||'')===bang && String(m[3]||'')===code);
@@ -2535,20 +2245,19 @@ async function _syncFinishedMatches(finishedKeys) {
 // Gọi sau mỗi lần có resultData mới
 function buildDkFromResults(rRows) {
   const dkSet = new Set();
-  const bcSet = new Map(); // Map "noidung|bang|code" → Set(giai) — bao gồm noidung để phân biệt các nội dung cùng giải
+  const bcSet = new Map(); // ── FIX Bug trùng sân: Map "bang|code" → Set(giai) thay vì Set đơn giản
   const scores = {};
   (rRows||[]).forEach(r => {
     const g  = String(r[1]||'').trim();
-    const nd = String(r[2]||'').trim(); // noidung ở cột 2 trong KetQua
     const bg = String(r[3]||'').trim();
     const cd = String(r[4]||'').trim();
     if (!bg || !cd) return;
     // Thêm key đầy đủ (tên giải|bang|code)
     dkSet.add(`${g}|${bg}|${cd}`);
-    // Key Map bao gồm noidung để tránh kết quả nội dung khác (Đôi Nữ) làm ô nhiễm (Đôi Nam-Nữ)
-    const bcKey = `${nd}|${bg}|${cd}`;
-    if (!bcSet.has(bcKey)) bcSet.set(bcKey, new Set());
-    bcSet.get(bcKey).add(g);
+    // ── FIX: lưu theo Map giải → Set bangCode ──
+    // Không dùng Set thuần vì "Bảng A|A1" của giải A ≠ "Bảng A|A1" của giải B
+    if (!bcSet.has(`${bg}|${cd}`)) bcSet.set(`${bg}|${cd}`, new Set());
+    bcSet.get(`${bg}|${cd}`).add(g);
     // Thêm key mã giải nếu có trong _T
     const tByName = _T.find(t => String(t[1]||'') === g);
     if (tByName) dkSet.add(`${String(tByName[0]||'')}|${bg}|${cd}`);
@@ -2568,7 +2277,7 @@ function buildDkFromResults(rRows) {
     }
   });
   _dK = dkSet;
-  _dkBangCode = bcSet; // Map: "noidung|bang|code" → Set(giaiName)
+  _dkBangCode = bcSet; // Giờ là Map: "bang|code" → Set(giaiName)
   _dkScores   = scores;
 }
 
@@ -2591,9 +2300,7 @@ function isMatchDone(m) {
 
   // ── KETQUA: kiểm tra bảng kết quả (cho dữ liệu cũ trước khi fix) ──
   if (_dK.has(`${g}|${bg}|${cd}`)) return true;
-  // Key bao gồm noidung (m[1]) để phân biệt "Đôi Nữ C2" với "Đôi Nam-Nữ C2"
-  const nd = String(m[1]||'').trim();
-  const bc = `${nd}|${bg}|${cd}`;
+  const bc = `${bg}|${cd}`;
   if (_dkBangCode instanceof Map) {
     const giaiSet = _dkBangCode.get(bc);
     if (giaiSet) {
@@ -2670,14 +2377,8 @@ window.onload = () => {
 // Mobile more drawer toggle
 function toggleMobMore() {
   var el = document.getElementById('mob-more');
-  var overlay = document.getElementById('mob-more-overlay');
   if (!el) return;
-  var show = el.style.display === 'none';
-  el.style.display = show ? 'block' : 'none';
-  if (overlay) overlay.style.display = show ? 'block' : 'none';
-  // Update more button active state
-  var btn = document.getElementById('mob-more-btn');
-  if (btn) btn.classList.toggle('on', show);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2721,13 +2422,7 @@ async function doLogin() {
   localStorage.setItem('pb_adm_code', code);
 
   const baseUrl = url.replace(/\/+$/, '');
-  // Detect: nếu input thuần số >= 8 ký tự → là SĐT → gửi phone param
-  const codeClean = code.replace(/\D/g, '');
-  const isPhone = /^\d{8,12}$/.test(codeClean) && !/[A-Z]/.test(code);
-  const loginParam = isPhone
-    ? `phone=${encodeURIComponent(codeClean)}`
-    : `code=${encodeURIComponent(code)}`;
-  const fetchUrl = `${baseUrl}?action=validate&${loginParam}&device=AdminPanel&_t=${Date.now()}`;
+  const fetchUrl = `${baseUrl}?action=validate&code=${encodeURIComponent(code)}&device=AdminPanel&_t=${Date.now()}`;
 
   // Fetch với timeout 12s + retry 1 lần nếu timeout
   async function fetchWithTimeout(url, ms) {
@@ -2886,7 +2581,7 @@ function showApp() {
   // ── PHÂN QUYỀN MANAGER: chỉ thấy Quản lý giải ──
   if (ROLE === 'manager') {
     // Chỉ giữ lại nav "Quản lý giải", ẩn tất cả còn lại
-    const MANAGER_ALLOWED_PAGES = ['tournaments', 'users', 'playerusers'];
+    const MANAGER_ALLOWED_PAGES = ['tournaments', 'users'];
     // Ẩn nav Phân quyền với Manager
     const pqNav = document.querySelector('.ni[data-p="phanquyen"]');
     if (pqNav) pqNav.style.display = 'none';
@@ -3017,67 +2712,19 @@ function doLogout() {
 // ════════════════════════════════════════════════════════════════
 //  PREFETCH — tải nền 1 lần, sau đó dùng cache
 // ════════════════════════════════════════════════════════════════
-const _cache = {}; // { key: { ts, data, ver } }
-let   _cacheVer = 0; // Tăng mỗi khi invalidate matches → cache cũ tự vô hiệu
-const CACHE_TTL = 300000; // 300s (5 phút) — stale-while-revalidate
-
-// ════ PREFETCH ENGINE ════
-// Prefetch ngầm tất cả giải sau khi load xong — không block UI
-let _prefetchDone = new Set();
-let _prefetchQueue = [];
-let _prefetching = false;
-
-async function _runPrefetchQueue() {
-  if (_prefetching) return;
-  _prefetching = true;
-  while (_prefetchQueue.length) {
-    const giaiId = _prefetchQueue.shift();
-    if (_prefetchDone.has(giaiId)) continue;
-    _prefetchDone.add(giaiId);
-    const cKey = 'matches_' + String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
-    if (cacheGet(cKey)) continue; // đã có cache, bỏ qua
-    try { await loadMatchesCache(giaiId, false); } catch(e) {}
-    await new Promise(r => setTimeout(r, 400)); // throttle 400ms giữa các giải
-  }
-  _prefetching = false;
-}
-
-function prefetchAllGiais() {
-  if (!_T?.length) return;
-  // Chỉ prefetch giải của manager, hoặc tất cả nếu admin (tối đa 6)
-  const toFetch = ROLE === 'manager'
-    ? _T.filter(t => MY_GIAI_LIST.includes(String(t[0]||'')))
-    : _T.slice(0, 6);
-  _prefetchQueue = toFetch.map(t => String(t[0]||'')).filter(Boolean);
-  setTimeout(() => _runPrefetchQueue(), 1500); // delay 1.5s sau khi UI xong
-}
-
-function prefetchGiai(giaiId) {
-  // Prefetch 1 giải cụ thể khi hover card
-  if (!giaiId || _prefetchDone.has(giaiId)) return;
-  const cKey = 'matches_' + String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
-  if (cacheGet(cKey)) return;
-  _prefetchDone.add(giaiId);
-  loadMatchesCache(giaiId, false).catch(() => {});
-}
+const _cache = {}; // { key: { ts, data } }
+const CACHE_TTL = 120000; // 120s — giảm số lần hit GAS
 
 function cacheGet(key) {
   const c = _cache[key];
-  if (!c) return null;
-  // Kiểm tra TTL và version (matches cache phải đúng version hiện tại)
-  if (Date.now() - c.ts >= CACHE_TTL) return null;
-  if (key.startsWith('matches_') && c.ver !== _cacheVer) return null;
-  return c.data;
+  if (c && Date.now() - c.ts < CACHE_TTL) return c.data;
+  return null;
 }
-function cacheSet(key, data) {
-  _cache[key] = { ts: Date.now(), data, ver: _cacheVer };
-}
+function cacheSet(key, data) { _cache[key] = { ts: Date.now(), data }; }
 function cacheDel(key) { delete _cache[key]; }
-// Xóa cache matches cho 1 giải (dùng sau delete/update/tạo lịch)
+// Xóa cache matches cho 1 giải (dùng sau delete/update)
 function _invalidateMatchCache(giaiId) {
   const giaiName = giaiId ? String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId) : '';
-  // Tăng version → tất cả matches cache cũ tự vô hiệu, kể cả các giải khác đang được hold bởi prefetch
-  _cacheVer++;
   if (giaiName) cacheDel('matches_' + giaiName);
   if (giaiId && giaiId !== giaiName) cacheDel('matches_' + giaiId);
   // Xóa luôn localStorage _M để reload không load data cũ
@@ -3208,7 +2855,6 @@ async function prefetchAll() {
       _T = _filterTournsForRole(tRes.rows.slice(1));
       _syncManagerGiaiList();
       cacheSet('tournaments', _T);
-      prefetchAllGiais(); // Bắt đầu prefetch ngầm tất cả giải
     }
     if (mRes.rows?.length > 1) {
       const allRows = normalizeMatchRows(mRes.rows.slice(1));
@@ -3334,7 +2980,6 @@ function nav(p, _skipHash) {
     users: loadUsers,
     phanquyen: loadPhanQuyen,
     players: loadPlayers,
-    playerusers: loadPlayerUsers,
   };
   if (loaders[p]) loaders[p]();
   // Restart live polling cho trang hiện tại
@@ -3480,7 +3125,7 @@ function emptyRow(colspan, icon, msg) { return `<tr><td colspan="${colspan}"><di
 // Điền tất cả dropdown giải đấu
 function populateTournamentDropdowns() {
   const ids = ['dash-giai','bxh-giai','asgn-giai','clear-giai','m-giai','r-giai','u-giai','p-giai','rr-giai','m-giai-i','assign-giai','bk-giai'];
-  const tourns = ROLE === 'manager' ? _T.filter(r => MY_GIAI_LIST.includes(String(r[0]||''))) : _T;
+  const tourns = ROLE === 'manager' ? _T.filter(r => String(r[0]||'') === MY_GIAI) : _T;
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -3491,7 +3136,7 @@ function populateTournamentDropdowns() {
     el.innerHTML = firstOpt + tourns.map(t => `<option value="${esc(t[0])}">${t[1]||t[0]}</option>`).join('');
     if (val) el.value = val;
     // Manager: tự chọn giải của mình
-    if (ROLE === 'manager' && MY_GIAI_LIST.length===1) el.value = MY_GIAI_LIST[0];
+    if (ROLE === 'manager' && MY_GIAI) el.value = MY_GIAI;
   });
 }
 
@@ -3842,8 +3487,7 @@ async function loadDash() {
       if (Array.isArray(d.recentResults) && d.recentResults.length) {
         d.recentResults.forEach(r => {
           if (!r || !r.bang || !r.code) return;
-          const ndVal = String(r.nd||r.noidung||'').trim(); // noidung từ recentResults
-          const bc    = `${ndVal}|${String(r.bang)}|${String(r.code)}`; // noidung|bang|code
+          const bc    = String(r.bang) + '|' + String(r.code);
           const gName = String(r.giai||'').trim();
           // ── FIX: _dkBangCode là Map → dùng get/set thay vì .add ──
           if (_dkBangCode instanceof Map) {
@@ -4548,7 +4192,7 @@ function renderTournCards(rows) {
     const id  = esc(r[0]);
     return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s"
               onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='var(--bdr)'"
-              onmouseenter="prefetchGiai('${id}')" onclick="openTournDetail('${id}')">
+              onclick="openTournDetail('${id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div>
           <div style="font-family:var(--mo);font-size:11px;color:var(--ac);font-weight:600;margin-bottom:3px">${r[0]}</div>
@@ -4576,36 +4220,14 @@ function renderTournCards(rows) {
 }
 
 // ── Click giải → View Detail ──
-async function openTournDetail(id) {
+function openTournDetail(id) {
   const r = _T.find(t => String(t[0]||'') === id);
   if (!r) return;
   _curTourn = r;
   document.getElementById('td-name').textContent = r[1] || id;
   document.getElementById('td-sub').textContent  = (r[2]||'') + (r[4]?' · '+fmtD(r[4])+' → '+fmtD(r[5]):'');
   showTournView('detail');
-
-  // Render NGAY lập tức từ cache (dù có data hay chưa)
   renderNdCards(r);
-
-  // Kiểm tra cache còn mới không
-  const giaiName = String(r[1]||id);
-  const cKey = 'matches_' + giaiName;
-  const hasFreshCache = !!cacheGet(cKey);
-
-  if (!hasFreshCache) {
-    // Chưa có cache → fetch ngay (non-blocking)
-    loadMatchesCache(id, false)
-      .then(() => { if (_curTourn === r) renderNdCards(r); })
-      .catch(() => {});
-  } else {
-    // Đã có cache → hiện ngay, revalidate ngầm sau 1.5s
-    setTimeout(() => {
-      if (_curTourn !== r) return; // user đã chuyển giải
-      loadMatchesCache(id, false)
-        .then(() => { if (_curTourn === r) renderNdCards(r); })
-        .catch(() => {});
-    }, 1500);
-  }
 }
 
 // ── Render cards nội dung thi đấu ──
@@ -4632,15 +4254,13 @@ function renderNdCards(r) {
     const bangs = [...new Set(_M.filter(mFilter).map(m=>String(m[2]||'')).filter(Boolean))];
     return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:16px;
               cursor:pointer;transition:all .15s;border-top:3px solid ${c}"
-              onmouseover="this.style.boxShadow='0 0 0 1px ${c}33';prefetchGiai('${esc(String(r[0]||''))}')" onmouseout="this.style.boxShadow='none'"
+              onmouseover="this.style.boxShadow='0 0 0 1px ${c}33'" onmouseout="this.style.boxShadow='none'"
               onclick="openNdDetail('${esc(String(r[0]||''))}','${ndId}')">
       <div style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px">${nd}</div>
-      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px" class="nd-card-stats">
-        ${matchCount > 0 ? `${matchCount} trận · ${bangs.length} bảng` : '<span style="opacity:.5">⏳ đang tải...</span>'}
-      </div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">${matchCount} trận · ${bangs.length} bảng</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
         ${bangs.length ? bangs.map(b=>`<span class="ptag" style="font-size:11px">${b}</span>`).join('')
-          : (matchCount > 0 ? '<span style="font-size:11px;color:var(--tx3)">Chưa có bảng nào</span>' : '')}
+          : '<span style="font-size:11px;color:var(--tx3)">Chưa có bảng nào</span>'}
       </div>
       <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
         <button class="btn bp bsm" style="flex:1" onclick="openNdDetail('${esc(String(r[0]||''))}','${ndId}')">📋 Xem bảng đấu</button>
@@ -4714,9 +4334,6 @@ function switchNdTab(tab, _skipHash) {
 let _players = []; // [{id, name, seed}]  — danh sách đội/VĐV
 let _bocThamGroups = {}; // {bangName: [playerName,...]}
 let _bocThamLocked = false;
-let _pendingScheduleRows = []; // Lưu tạm allRows để tránh bug JSON-in-onclick khi tên đội có ký tự đặc biệt
-let _pendingScheduleGiaiId = '';
-let _pendingScheduleNd = '';
 // Cache players/bocTham theo giaiId|nd — tránh dùng nhầm giữa các nội dung
 const _playersCache    = {}; // key: "giaiId|nd" → [{id,name,seed}]
 const _bocThamCache    = {}; // key: "giaiId|nd" → {bangName:[...]}
@@ -4846,52 +4463,41 @@ function renderPlayersPanel() {
     </div>
   </div>
 
-  <!-- Tạo lịch thi đấu — hiện luôn sau khi bốc thăm xong, không cần bước trung gian -->
-  ${Object.keys(_bocThamGroups).length > 0 ? (() => {
-    // Tính trước số trận để hiện trên nút
-    const _previewMatchCount = Object.entries(_bocThamGroups).reduce((total, [, teams]) => {
-      const n = teams.length;
-      if (n < 2) return total;
-      const listLen = n % 2 === 1 ? n + 1 : n;
-      const rounds  = listLen - 1;
-      const half    = listLen / 2;
-      // mỗi round có half cặp, trừ BYE
-      const byePerRound = n % 2 === 1 ? 1 : 0;
-      return total + rounds * (half - byePerRound);
-    }, 0);
-    const _previewBangCount  = Object.keys(_bocThamGroups).length;
-    const _previewTeamCount  = Object.values(_bocThamGroups).reduce((s,t)=>s+t.length,0);
-    return `
+  <!-- Tạo lịch thi đấu -->
+  ${Object.keys(_bocThamGroups).length > 0 ? `
   <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;margin-top:4px">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:var(--bg3);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--bdr);background:var(--bg3);display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:800;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em">📅 Tạo lịch thi đấu</span>
       ${existingBangs.length ? `<span style="font-size:10px;color:var(--or);font-weight:700">⚠️ Đã có ${existingBangs.length} bảng (${existingMatches.length} trận)</span>` : ''}
     </div>
-    <!-- Stats preview -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid var(--bdr)">
-      <div style="padding:12px;text-align:center;border-right:1px solid var(--bdr)">
-        <div style="font-size:22px;font-weight:800;color:var(--ac)">${_previewBangCount}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Bảng</div>
+    <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      <div>
+        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Sân mặc định</label>
+        <input id="gen-court" type="text" placeholder="Sân A1"
+          value="${_curTourn?String(_curTourn[3]||'').split(',')[0].trim():''}"
+          style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
       </div>
-      <div style="padding:12px;text-align:center;border-right:1px solid var(--bdr)">
-        <div style="font-size:22px;font-weight:800;color:#4ade80">${_previewTeamCount}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Đội</div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Mã trận bắt đầu</label>
+        <input id="gen-code-start" type="number" min="1" value="1"
+          style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
       </div>
-      <div style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(--or)">${_previewMatchCount}</div>
-        <div style="font-size:10px;color:var(--tx3);margin-top:2px">Trận</div>
+      <div>
+        <label style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Nếu đã có trận</label>
+        <select id="gen-conflict" style="width:100%;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--tx)">
+          <option value="skip">Bỏ qua (giữ cũ)</option>
+          <option value="replace">Thay thế hết</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button onclick="generateSchedule('${nd}','${giaiId}')" style="width:100%;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer">
+          ✅ Tạo lịch
+        </button>
       </div>
     </div>
-    <!-- Confirm button -->
-    <div style="padding:12px 14px">
-      <button onclick="quickGenerateSchedule('${nd}','${giaiId}')"
-        id="btn-quick-gen"
-        style="width:100%;padding:11px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">
-        ✅ Xác nhận tạo ${_previewMatchCount} trận đấu
-      </button>
-    </div>
-  </div>`;
-  })() : ''}
+    <!-- Preview -->
+    <div id="gen-preview" style="padding:0 16px 16px"></div>
+  </div>` : ''}
   `;
 }
 
@@ -5061,67 +4667,86 @@ function moveTeamDown(bang, idx) {
   document.getElementById('bt-result').innerHTML = renderBocThamResult();
 }
 
-// ── Generate Schedule (Round Robin) — dùng cho flow cũ với preview ──
+// ── Generate Schedule (Round Robin) ──
 function generateSchedule(nd, giaiId) {
   const court     = (document.getElementById('gen-court')?.value||'').trim();
   const codeStart = parseInt(document.getElementById('gen-code-start')?.value||'1');
+  const conflict  = document.getElementById('gen-conflict')?.value || 'skip';
   const gName     = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
-  _buildAndStorePending(nd, giaiId, gName, court, codeStart);
-  if (_pendingScheduleRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
-  confirmGenerateSchedule();
-}
 
-// ── Quick Generate — gọi trực tiếp từ nút sau bốc thăm, sân trống, code từ 1 ──
-async function quickGenerateSchedule(nd, giaiId) {
-  const gName = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
   if (Object.keys(_bocThamGroups).length === 0) {
     toast('Chưa có kết quả bốc thăm', 'er'); return;
   }
-  _buildAndStorePending(nd, giaiId, gName, '', 1); // sân trống, code từ 1
-  if (_pendingScheduleRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
 
-  const btn = document.getElementById('btn-quick-gen');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tạo...'; }
-
-  await confirmGenerateSchedule();
-
-  if (btn) { btn.disabled = false; btn.textContent = `✅ Xác nhận tạo trận đấu`; }
-}
-
-// ── Build allRows round-robin và lưu vào _pending* ──
-function _buildAndStorePending(nd, giaiId, gName, court, codeStart) {
+  // Build all matches using round-robin algorithm
   const allRows = [];
   Object.entries(_bocThamGroups).forEach(([bang, teams]) => {
     const n = teams.length;
     if (n < 2) return;
+    // Prefix từ tên bảng: "Bảng A" → "A", "Bảng 1" → "1"
     const bangPrefix = bang.replace(/^bảng\s*/i, '').trim() || bang;
     let codeCounter = codeStart;
-    const list   = n % 2 === 1 ? [...teams, 'BYE'] : [...teams];
+    // Standard round-robin: each pair plays once
+    const matches = [];
+    // For odd n, use bye
+    const list = n % 2 === 1 ? [...teams, 'BYE'] : [...teams];
     const rounds = list.length - 1;
     const half   = list.length / 2;
-    const matches = [];
+
     for (let r = 0; r < rounds; r++) {
       for (let i = 0; i < half; i++) {
-        const a = list[i], b = list[list.length - 1 - i];
-        if (a !== 'BYE' && b !== 'BYE') matches.push([a, b]);
+        const a = list[i];
+        const b = list[list.length - 1 - i];
+        if (a !== 'BYE' && b !== 'BYE') {
+          matches.push([a, b]);
+        }
       }
+      // Rotate: fix first element, rotate rest
       list.splice(1, 0, list.pop());
     }
+
     matches.forEach(([teamA, teamB]) => {
       const code = bangPrefix + codeCounter++;
+      // HDR_MATCHES: [Giải đấu, Nội dung, Bảng, Mã trận, Đội A, ĐiểmA, ĐiểmB, Đội B, Sân, VòngĐấu, GhiChú]
       allRows.push([gName, nd, bang, code, teamA, '', '', teamB, court, 'Vòng bảng', '']);
     });
   });
-  _pendingScheduleRows   = allRows;
-  _pendingScheduleGiaiId = giaiId;
-  _pendingScheduleNd     = nd;
+
+  if (allRows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
+
+  // Show preview first
+  const bangCount = Object.keys(_bocThamGroups).length;
+  const teamsTotal = Object.values(_bocThamGroups).reduce((s,t)=>s+t.length,0);
+  document.getElementById('gen-preview').innerHTML = `
+    <div style="padding:12px;background:rgba(22,163,74,.06);border-top:1px solid var(--bdr);font-size:12px;color:var(--tx2)">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:var(--ac)">${bangCount}</div>
+          <div style="font-size:10px;color:var(--tx3)">Bảng</div>
+        </div>
+        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:#4ade80">${teamsTotal}</div>
+          <div style="font-size:10px;color:var(--tx3)">Đội</div>
+        </div>
+        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:var(--or)">${allRows.length}</div>
+          <div style="font-size:10px;color:var(--tx3)">Trận</div>
+        </div>
+        <div style="background:var(--bg3);padding:8px;border-radius:6px;text-align:center">
+          <div style="font-size:20px;font-weight:800;color:var(--pu)">${court||'—'}</div>
+          <div style="font-size:10px;color:var(--tx3)">Sân</div>
+        </div>
+      </div>
+      <button onclick="confirmGenerateSchedule(${JSON.stringify(allRows).replace(/"/g,'&quot;')},'${giaiId}','${nd}')"
+        style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer">
+        ✅ Xác nhận tạo ${allRows.length} trận đấu
+      </button>
+    </div>`;
+
+  document.getElementById('gen-preview').scrollIntoView({behavior:'smooth'});
 }
 
-async function confirmGenerateSchedule() {
-  const rows   = _pendingScheduleRows;
-  const giaiId = _pendingScheduleGiaiId;
-  const nd     = _pendingScheduleNd;
-  if (!rows || rows.length === 0) { toast('Không có trận nào để tạo', 'er'); return; }
+async function confirmGenerateSchedule(rows, giaiId, nd) {
   const conflict = document.getElementById('gen-conflict')?.value || 'skip';
   const gName    = String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
 
@@ -5139,44 +4764,11 @@ async function confirmGenerateSchedule() {
     }
   }
 
-  // ── Dedup phía client: so sánh theo tên giải → nội dung → bảng → mã trận ──
-  // Tránh gửi lên GAS những trận đã tồn tại trong _M (tiết kiệm quota + tránh lỗi)
-  const existingKeys = new Set(
-    _M
-      .filter(m => (String(m[0]||'').trim().toUpperCase() === gName.toUpperCase() ||
-                    String(m[0]||'').trim().toUpperCase() === String(giaiId||'').toUpperCase()) &&
-                   String(m[1]||'').trim() === String(nd||'').trim())
-      .map(m =>
-        String(m[0]||'').trim().toUpperCase() + '|' +
-        String(m[1]||'').trim()               + '|' +
-        String(m[2]||'').trim()               + '|' +
-        String(m[3]||'').trim()
-      )
-  );
-
-  const toSend = rows.filter(r => {
-    // row: [gName, nd, bang, code, ...]  (HDR_MATCHES order)
-    // Key khớp với GAS: GIAI|noidung|bang|code
-    const key = String(r[0]||'').trim().toUpperCase() + '|' +
-                String(r[1]||'').trim()               + '|' +
-                String(r[2]||'').trim()               + '|' +
-                String(r[3]||'').trim();
-    return !existingKeys.has(key);
-  });
-
-  const skippedCount = rows.length - toSend.length;
-
-  if (toSend.length === 0) {
-    toast(`⚠️ Tất cả ${rows.length} trận đã tồn tại, không có trận mới nào để tạo.`, 'er');
-    return;
-  }
-
-  toast(`⏳ Đang tạo ${toSend.length} trận${skippedCount ? ` (bỏ qua ${skippedCount} trận đã có)` : ''}...`, 'in');
+  toast(`⏳ Đang tạo ${rows.length} trận...`, 'in');
   try {
-    const d = await gPost({action:'addMatchesBatch', adminCode:CODE, rows: toSend});
+    const d = await gPost({action:'addMatchesBatch', adminCode:CODE, rows});
     if (d?.ok) {
-      const totalSkipped = skippedCount + (d.skipped || 0);
-      toast(`✅ Đã tạo ${d.added || toSend.length} trận!${totalSkipped ? ` Bỏ qua ${totalSkipped} trận đã có.` : ''} Chuyển sang Bảng đấu...`, 'ok');
+      toast(`✅ Đã tạo ${d.added||rows.length} trận! Chuyển sang Bảng đấu...`, 'ok');
       // Invalidate cache + force reload từ GAS để lấy data mới nhất
       _invalidateMatchCache(giaiId);
       await loadMatchesCache(giaiId, true);
@@ -5187,8 +4779,6 @@ async function confirmGenerateSchedule() {
   } catch(e) {
     toast('❌ Lỗi kết nối: '+e.message, 'er');
   }
-  // Dọn pending sau khi xử lý xong
-  _pendingScheduleRows = [];
 }
 
 
@@ -5288,7 +4878,7 @@ async function _swapBkWrap(altId, fn) {
 // ── Click nội dung → View Bảng ──
 function openNdDetail(giaiId, nd) {
   _curNd = nd; _curGiaiId = giaiId;
-  _switchPlayersCtx(giaiId, nd);
+  _switchPlayersCtx(giaiId, nd); // reset players/bocTham cho đúng nội dung
   const r = _T.find(t=>String(t[0]||'')===giaiId);
   if (!r) return;
   _curTourn = r;
@@ -5296,14 +4886,24 @@ function openNdDetail(giaiId, nd) {
   document.getElementById('tv-nd-title').textContent = nd;
   document.getElementById('tv-nd-sub').textContent   = giaiName + ' · ' + (r[2]||'');
   showTournView('nd');
-
-  // Render ngay lập tức từ cache (dù có hay không) — UX không bị block
-  renderBangList(giaiId, nd);
-
-  // Load nền — không block UI, cập nhật khi fetch xong
-  loadMatchesCache(giaiId, false)
-    .then(() => renderBangList(giaiId, nd))
-    .catch(() => {});
+  // Kiểm tra _M theo giaiName (GSheets luôn lưu tên, không lưu mã)
+  const hasData = giaiName
+    ? _M.some(m => String(m[0]||'') === giaiName && String(m[1]||'') === nd)
+    : _M.some(m => String(m[1]||'') === nd);
+  if (!hasData) {
+    // Chưa có → load lại từ GSheets rồi render
+    document.getElementById('bang-list').innerHTML =
+      '<div style="text-align:center;padding:40px"><span class="spin"></span></div>';
+    // Hiện loading trước khi tải
+    document.getElementById('bang-list').innerHTML = '<div class="empty" style="padding:32px"><span class="spin"></span><p style="margin-top:12px;color:var(--tx3)">Đang tải bảng đấu...</p></div>';
+    loadMatchesCache(giaiId)
+      .then(() => renderBangList(giaiId, nd))
+      .catch(e => {
+        document.getElementById('bang-list').innerHTML = '<div class="empty"><div class="ei">⚠️</div><p>Lỗi tải dữ liệu: ' + (e.message||'unknown') + '</p><button class="btn bp" onclick="showTournView(&apos;nd&apos;)">↻ Thử lại</button></div>';
+      });
+  } else {
+    renderBangList(giaiId, nd);
+  }
 }
 
 // ── Render danh sách bảng + trận ──
@@ -5702,7 +5302,7 @@ function renderBangList(giaiId, nd) {
 
 
   // ── Stat cards ──
-  const statHtml = `<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;overflow-x:auto;scrollbar-width:none">
+  const statHtml = `<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
     <div class="sc b"><div class="slb">Tổng trận</div><div class="sv b">${totalM}</div><div class="ss">${allTeams.length} đội · ${poolBangs.length} bảng</div></div>
     <div class="sc g"><div class="slb">Hoàn thành</div><div class="sv g">${doneM}</div><div class="ss">${pct}%</div></div>
     <div class="sc o"><div class="slb">Đang đấu</div><div class="sv o">${liveM||'—'}</div><div class="ss">trận live</div></div>
@@ -6923,13 +6523,12 @@ function normalizeMatchRows(rows) {
   return rows.map(r => [...r]); // chỉ clone, không thay đổi
 }
 
-// Dedup _M: giữ lại mỗi composite key (giaiName|noidung|bang|code) 1 lần duy nhất
+// Dedup _M: giữ lại mỗi composite key (giaiName|bang|code) 1 lần duy nhất
 // Gọi sau bất kỳ thao tác nào có thể gây duplicate
 function dedupM() {
   const seen = new Set();
   _M = _M.filter(m => {
-    // Key đầy đủ: giaiName|noidung|bang|code — phân biệt các nội dung cùng giải
-    const k = `${String(m[0]||'')}|${String(m[1]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
+    const k = `${String(m[0]||'')}|${String(m[2]||'')}|${String(m[3]||'')}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -8010,33 +7609,45 @@ function bkShowRules() {
 }
 
 // ── Bracket mode: Tự động / Thủ công ──
-function bkToggleMode() {
-  _bkAutoMode = !_bkAutoMode;
+function bkSetMode(autoMode) {
+  if (_bkAutoMode === autoMode) return; // không thay đổi
+  _bkAutoMode = autoMode;
   _bkUpdateModeUI();
   if (_bkAutoMode) {
     toast('🤖 Chế độ TỰ ĐỘNG — tự điền ngay khi có kết quả trận KO', 'ok');
-    _bkStartAutoPolling(); // bắt đầu poll + điền ngay
+    _bkStartAutoPolling();
   } else {
     _bkStopAutoPolling();
-    toast('🖊 Chế độ THỦ CÔNG — chỉnh sửa từng ô theo ý muốn', 'in');
+    toast('✏️ Chế độ THỦ CÔNG — chỉnh sửa từng ô theo ý muốn', 'in');
   }
 }
 
+function bkToggleMode() {
+  bkSetMode(!_bkAutoMode);
+}
+
 function _bkUpdateModeUI() {
-  const btns = ['btn-bk-mode', 'nd-btn-bk-mode'];
-  btns.forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
+  // Segment button pairs: [autoId, manualId]
+  const pairs = [
+    ['btn-bk-auto',    'btn-bk-manual'],
+    ['nd-btn-bk-auto', 'nd-btn-bk-manual'],
+  ];
+  pairs.forEach(([autoId, manualId]) => {
+    const autoBtn   = document.getElementById(autoId);
+    const manualBtn = document.getElementById(manualId);
+    if (!autoBtn || !manualBtn) return;
     if (_bkAutoMode) {
-      btn.textContent = '🤖 Tự động';
-      btn.style.background = 'rgba(14,165,233,.15)';
-      btn.style.color = 'var(--ac)';
-      btn.style.border = '1px solid rgba(14,165,233,.3)';
+      // Tự động active
+      autoBtn.style.background   = 'rgba(14,165,233,.18)';
+      autoBtn.style.color        = 'var(--ac)';
+      manualBtn.style.background = 'rgba(100,116,139,.12)';
+      manualBtn.style.color      = 'var(--tx3)';
     } else {
-      btn.textContent = '🖊 Thủ công';
-      btn.style.background = 'rgba(100,116,139,.15)';
-      btn.style.color = 'var(--tx3)';
-      btn.style.border = '1px solid var(--bdr)';
+      // Thủ công active
+      autoBtn.style.background   = 'rgba(100,116,139,.12)';
+      autoBtn.style.color        = 'var(--tx3)';
+      manualBtn.style.background = 'rgba(14,165,233,.18)';
+      manualBtn.style.color      = 'var(--ac)';
     }
   });
   // Ẩn/hiện nút điền ngay
@@ -10354,9 +9965,9 @@ function openBatchMo() {
   document.getElementById('rr-save').disabled=true;
   _rrRows=[];
   const sel=document.getElementById('rr-giai');
-  const tourns=ROLE==='manager'?_T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))):_T;
+  const tourns=ROLE==='manager'?_T.filter(t=>String(t[0]||'')===MY_GIAI):_T;
   sel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
-  if(ROLE==='manager'&&MY_GIAI_LIST.length===1) sel.value=MY_GIAI_LIST[0];
+  if(ROLE==='manager') sel.value=MY_GIAI;
   openMo('mo-rr');
 }
 function genRR() {
@@ -10537,57 +10148,49 @@ function filterUsers() {
 }
 function renderUsers(rows) {
   const tb = document.getElementById('u-tb');
-  if (!rows.length) { tb.innerHTML = emptyRow(9,'👥','Không có trọng tài'); return; }
+  if (!rows.length) { tb.innerHTML = emptyRow(10,'👥','Không có trọng tài'); return; }
   tb.innerHTML = rows.map(r => {
     const st=String(r[7]||'active').toLowerCase();
-    const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':st==='player'?'bp':'bo';
-    const bl=st==='admin'?'👑 Admin':st==='manager'?'🔵 Manager':st==='khóa'?'🔒 Khóa':st==='player'?'👁 Player':'✅ Active';
+    const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':'bo';
+    const bl=st==='admin'?'👑 Admin':st==='manager'?'🔵 Manager':st==='khóa'?'🔒 Khóa':'✅ Active';
     const cts=String(r[3]||''),rts=String(r[4]||'');
     const ct=cts?cts.split(',').map(c=>`<span class="ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
     const rt=rts?rts.split(',').map(c=>`<span class="ptago ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
     const exp=r[2]?fmtD(r[2]):'<span style="color:var(--rd)">⚠️ Trống</span>';
     const cd=esc(r[0]),nm=esc(r[1]);
-    const phone=String(r[10]||'').trim();
-    // Dùng SĐT làm key xóa (unique); fallback mã nếu không có SĐT
-    const delKey=esc(phone||r[0]);
     const ownerCode = String(r[11]||'').trim();
     const grpTag = ownerCode
       ? `<span style="font-size:9px;background:rgba(6,182,212,.1);color:var(--cy);border:1px solid rgba(6,182,212,.2);padding:1px 5px;border-radius:8px;margin-left:4px" title="Nhóm của ${ownerCode}">${ownerCode}</span>`
       : '';
+    // Resolve giai: r[8] có thể là mã (SHCOL32026) hoặc tên — hiển thị tên
     const giaiRaw = String(r[8]||'').trim();
     const giaiDisplay = giaiRaw
       ? ((_T.find(t=>String(t[0]||'').toUpperCase()===giaiRaw.toUpperCase())||[])[1] || giaiRaw)
       : '—';
     return `<tr>
+      <td><span class="mono">${r[0]}</span></td>
       <td style="font-weight:600">${r[1]}${grpTag}</td>
-      <td style="font-size:11px;color:var(--ac2)">${phone?`<a href="tel:${phone}" style="color:var(--ac2);text-decoration:none">📞 ${esc(phone)}</a>`:''}</td>
       <td><span class="bdg ${bc}">${bl}</span></td>
       <td style="font-size:11px;color:var(--ac)">${esc(giaiDisplay)}</td>
       <td style="font-size:11px;color:var(--tx2)">${r[9]||'—'}</td>
       <td>${ct}</td><td>${rt}</td>
       <td style="font-size:12px;color:var(--tx3)">${exp}</td>
+      <td style="font-size:11px;color:var(--ac2)">${r[10]?`<a href="tel:${r[10]}" style="color:var(--ac2);text-decoration:none">📞 ${esc(String(r[10]))}</a>`:''}</td>
       <td style="font-size:12px;color:var(--tx3)">${r[6]||''}</td>
       <td><div style="display:flex;gap:3px">
         <button class="btn bh bsm" onclick="editUser('${cd}')">✏️</button>
-        <button class="btn br bsm" onclick="delUser('${delKey}','${nm}')">🗑</button>
+        <button class="btn br bsm" onclick="delUser('${cd}','${nm}')">🗑</button>
       </div></td></tr>`;
   }).join('');
 }
 function _updateUserRoleFields() {
   const status = document.getElementById('u-status').value;
   const isManager = status === 'manager';
-  const isPlayer  = status === 'player';
-  const isRef = status === 'active' || isPlayer;
+  const isRef = status === 'active';
   document.getElementById('fg-giai-manager').style.display = isManager ? 'block' : 'none';
   document.getElementById('fg-giai-ref').style.display    = isRef     ? 'block' : 'none';
-  // Với player: ẩn sân/vòng (không cần thiết), hiện hint
-  const fgCourts = document.getElementById('u-courts')?.closest('.fg');
-  const fgRounds = document.getElementById('u-rounds')?.closest('.fg');
-  if (fgCourts) fgCourts.style.display = isPlayer ? 'none' : '';
-  if (fgRounds) fgRounds.style.display = isPlayer ? 'none' : '';
-  // Cập nhật label giải theo role
-  const giaiLabel = document.querySelector('#fg-giai-ref label');
-  if (giaiLabel) giaiLabel.textContent = isPlayer ? '🏆 Giải được xem *' : 'Giải đấu phân công';
+  // courts/rounds hints
+  const courtsHint = document.querySelector('#fg-giai-manager')?.closest('.fgrid')?.querySelector('.fg .hint');
 }
 function _buildManagerGiaiPicker(selectedList) {
   // selectedList: array of giai IDs
@@ -10660,205 +10263,16 @@ function _removeGiaiPill(id) {
   const cb = document.querySelector(`#u-giai-checkboxes input[value="${id}"]`);
   if (cb) { cb.checked = false; _syncGiaiPicker(); }
 }
-// Phân công TT vào giải đang xem — mở modal tìm SĐT và gán thẳng
-let _assignTournGiaiId = '';
-let _assignTournGiaiName = '';
-let _assignRefFound = null;
-
-function openUserMoFromTourn() {
-  if (!_curGiaiId) { toast('Không xác định được giải đấu', 'er'); return; }
-  const tourn = _T.find(t => String(t[0]||'') === _curGiaiId);
-  _assignTournGiaiId   = _curGiaiId;
-  _assignTournGiaiName = tourn ? String(tourn[1]||_curGiaiId) : _curGiaiId;
-  _assignRefFound = null;
-
-  // Tạo modal nếu chưa có
-  let mo = document.getElementById('mo-assign-tourn-ref');
-  if (!mo) {
-    mo = document.createElement('div');
-    mo.id = 'mo-assign-tourn-ref';
-    mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10500;display:flex;align-items:center;justify-content:center;padding:16px';
-    mo.innerHTML = `
-      <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:14px;width:min(560px,98vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.5)">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;flex-shrink:0">
-          <span style="font-size:15px;font-weight:800">📌 Phân công Trọng tài</span>
-          <span id="atr-giai-label" style="font-size:11px;color:var(--ac);background:rgba(14,165,233,.12);border:1px solid rgba(14,165,233,.25);border-radius:20px;padding:2px 10px;font-weight:700"></span>
-          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--tx3);line-height:1">✕</button>
-        </div>
-        <div style="overflow-y:auto;flex:1;padding:14px 18px;display:grid;gap:12px">
-          <!-- Tìm SĐT -->
-          <div>
-            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔍 Tìm theo số điện thoại</div>
-            <div style="display:flex;gap:8px">
-              <input id="atr-phone" type="tel" placeholder="Nhập SĐT..."
-                onkeydown="if(event.key==='Enter') atrSearch()"
-                oninput="this.value=this.value.replace(/[^0-9]/g,'')"
-                style="flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--tx);outline:none">
-              <button onclick="atrSearch()" style="padding:8px 14px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔍 Tìm</button>
-            </div>
-            <div id="atr-result" style="display:none;margin-top:8px"></div>
-            <div style="display:flex;justify-content:flex-end;margin-top:6px">
-              <button id="atr-confirm-btn" onclick="atrConfirm()" style="display:none;padding:7px 16px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Phân công</button>
-            </div>
-          </div>
-          <!-- 2 cột: Đã PC | Chưa PC -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <!-- Đã phân công -->
-            <div>
-              <div style="font-size:10px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">✅ Đã phân công</div>
-              <div id="atr-assigned-rows" style="display:grid;gap:4px;max-height:260px;overflow-y:auto"></div>
-              <div id="atr-assigned-empty" style="font-size:12px;color:var(--tx3);padding:8px 0">Chưa có</div>
-            </div>
-            <!-- Chưa phân công -->
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--or);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">➕ Chưa phân công</div>
-              <div id="atr-unassigned-rows" style="display:grid;gap:4px;max-height:260px;overflow-y:auto"></div>
-              <div id="atr-unassigned-empty" style="font-size:12px;color:var(--tx3);padding:8px 0">Không có</div>
-            </div>
-          </div>
-        </div>
-        <div style="padding:10px 18px;border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;flex-shrink:0">
-          <button onclick="document.getElementById('mo-assign-tourn-ref').style.display='none'" style="padding:8px 18px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--tx)">Đóng</button>
-        </div>
-      </div>`;
-    document.body.appendChild(mo);
-  }
-
-  document.getElementById('atr-giai-label').textContent = _assignTournGiaiName;
-  document.getElementById('atr-phone').value = '';
-  document.getElementById('atr-result').style.display = 'none';
-  document.getElementById('atr-confirm-btn').style.display = 'none';
-  mo.style.display = 'flex';
-
-  atrRenderLists();
-  setTimeout(() => document.getElementById('atr-phone').focus(), 80);
-}
-
-async function atrEnsureUsers() {
-  if (!_U.length) {
-    try { const d = await gGet({action:'getUsers',adminCode:CODE},8000); if(d?.ok) _U=d.rows?.slice(1)||[]; } catch(e){}
-  }
-}
-
-async function atrRenderLists() {
-  await atrEnsureUsers();
-  const giaiUp = _assignTournGiaiName.toUpperCase();
-  const giaiId = _assignTournGiaiId.toUpperCase();
-  const refs = (_U||[]).filter(u => {
-    const st = String(u[7]||'').toLowerCase();
-    return st === 'active' || st === 'khóa';
-  });
-  const assigned   = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return g&&(g===giaiUp||g===giaiId||g.includes(giaiId)||g.includes(giaiUp)); });
-  const unassigned = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return !g||(g!==giaiUp&&g!==giaiId&&!g.includes(giaiId)&&!g.includes(giaiUp)); });
-
-  const assignedEl   = document.getElementById('atr-assigned-rows');
-  const unassignedEl = document.getElementById('atr-unassigned-rows');
-  const aEmpty = document.getElementById('atr-assigned-empty');
-  const uEmpty = document.getElementById('atr-unassigned-empty');
-
-  aEmpty.style.display   = assigned.length   ? 'none' : '';
-  uEmpty.style.display   = unassigned.length ? 'none' : '';
-
-  assignedEl.innerHTML = assigned.map(u => `
-    <div style="display:flex;align-items:center;gap:6px;background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.2);border-radius:7px;padding:6px 9px">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(String(u[1]||''))}</div>
-        <div style="font-size:10px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
-      </div>
-      <button onclick="atrUnassign('${esc(String(u[0]||''))}','${esc(String(u[10]||''))}','${esc(String(u[1]||''))}')"
-        style="padding:3px 8px;background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.2);border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Bỏ</button>
-    </div>`).join('');
-
-  unassignedEl.innerHTML = unassigned.map(u => `
-    <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--bdr);border-radius:7px;padding:6px 9px;cursor:pointer"
-      onclick="atrAssignDirect('${esc(String(u[0]||''))}','${esc(String(u[10]||''))}','${esc(String(u[1]||''))}')">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(String(u[1]||''))}</div>
-        <div style="font-size:10px;color:var(--tx3)">📞 ${esc(String(u[10]||''))}</div>
-      </div>
-      <span style="color:var(--ac);font-size:18px;line-height:1">＋</span>
-    </div>`).join('');
-}
-
-async function atrAssignDirect(code, phone, name) {
-  try {
-    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
-    if (d?.ok) {
-      toast(`✅ Đã phân công ${name} → ${_assignTournGiaiName}`, 'ok');
-      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
-      if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
-      atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
-  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
-}
-
-async function atrUnassign(code, phone, name) {
-  if (!confirm(`Bỏ phân công ${name} khỏi giải này?`)) return;
-  try {
-    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:'',courts:'',rounds:'',noidung:''});
-    if (d?.ok) {
-      toast(`🗑 Đã bỏ phân công ${name}`, 'ok');
-      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
-      if (idx >= 0) _U[idx][8] = '';
-      atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
-  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
-}
-
-async function atrSearch() {
-  const phone = (document.getElementById('atr-phone').value||'').trim().replace(/\D/g,'');
-  const res   = document.getElementById('atr-result');
-  const btn   = document.getElementById('atr-confirm-btn');
-  _assignRefFound = null;
-  btn.style.display = 'none';
-  if (!phone) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập số điện thoại</div>'; return; }
-  res.style.display=''; res.innerHTML='<span class="spin"></span>';
-  await atrEnsureUsers();
-  const found = (_U||[]).find(u => String(u[10]||'').replace(/\D/g,'') === phone);
-  if (!found) { res.innerHTML=`<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy TT với SĐT: ${phone}</div>`; return; }
-  _assignRefFound = {code:String(found[0]||''),name:String(found[1]||''),phone:String(found[10]||phone),giai:String(found[8]||'')};
-  const inGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase())||_assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
-  res.innerHTML=`<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
-    <div style="width:36px;height:36px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${esc(_assignRefFound.name[0]||'?')}</div>
-    <div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--tx)">${esc(_assignRefFound.name)}</div>
-    <div style="font-size:11px;color:var(--tx3)">📞 ${esc(_assignRefFound.phone)}</div>
-    ${inGiai?'<div style="font-size:11px;color:var(--or)">⚠️ Đã phân công giải này</div>':''}</div>
-    <span style="color:#16a34a;font-size:11px;font-weight:700">✅ Tìm thấy</span></div>`;
-  btn.style.display=''; btn.textContent=inGiai?'🔄 Cập nhật':'✅ Phân công';
-}
-
-async function atrConfirm() {
-  if (!_assignRefFound) return;
-  const btn = document.getElementById('atr-confirm-btn');
-  btn.disabled=true; btn.textContent='⏳ Đang gán...';
-  try {
-    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:_assignRefFound.code,refPhone:_assignRefFound.phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
-    if (d?.ok) {
-      toast(`✅ Đã phân công ${_assignRefFound.name} → ${_assignTournGiaiName}`,'ok');
-      const idx=(_U||[]).findIndex(u=>String(u[0]||'').toUpperCase()===_assignRefFound.code.toUpperCase());
-      if(idx>=0) _U[idx][8]=_assignTournGiaiName;
-      document.getElementById('atr-phone').value='';
-      document.getElementById('atr-result').style.display='none';
-      btn.style.display='none'; _assignRefFound=null;
-      atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`,'er');
-  } catch(e){toast('❌ Lỗi kết nối','er');}
-  btn.disabled=false;
-}
-
 function openUserMo(pre=null) {
   _editU=pre;
-  // Đảm bảo MY_GIAI_LIST luôn đầy đủ trước khi build dropdown
-  _syncManagerGiaiList();
-
   document.getElementById('user-tt').textContent=pre?'Sửa Trọng tài':'Thêm Trọng tài';
   // Manager chỉ tạo/sửa TT active — ẩn role admin/manager
   const statusSel = document.getElementById('u-status');
   if (statusSel) {
     if (ROLE === 'manager') {
-      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="player">👁 Player viewer</option><option value="khóa">🔒 Khóa tài khoản</option>';
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="khóa">🔒 Khóa tài khoản</option>';
     } else {
-      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="player">👁 Player viewer</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
     }
   }
   document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=false;
@@ -10872,20 +10286,11 @@ function openUserMo(pre=null) {
   document.getElementById('u-note').value=pre?.note||'';
   document.getElementById('u-nd').value=pre?.noidung||'';
   document.getElementById('u-phone').value=pre?.phone||'';
-  // Focus vào SĐT ngay khi mở form
-  setTimeout(()=>document.getElementById('u-phone').focus(), 100);
 
-  // Populate ref giải dropdown — manager thấy TẤT CẢ giải đang quản lý
+  // Populate ref giải dropdown
   const refSel = document.getElementById('u-giai-ref-sel');
-  const myListUpper = MY_GIAI_LIST.map(g=>g.toUpperCase());
-  const tourns = ROLE==='manager'
-    ? _T.filter(t => {
-        const tid = String(t[0]||'').trim().toUpperCase();
-        const owner = String(t[8]||'').trim().toUpperCase();
-        return myListUpper.includes(tid) || owner === CODE.toUpperCase();
-      })
-    : _T;
-  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||t[0]||''))}</option>`).join('');
+  const tourns = ROLE==='manager' ? _T.filter(t=>String(t[0]||'')===MY_GIAI) : _T;
+  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
 
   // Build manager multi-picker
   const giaiRaw = pre?.giai || '';
@@ -10893,16 +10298,9 @@ function openUserMo(pre=null) {
   _buildManagerGiaiPicker(selectedList);
   document.getElementById('u-giai').value = giaiRaw;
 
-  // Set ref giai — chỉ pre-select khi ĐANG SỬA và TT đã có giải
-  // Thêm mới: luôn để trống (— Chọn giải —) để admin chọn thủ công
-  if (pre?.status==='active' && pre?.giai) {
-    refSel.value = pre.giai;
-  } else if (ROLE === 'manager' && pre) {
-    // Manager sửa TT của mình → set MY_GIAI nếu TT chưa có giải
-    if(MY_GIAI_LIST.length===1) refSel.value = MY_GIAI_LIST[0]; // auto-select nếu chỉ có 1 giải
-  } else {
-    refSel.value = ''; // mặc định trống
-  }
+  // Set ref giai
+  if(pre?.status==='active' && pre?.giai) refSel.value=pre.giai;
+  else if(ROLE==='manager') refSel.value=MY_GIAI;
 
   _updateUserRoleFields();
   document.getElementById('u-status').onchange = _updateUserRoleFields;
@@ -10916,53 +10314,22 @@ function editUser(code) {
 }
 async function saveUser() {
   const btn=document.getElementById('u-save');
+  const code=document.getElementById('u-code').value.trim(); // giữ nguyên hoa/thường
   const name=document.getElementById('u-name').value.trim();
-  const phone=document.getElementById('u-phone').value.trim();
-  // Mã không bắt buộc — nếu trống thì dùng SĐT làm mã
-  const codeRaw=document.getElementById('u-code').value.trim();
-  const code = codeRaw || phone; // fallback: SĐT làm mã
-  if(!name){toast('Vui lòng nhập họ tên','er');return;}
-  if(!phone){
-    document.getElementById('u-phone').focus();
-    toast('⚠️ Số điện thoại là bắt buộc!','er');return;
-  }
-  // Đảm bảo _U đã load — nếu rỗng fetch từ GAS trước khi check unique
-  if (!_U.length) {
-    try {
-      const du = await gGet({ action:'getUsers', adminCode:CODE });
-      if (du?.ok && du.rows?.length > 1) _U = du.rows.slice(1);
-    } catch(e) {}
-  }
-  // Kiểm tra SĐT unique phía client (bỏ qua chính user đang sửa)
-  const cleanPhone = phone.replace(/\D/g,'');
-  const selfCode = _editU ? String(_editU.code||'').trim().toUpperCase() : null;
-  const dupUser = (_U||[]).find(u => {
-    const uPhone = String(u[10]||'').trim().replace(/\D/g,'');
-    const uCode  = String(u[0]||'').trim().toUpperCase();
-    const isSelf = selfCode && uCode === selfCode;
-    return !isSelf && uPhone && uPhone === cleanPhone;
-  });
-  if (dupUser) {
-    document.getElementById('u-phone').focus();
-    toast(`⚠️ SĐT ${phone} đã thuộc TT: ${String(dupUser[1]||'(không tên)')}`, 'er');
-    return;
-  }
+  if(!code||!name){toast('Vui lòng nhập mã và họ tên','er');return;}
   btn.disabled=true;
   const originalCode = (document.getElementById('u-code').dataset.originalCode||'').trim();
-  // Khi sửa: giữ nguyên mã cũ (originalCode). Khi thêm mới: dùng SĐT làm mã nếu không có mã
-  const effectiveCode = _editU ? (originalCode || code) : (code || phone);
-  // origPhone: SĐT gốc của user đang sửa — để GAS tìm đúng row theo SĐT
-  const origPhone = _editU ? String(_editU.phone||'').trim().replace(/\D/g,'') : '';
-  const user={code: effectiveCode, name, expire:document.getElementById('u-exp').value,
-    originalCode: undefined,
-    origPhone: origPhone, // SĐT cũ để GAS tìm row chính xác
+  const user={code,name,expire:document.getElementById('u-exp').value,
+    // Nếu mã thay đổi khi sửa → truyền originalCode để GAS biết cần rename
+    originalCode: (_editU && originalCode && originalCode !== code) ? originalCode : undefined,
     courts:document.getElementById('u-courts').value.trim(),
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
     status:document.getElementById('u-status').value,
-    giai: (['active','player'].includes(document.getElementById('u-status').value))
+    giai: document.getElementById('u-status').value === 'active'
       ? document.getElementById('u-giai-ref-sel').value
       : document.getElementById('u-giai').value,
+    // ownerCode được GAS tự set khi manager tạo (actor.code)
     noidung:document.getElementById('u-nd').value.trim(),
     phone:document.getElementById('u-phone').value.trim()};
   closeMo('mo-user');
@@ -10972,288 +10339,14 @@ async function saveUser() {
     if(!d.ok)toast('Lỗi: '+d.reason,'er');
     delete _cache['users']; // invalidate cache
     loadUsers();
-    // Sync player viewers tab if affected
-    if(user.status==='player') { _PU=[]; loadPlayerUsers(); }
   }catch(e){toast('Lỗi kết nối','er');}
 }
-async function delUser(phoneOrCode, name) {
-  if (!confirm(`Xóa trọng tài ${name}?`)) return;
-
-  const cleanKey = String(phoneOrCode||'').trim();
-  const cleanPhone = cleanKey.replace(/\D/g,'');
-
-  // Xóa UI tạm thời — filter theo SĐT hoặc mã
-  const prev_U = [..._U];
-  _U = _U.filter(r => {
-    const rPhone = String(r[10]||'').trim().replace(/\D/g,'');
-    const rCode  = String(r[0]||'').trim().toUpperCase();
-    if (cleanPhone && rPhone && rPhone === cleanPhone) return false;
-    if (rCode === cleanKey.toUpperCase()) return false;
-    return true;
-  });
-  delete _cache['users'];
-  filterUsers();
-  toast(`⏳ Đang xóa ${name}...`, 'in');
-
-  try {
-    // Gửi cả phone lẫn code để GAS có thể tìm chính xác
-    const d = await gPost({ action: 'deleteUser', adminCode: CODE, code: cleanKey, phone: cleanPhone });
-    if (d?.ok) {
-      toast(`🗑 Đã xóa ${name}`, 'ok');
-      loadUsers();
-    } else {
-      _U = prev_U;
-      delete _cache['users'];
-      filterUsers();
-      const reason = d?.reason || 'Lỗi không xác định';
-      // Nếu lỗi không chứa [v23] → GAS chưa deploy lại
-      const notDeployed = !reason.includes('[v23]');
-      toast(`❌ ${reason}${notDeployed ? ' — Cần deploy lại GAS!' : ''}`, 'er');
-      if (notDeployed) console.warn('[delUser] GAS chưa deploy v23. Reason:', reason);
-    }
-  } catch(e) {
-    _U = prev_U;
-    delete _cache['users'];
-    filterUsers();
-    toast(`❌ Lỗi kết nối khi xóa: ${e.message}`, 'er');
-  }
-}
-// ════════════════════════════════════════════════════════════════
-//  PLAYER USERS (viewer accounts)
-// ════════════════════════════════════════════════════════════════
-let _PU=[], _editPU=null; // player users list, currently editing
-
-async function loadPlayerUsers() {
-  const tb=document.getElementById('pu-tb');
-  if(!tb)return;
-  tb.innerHTML=spin(8);
-  // Load users, filter by status=player
-  try {
-    if(!_U.length) {
-      const du=await gGet({action:'getUsers',adminCode:CODE});
-      if(du?.ok&&du.rows?.length>1) _U=du.rows.slice(1);
-    }
-    _PU=_U.filter(r=>String(r[7]||'').toLowerCase()==='player');
-    // Update giai filter
-    const giaiSel=document.getElementById('pu-giai-f');
-    if(giaiSel) {
-      const cur=giaiSel.value;
-      const giaiSet=[...new Set(_PU.map(r=>String(r[8]||'')).filter(Boolean))];
-      giaiSel.innerHTML='<option value="">Tất cả giải</option>'+giaiSet.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
-      if(cur) giaiSel.value=cur;
-    }
-    filterPlayerUsers();
-  }catch(e){toast('Lỗi tải danh sách player','er');}
-}
-
-function filterPlayerUsers() {
-  const q=(document.getElementById('puq')?.value||'').toLowerCase().trim();
-  const gf=(document.getElementById('pu-giai-f')?.value||'');
-  const rows=_PU.filter(r=>{
-    const nm=String(r[1]||'').toLowerCase(), ph=String(r[10]||'').toLowerCase(), cd=String(r[0]||'').toLowerCase();
-    const gi=String(r[8]||'');
-    if(q&&!nm.includes(q)&&!ph.includes(q)&&!cd.includes(q)) return false;
-    if(gf&&gi!==gf) return false;
-    return true;
-  });
-  renderPlayerUsers(rows);
-}
-
-function renderPlayerUsers(rows) {
-  const tb=document.getElementById('pu-tb');
-  if(!tb)return;
-  if(!rows.length){
-    tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--tx3)">
-      Chưa có Player Viewer nào.
-      <button class="btn bp bsm" style="margin-top:8px" onclick="openPlayerUserMo()">＋ Thêm ngay</button>
-    </td></tr>`;
-    return;
-  }
-  const fmtD=d=>{if(!d)return'—';try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return String(d);}};
-  tb.innerHTML=rows.map(r=>{
-    const nd=String(r[9]||'');
-    const giaiName=resolveGiaiName(String(r[8]||''))||String(r[8]||'—');
-    const exp=fmtD(r[2]);
-    const expDays=r[2]?Math.ceil((new Date(r[2])-new Date())/(86400000)):null;
-    const expClass=expDays!==null&&expDays<0?'color:var(--rd)':expDays!==null&&expDays<7?'color:var(--or)':'color:var(--tx2)';
-    return `<tr>
-      <td style="font-weight:600">${esc(String(r[1]||'—'))}</td>
-      <td style="font-family:var(--mo);font-size:12px">${esc(String(r[10]||'—'))}</td>
-      <td style="font-family:var(--mo);font-size:11px;color:var(--tx3)">${esc(String(r[0]||'—'))}</td>
-      <td><span class="ptag" style="font-size:11px">${esc(giaiName)}</span></td>
-      <td>${nd?`<span class="ptag" style="font-size:11px;background:rgba(14,165,233,.1);border-color:rgba(14,165,233,.2);color:var(--ac)">${esc(nd)}</span>`:'<span style="color:var(--gn);font-size:11px;font-weight:700">✓ Toàn bộ</span>'}</td>
-      <td style="${expClass};font-size:12px">${exp}${expDays!==null?` <span style="font-size:10px">(${expDays<0?'hết hạn':expDays+'d'})</span>`:''}</td>
-      <td style="font-size:12px;color:var(--tx3)">${esc(String(r[6]||''))}</td>
-      <td>
-        <button class="btn bsm" style="margin-right:4px" onclick="editPlayerUser(${rows.indexOf(r)})">✏️</button>
-        <button class="btn bsm" style="background:rgba(239,68,68,.1);color:var(--rd);border-color:rgba(239,68,68,.2)" onclick="delPlayerUser('${esc(String(r[10]||r[0]||''))}','${esc(String(r[1]||''))}')">🗑</button>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function resolveGiaiName(giaiId) {
-  if(!giaiId)return'';
-  const t=_T.find(t=>String(t[0]||'')===giaiId);
-  return t?String(t[1]||giaiId):giaiId;
-}
-
-function openPlayerUserMo(pre=null) {
-  _editPU=pre;
-  const tt=document.getElementById('pu-tt');
-  if(tt) tt.textContent=pre?'Sửa Player Viewer':'Thêm Player Viewer';
-
-  // Reset form
-  document.getElementById('pu-phone').value=pre?.phone||'';
-  document.getElementById('pu-name').value=pre?.name||'';
-  document.getElementById('pu-note').value=pre?.note||'';
-  document.getElementById('pu-nd').value=pre?.noidung||'';
-
-  // Đảm bảo MY_GIAI_LIST đầy đủ trước khi build dropdown
-  _syncManagerGiaiList();
-
-  // Populate giai selector — manager thấy TẤT CẢ giải đang quản lý
-  const gSel=document.getElementById('pu-giai-sel');
-  const myListUpper2 = MY_GIAI_LIST.map(g=>g.toUpperCase());
-  const managedT = ROLE==='manager'
-    ? _T.filter(t=>{
-        const tid=String(t[0]||'').trim().toUpperCase();
-        const owner=String(t[8]||'').trim().toUpperCase();
-        return myListUpper2.includes(tid)||owner===CODE.toUpperCase();
-      })
-    : _T;
-  gSel.innerHTML='<option value="">— Chọn giải —</option>'+managedT.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||''))}</option>`).join('');
-  gSel.value=pre?.giai||'';
-
-  // Exp
-  const expEl=document.getElementById('pu-exp');
-  if(pre?.expire){
-    // Convert to yyyy-mm-dd for date input
-    try {
-      const parts=pre.expire.split('/'); // dd/mm/yyyy
-      expEl.value=parts.length===3?`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`:pre.expire;
-    } catch{expEl.value='';}
-  } else expEl.value='';
-
-  onPuGiaiChange(); // render nd chips
-  openMo('mo-player-user');
-  setTimeout(()=>document.getElementById('pu-phone').focus(),100);
-}
-
-function onPuGiaiChange() {
-  const giaiId=document.getElementById('pu-giai-sel').value;
-  const chipsWrap=document.getElementById('pu-nd-chips');
-  const ndInput=document.getElementById('pu-nd');
-  if(!giaiId||!chipsWrap) return;
-
-  // Get noidungs for this giai from _T
-  const t=_T.find(t=>String(t[0]||'')===giaiId);
-  const nds=t?(String(t[7]||'').split(',').map(s=>s.trim()).filter(Boolean)):[];
-
-  if(!nds.length){chipsWrap.innerHTML='<span style="font-size:11px;color:var(--tx3)">Chưa có nội dung trong giải này</span>';return;}
-
-  // Current selected nds
-  const curNds=(ndInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-
-  function renderChips(selected) {
-    chipsWrap.innerHTML=nds.map(nd=>{
-      const on=selected.includes(nd);
-      return `<button type="button" style="padding:5px 13px;font-size:12px;font-weight:700;border-radius:20px;cursor:pointer;
-        border:1.5px solid ${on?'var(--ac)':'var(--bdr2)'};
-        background:${on?'rgba(14,165,233,.15)':'transparent'};
-        color:${on?'var(--ac)':'var(--tx3)'};font-family:var(--fn);transition:all .12s"
-        onclick="togglePuNd(this,'${esc(nd)}')">${esc(nd)}</button>`;
-    }).join('');
-    ndInput.value=selected.join(', ');
-  }
-  renderChips(curNds);
-}
-
-function togglePuNd(btn, nd) {
-  const ndInput=document.getElementById('pu-nd');
-  let cur=(ndInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-  if(cur.includes(nd)) cur=cur.filter(x=>x!==nd);
-  else cur.push(nd);
-  // Re-render
-  onPuGiaiChange();
-  // Re-apply selection
-  const giaiId=document.getElementById('pu-giai-sel').value;
-  const t=_T.find(t=>String(t[0]||'')===giaiId);
-  const nds=t?(String(t[7]||'').split(',').map(s=>s.trim()).filter(Boolean)):[];
-  const chipsWrap=document.getElementById('pu-nd-chips');
-  chipsWrap.innerHTML=nds.map(n=>{
-    const on=cur.includes(n);
-    return `<button type="button" style="padding:5px 13px;font-size:12px;font-weight:700;border-radius:20px;cursor:pointer;
-      border:1.5px solid ${on?'var(--ac)':'var(--bdr2)'};
-      background:${on?'rgba(14,165,233,.15)':'transparent'};
-      color:${on?'var(--ac)':'var(--tx3)'};font-family:var(--fn);transition:all .12s"
-      onclick="togglePuNd(this,'${esc(n)}')">${esc(n)}</button>`;
-  }).join('');
-  ndInput.value=cur.join(', ');
-}
-
-function editPlayerUser(idx) {
-  const r=_PU[idx];if(!r)return;
-  const fmtISO=d=>{if(!d)return'';try{const p=new Date(d).toISOString().split('T')[0];return p;}catch{return'';}};
-  openPlayerUserMo({
-    phone:String(r[10]||''),name:String(r[1]||''),giai:String(r[8]||''),
-    noidung:String(r[9]||''),note:String(r[6]||''),expire:fmtISO(r[2]),
-    code:String(r[0]||'')
-  });
-}
-
-async function savePlayerUser() {
-  const btn=document.getElementById('pu-save');
-  const phone=document.getElementById('pu-phone').value.trim();
-  const name=document.getElementById('pu-name').value.trim();
-  const giai=document.getElementById('pu-giai-sel').value;
-  const noidung=document.getElementById('pu-nd').value.trim();
-  const note=document.getElementById('pu-note').value.trim();
-  const expire=document.getElementById('pu-exp').value;
-  if(!phone){toast('⚠️ Vui lòng nhập số điện thoại','er');return;}
-  if(!name){toast('⚠️ Vui lòng nhập họ tên','er');return;}
-  if(!giai){toast('⚠️ Vui lòng chọn giải đấu','er');return;}
-  if(!expire){toast('⚠️ Vui lòng chọn ngày hết hạn','er');return;}
-
-  btn.disabled=true;
-  const code=_editPU?.code||phone.replace(/\D/g,'');
-  const origPhone=_editPU?.phone||'';
-  const user={code, name, phone, giai, noidung, note, expire,
-    status:'player', courts:'', rounds:'', origPhone,
-    originalCode:_editPU?.code||''};
-  closeMo('mo-player-user');
-  toast(`✅ ${_editPU?'Cập nhật':'Thêm'} ${name}...`,'ok');
-  try{
-    const d=await gPost({action:_editPU?'updateUser':'addUser',adminCode:CODE,user});
-    if(!d.ok)toast('Lỗi: '+d.reason,'er');
-    else {
-      delete _cache['users']; _U=[];
-      await loadPlayerUsers();
-      await loadUsers(); // sync users tab too
-    }
-  }catch(e){toast('Lỗi kết nối','er');}
-  btn.disabled=false;
-}
-
-async function delPlayerUser(phoneOrCode, name) {
-  if(!confirm(`Xóa player viewer ${name}?`)) return;
-  const cleanPhone=String(phoneOrCode||'').replace(/\D/g,'');
-  _PU=_PU.filter(r=>String(r[10]||'').replace(/\D/g,'')!==cleanPhone&&String(r[0]||'')!==phoneOrCode);
-  delete _cache['users']; _U=[];
-  filterPlayerUsers();
-  toast(`⏳ Đang xóa ${name}...`,'in');
-  try{
-    const d=await gPost({action:'deleteUser',adminCode:CODE,code:phoneOrCode,phone:cleanPhone});
-    if(d?.ok){toast(`🗑 Đã xóa ${name}`,'ok');loadPlayerUsers();}
-    else{toast('❌ '+(d?.reason||'Lỗi'),'er');loadPlayerUsers();}
-  }catch(e){toast('❌ Lỗi kết nối','er');}
-}
-
-function copyPlayerUrl() {
-  const base = window.location.href.replace(/\/[^/]+$/, '/').replace(/index_admin[^/]*\.html/, '');
-  const url = base + 'index_player.html';
-  try { navigator.clipboard.writeText(url).then(() => toast('📋 Đã copy link Player Viewer!', 'ok')); }
-  catch(e) { toast(url, 'ok', 5000); }
+async function delUser(code,name) {
+  if(!confirm(`Xóa trọng tài ${name}?`))return;
+  _U=_U.filter(r=>String(r[0]||'').toUpperCase()!==code);
+  delete _cache['users']; // invalidate cache
+  filterUsers(); toast(`🗑 Đã xóa ${name}`,'in');
+  try{await gPost({action:'deleteUser',adminCode:CODE,code});}catch(e){}
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -11315,9 +10408,9 @@ function openPlayerMo(pre=null) {
   document.getElementById('p-phone').value=pre?.phone||'';
   document.getElementById('p-note').value=pre?.note||'';
   const sel=document.getElementById('p-giai');
-  const tourns=ROLE==='manager'?_T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))):_T;
+  const tourns=ROLE==='manager'?_T.filter(t=>String(t[0]||'')===MY_GIAI):_T;
   sel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
-  if(pre?.giai) sel.value=pre.giai; else if(ROLE==='manager'&&MY_GIAI_LIST.length===1) sel.value=MY_GIAI_LIST[0];
+  if(pre?.giai) sel.value=pre.giai; else if(ROLE==='manager') sel.value=MY_GIAI;
   document.getElementById('p-save').disabled=false;
   openMo('mo-player');
 }
