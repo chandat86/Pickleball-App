@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -10316,11 +10316,18 @@ function renderUsers(rows) {
 function _updateUserRoleFields() {
   const status = document.getElementById('u-status').value;
   const isManager = status === 'manager';
-  const isRef = status === 'active' || status === 'player';
+  const isPlayer  = status === 'player';
+  const isRef = status === 'active' || isPlayer;
   document.getElementById('fg-giai-manager').style.display = isManager ? 'block' : 'none';
   document.getElementById('fg-giai-ref').style.display    = isRef     ? 'block' : 'none';
-  // courts/rounds hints
-  const courtsHint = document.querySelector('#fg-giai-manager')?.closest('.fgrid')?.querySelector('.fg .hint');
+  // Với player: ẩn sân/vòng (không cần thiết), hiện hint
+  const fgCourts = document.getElementById('u-courts')?.closest('.fg');
+  const fgRounds = document.getElementById('u-rounds')?.closest('.fg');
+  if (fgCourts) fgCourts.style.display = isPlayer ? 'none' : '';
+  if (fgRounds) fgRounds.style.display = isPlayer ? 'none' : '';
+  // Cập nhật label giải theo role
+  const giaiLabel = document.querySelector('#fg-giai-ref label');
+  if (giaiLabel) giaiLabel.textContent = isPlayer ? '🏆 Giải được xem *' : 'Giải đấu phân công';
 }
 function _buildManagerGiaiPicker(selectedList) {
   // selectedList: array of giai IDs
@@ -10586,9 +10593,9 @@ function openUserMo(pre=null) {
   const statusSel = document.getElementById('u-status');
   if (statusSel) {
     if (ROLE === 'manager') {
-      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="khóa">🔒 Khóa tài khoản</option>';
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="player">👁 Player viewer</option><option value="khóa">🔒 Khóa tài khoản</option>';
     } else {
-      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
+      statusSel.innerHTML = '<option value="active">🟢 Trọng tài (active)</option><option value="player">👁 Player viewer</option><option value="manager">🔵 Manager giải</option><option value="admin">👑 Admin</option><option value="khóa">🔒 Khóa tài khoản</option>';
     }
   }
   document.getElementById('u-code').value=pre?.code||''; document.getElementById('u-code').disabled=false;
@@ -10683,7 +10690,7 @@ async function saveUser() {
     rounds:document.getElementById('u-rounds').value.trim(),
     note:document.getElementById('u-note').value.trim(),
     status:document.getElementById('u-status').value,
-    giai: document.getElementById('u-status').value === 'active'
+    giai: (['active','player'].includes(document.getElementById('u-status').value))
       ? document.getElementById('u-giai-ref-sel').value
       : document.getElementById('u-giai').value,
     noidung:document.getElementById('u-nd').value.trim(),
@@ -10695,6 +10702,8 @@ async function saveUser() {
     if(!d.ok)toast('Lỗi: '+d.reason,'er');
     delete _cache['users']; // invalidate cache
     loadUsers();
+    // Sync player viewers tab if affected
+    if(user.status==='player') { _PU=[]; loadPlayerUsers(); }
   }catch(e){toast('Lỗi kết nối','er');}
 }
 async function delUser(phoneOrCode, name) {
