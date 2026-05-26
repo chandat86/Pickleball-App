@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee v18 – Pickleball</title>
+<title>Da Nang Referee v18.1 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -4950,7 +4950,12 @@ document.getElementById('sel-noidung').addEventListener('change', () => {
   if (GS_URL && !matchList.length) loadAllFromGS();
 });
 document.getElementById('sel-bang').addEventListener('change', renderMatchGrid);
-licCheckOnStart();
+// FIX v18: license-screen nằm sau </script> nên phải chờ DOM load xong
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', licCheckOnStart);
+} else {
+  setTimeout(licCheckOnStart, 0); // DOM đã ready nhưng license-screen cần 1 tick
+}
 
 </script>
 <!-- ── LICENSE SCREEN ── -->
