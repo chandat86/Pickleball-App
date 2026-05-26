@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -890,6 +890,141 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bxh-scroll::-webkit-scrollbar { width:5px; }
 .bxh-scroll::-webkit-scrollbar-track { background:transparent; }
 .bxh-scroll::-webkit-scrollbar-thumb { background:var(--bdr2,rgba(255,255,255,.15));border-radius:3px; }
+
+/* ══ MOBILE BRACKET — dọc ══ */
+@media(max-width:640px){
+  /* Bracket toolbar: 2 hàng gọn */
+  .bk-toolbar-info{display:none}
+  #nd-panel-bracket > div:first-child,
+  #bk-panel-giai .ph{
+    flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;
+  }
+  /* Nút bracket: scroll ngang trong 1 hàng */
+  .bk-btn-group{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+    padding-bottom:4px;flex-wrap:nowrap;
+  }
+  .bk-btn-group::-webkit-scrollbar{display:none}
+  .bk-btn-group .btn,.bk-btn-group .rfbtn{flex-shrink:0;font-size:11px;padding:6px 10px;white-space:nowrap}
+
+  /* Bracket scroll container */
+  #nd-bk-wrap, #bk-wrap{
+    overflow-x:auto;overflow-y:visible;
+    -webkit-overflow-scrolling:touch;
+  }
+  .bk-bracket{
+    /* Mobile: giảm kích thước match card */
+  }
+  .bk-round{min-width:160px}
+  .bk-card{margin:0 6px}
+  .bk-row{padding:6px 8px;min-height:32px}
+  .bk-pill{width:22px;height:22px;font-size:9px}
+  .bk-tname{font-size:11px}
+  .bk-sbox{min-width:28px;height:24px;font-size:13px}
+  .bk-round-label{font-size:9px;padding:0 6px 10px;height:30px}
+  .bk-card-hd{padding:3px 8px}
+
+  /* nd-panel header: compact */
+  #tv-nd-wrap .ph{flex-direction:column;gap:6px}
+  #tv-nd-wrap .ph > div:first-child{flex-direction:row;align-items:center}
+  #tv-nd-wrap .ph > div:last-child{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
+  }
+  #tv-nd-wrap .ph > div:last-child::-webkit-scrollbar{display:none}
+  #tv-nd-wrap .ph > div:last-child .btn,
+  #tv-nd-wrap .ph > div:last-child .rfbtn{flex-shrink:0;white-space:nowrap;font-size:11px}
+
+  /* Bracket toolbar buttons: scroll ngang */
+  #nd-panel-bracket > div:first-child > div:last-child,
+  #bk-panel-giai .ph > div:last-child{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
+    padding-bottom:2px;
+  }
+  #nd-panel-bracket > div:first-child > div:last-child::-webkit-scrollbar,
+  #bk-panel-giai .ph > div:last-child::-webkit-scrollbar{display:none}
+  #nd-panel-bracket > div:first-child > div:last-child .btn,
+  #nd-panel-bracket > div:first-child > div:last-child .rfbtn,
+  #bk-panel-giai .ph > div:last-child .btn,
+  #bk-panel-giai .ph > div:last-child .rfbtn{
+    flex-shrink:0;white-space:nowrap;font-size:11px;padding:6px 10px;
+  }
+
+  /* Segmented mode control */
+  .bk-mode-seg{flex-shrink:0}
+  .bk-seg-btn{padding:5px 10px;font-size:11px}
+
+  /* Bracket tabs */
+  .bkt-tabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
+  .bkt-tabs::-webkit-scrollbar{display:none}
+  .bkt-tab{flex-shrink:0;font-size:12px;padding:8px 12px}
+
+  /* ND detail header: title + back compact */
+  #tv-nd-title{font-size:16px}
+  #tv-nd-sub{font-size:11px}
+
+  /* Tab buttons in nd-panel */
+  #tv-nd-wrap > div[style*="border-bottom"]{
+    overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;
+  }
+  #tv-nd-wrap > div[style*="border-bottom"] button{
+    flex-shrink:0;padding:8px 14px;font-size:12px;
+  }
+
+  /* Stats cards: scroll ngang */
+  .stats{
+    display:flex;overflow-x:auto;scrollbar-width:none;gap:8px;
+    grid-template-columns:unset;padding-bottom:4px;
+  }
+  .stats::-webkit-scrollbar{display:none}
+  .stats .sc{flex:0 0 140px;min-width:140px}
+  .stats .sc:last-child{grid-column:unset}
+
+  /* Dashboard filter bar */
+  .fbar{gap:6px;padding:8px 10px}
+  .fbar > *{flex-shrink:0}
+
+  /* Dashboard results table: ẩn cột ít quan trọng */
+  .tbl-res .col-nd,.tbl-res .col-bang,.tbl-res .col-ref{display:none}
+
+  /* Match table mobile */
+  .tbl-matches .col-note,.tbl-matches .col-rule{display:none}
+
+  /* BXH table: compact */
+  .bxh-tbl th:nth-child(6),.bxh-tbl td:nth-child(6),
+  .bxh-tbl th:nth-child(7),.bxh-tbl td:nth-child(7){display:none}
+
+  /* Tournament detail page header */
+  #tv-detail .ph{flex-direction:column;gap:8px}
+  #tv-detail .ph > *{width:100%}
+  #tv-detail .ph button{width:auto}
+
+  /* ND cards: 1 cột trên màn nhỏ */
+  #nd-cards{grid-template-columns:1fr !important}
+
+  /* Scrollbar cho nd-bk */
+  #nd-bk-scrollbar-wrap{display:none}
+
+  /* Dash filter: wrap các select */
+  #dash-filter-wrap{flex-wrap:wrap;gap:6px}
+  #dash-filter-wrap select{max-width:calc(50% - 4px);flex:1;min-width:100px}
+
+  /* Tourn view header mobile */
+  #tv-nd-wrap{padding:10px 12px}
+
+  /* Bang list max height */
+  #bang-list{max-height:none !important}
+
+  /* Table wrapper force scroll */
+  .tbl-wrap-mob{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* Dash matches card: compact table */
+  #dash-matches-wrap .tbl{font-size:11px;min-width:0}
+  #dash-matches-wrap .tbl td{padding:7px 6px}
+
+  /* Kết quả recent: ẩn cột thừa */
+  #rec-wrap2 .tbl th:nth-child(2),
+  #rec-wrap2 .tbl td:nth-child(2){display:none}
+}
 </style>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script></head>
@@ -1087,7 +1222,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
 
       <!-- ── STAT CARDS ── -->
-      <div class="stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
+      <div class="stats" id="dash-stats-main" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px;overflow-x:auto;scrollbar-width:none">
         <div class="sc b" onclick="showStatMo('total')" title="Click xem chi tiết" style="cursor:pointer">
           <div class="slb">Tổng trận <small>↗</small></div>
           <div class="sv b" id="s-total">—</div><div class="ss">lịch đấu</div></div>
@@ -1206,17 +1341,17 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <!-- VIEW 2: Chi tiết giải (Nội dung thi đấu) -->
       <div id="tv-detail" style="display:none">
         <div class="ph">
-          <div style="display:flex;align-items:center;gap:10px">
-            <button class="rfbtn" onclick="showTournView('list')" style="padding:6px 10px">← Quay lại</button>
-            <div>
-              <div class="ptitle" id="td-name">—</div>
-              <div class="psub" id="td-sub">—</div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+            <button class="rfbtn" onclick="showTournView('list')" style="padding:6px 10px;flex-shrink:0">← Quay lại</button>
+            <div style="min-width:0">
+              <div class="ptitle" id="td-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="psub" id="td-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn" style="background:rgba(14,165,233,.15);color:var(--ac);border:1px solid rgba(14,165,233,.3)" onclick="openUserMoFromTourn()">📌 Phân công TT</button>
-            <button class="btn bh" onclick="openAddNdMo()">＋ Thêm nội dung</button>
-            <button class="btn bp" onclick="openBracketMo()">🏆 Xem bracket</button>
+          <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;padding-bottom:2px">
+            <button class="btn bsm" style="background:rgba(14,165,233,.15);color:var(--ac);border:1px solid rgba(14,165,233,.3);flex-shrink:0" onclick="openUserMoFromTourn()">📌 Phân công TT</button>
+            <button class="btn bh bsm" onclick="openAddNdMo()" style="flex-shrink:0">＋ Thêm nội dung</button>
+            <button class="btn bp bsm" onclick="openBracketMo()" style="flex-shrink:0">🏆 Xem bracket</button>
           </div>
         </div>
 
@@ -1229,18 +1364,18 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <!-- VIEW 3: Chi tiết nội dung (Bảng + Cây thi đấu) -->
       <div id="tv-nd" style="display:none">
         <!-- Header -->
-        <div class="ph" style="margin-bottom:0">
-          <div style="display:flex;align-items:center;gap:10px">
-            <button class="rfbtn" onclick="showTournView('detail')" style="padding:6px 10px">← Quay lại</button>
-            <div>
-              <div class="ptitle" id="tv-nd-title">—</div>
-              <div class="psub" id="tv-nd-sub">—</div>
+        <div id="tv-nd-wrap">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <button class="rfbtn" onclick="showTournView('detail')" style="padding:6px 10px;flex-shrink:0">← Quay lại</button>
+            <div style="min-width:0;flex:1">
+              <div class="ptitle" id="tv-nd-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="psub" id="tv-nd-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
             </div>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <button class="rfbtn" onclick="ndRefresh()" id="nd-refresh-btn" title="Làm mới dữ liệu">↻ Làm mới</button>
-            <button class="btn bp bsm" onclick="openAddBangMo()" title="Thêm bảng đấu mới">＋ Thêm bảng</button>
-            <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);font-size:12px" onclick="cleanupDuplicateMatches()" title="Xóa trận bị trùng">🧹 Dọn trùng</button>
+          <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px">
+            <button class="rfbtn" onclick="ndRefresh()" id="nd-refresh-btn" style="flex-shrink:0">↻ Làm mới</button>
+            <button class="btn bp bsm" onclick="openAddBangMo()" style="flex-shrink:0">＋ Thêm bảng</button>
+            <button id="btn-cleanup-dup" class="btn bsm" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);flex-shrink:0" onclick="cleanupDuplicateMatches()">🧹 Dọn trùng</button>
           </div>
         </div>
 
@@ -1279,20 +1414,20 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <div style="font-size:13px;font-weight:800;color:var(--tx)">🏆 Cây thi đấu</div>
               <div style="font-size:11px;color:var(--tx3);margin-top:2px">Tự động từ BXH vòng bảng · Có thể chỉnh tay</div>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn">↻ Làm mới</button>
-              <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)"
+            <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;flex-wrap:nowrap">
+              <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn" style="flex-shrink:0">↻ Làm mới</button>
+              <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25);flex-shrink:0"
                 onclick="bkShowRules()">📋 Quy tắc</button>
-              <button class="btn bsm" id="nd-btn-bk-mode" onclick="bkToggleMode()"
-                style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
-                🖊 Thủ công
-              </button>
-              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Điền ngay</button>
-              <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3)"
+              <div class="bk-mode-seg" id="nd-bk-mode-seg" style="flex-shrink:0">
+                <button id="nd-btn-bk-auto"   onclick="bkSetMode(true)"  class="bk-seg-btn">🤖 Tự động</button>
+                <button id="nd-btn-bk-manual" onclick="bkSetMode(false)" class="bk-seg-btn active-manual">🖊 Thủ công</button>
+              </div>
+              <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()" style="flex-shrink:0">⚡ Điền ngay</button>
+              <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3);flex-shrink:0"
                 onclick="ndBkSave()">💾 Lưu cây</button>
-              <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25)"
+              <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.25);flex-shrink:0"
                 onclick="ndBkApply()">⚡ Áp dụng & Tạo lịch</button>
-              <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)"
+              <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3);flex-shrink:0"
                 onclick="ndBkDelete()">🗑 Xóa cây</button>
             </div>
           </div>
@@ -1325,9 +1460,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
             <div class="ptitle">🏆 Cây thi đấu</div>
             <div class="psub">Tự động từ BXH vòng bảng · Có thể chỉnh tay</div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <button class="rfbtn" onclick="bkRefresh()">↻ Làm mới</button>
-            <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)" onclick="bkShowRules()">📋 Quy tắc</button>
+          <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;padding-bottom:2px">
+            <button class="rfbtn" onclick="bkRefresh()" style="flex-shrink:0">↻ Làm mới</button>
+            <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25);flex-shrink:0" onclick="bkShowRules()">📋 Quy tắc</button>
             <button class="btn bsm" id="btn-bk-mode" onclick="bkToggleMode()"
               style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
               🖊 Thủ công
@@ -5512,7 +5647,7 @@ function renderBangList(giaiId, nd) {
 
 
   // ── Stat cards ──
-  const statHtml = `<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
+  const statHtml = `<div class="stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px;overflow-x:auto;scrollbar-width:none">
     <div class="sc b"><div class="slb">Tổng trận</div><div class="sv b">${totalM}</div><div class="ss">${allTeams.length} đội · ${poolBangs.length} bảng</div></div>
     <div class="sc g"><div class="slb">Hoàn thành</div><div class="sv g">${doneM}</div><div class="ss">${pct}%</div></div>
     <div class="sc o"><div class="slb">Đang đấu</div><div class="sv o">${liveM||'—'}</div><div class="ss">trận live</div></div>
