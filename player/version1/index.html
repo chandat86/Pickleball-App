@@ -574,54 +574,90 @@ async function refreshAll(silent=false) {
 }
 
 async function loadAll() {
-  // Resolve giai name from USER_GIAI (may be id or name)
-  // Load tournament info + matches + results + live in parallel
-  const giaiParam = USER_GIAI || '';
+  // ── Bước 1: Fetch tournaments để resolve tên giải thực (GAS lưu theo tên, không phải ID) ──
+  if(!_giaiName && USER_GIAI) {
+    try {
+      const td=await gGet({action:'tournaments'});
+      if(td.rows?.length>1) {
+        const trows=td.rows.slice(1);
+        const gUpper=USER_GIAI.trim().toUpperCase();
+        // Tìm theo ID (col 0) hoặc tên (col 1)
+        _T=trows.find(r=>
+          String(r[0]||'').trim().toUpperCase()===gUpper ||
+          String(r[1]||'').trim().toUpperCase()===gUpper
+        ) || trows[0] || null;
+        if(_T) _giaiName=String(_T[1]||'').trim();
+      }
+    } catch(e){}
+  }
 
-  const [md, rd, ld, td] = await Promise.all([
+  // ── Bước 2: Dùng tên giải để fetch data (GAS filter theo tên, không phải ID) ──
+  const giaiParam = _giaiName || USER_GIAI || '';
+
+  const [md, rd, ld, td2] = await Promise.all([
     gGet({action:'matches', giai:giaiParam}).catch(()=>({})),
     gGet({action:'results', giai:giaiParam}).catch(()=>({})),
     gGet({action:'live', code:'all', giai:giaiParam}).catch(()=>({})),
-    gGet({action:'tournaments'}).catch(()=>({}) ),
+    gGet({action:'tournaments'}).catch(()=>({})),
   ]);
 
-  // Matches
-  if(md.rows?.length>1) {
-    _M = md.rows.slice(1).map(r=>r);
+  // Matches: _M[i] = [giai, noidung, bang, code, teamA, ..., teamB, court, vong, ...]
+  if(md.rows?.length>1) _M=md.rows.slice(1);
+  else if(!_M.length && giaiParam) {
+    // Thử fetch không filter giai (fallback nếu GAS trả toàn bộ)
+    try {
+      const md2=await gGet({action:'matches'});
+      if(md2.rows?.length>1) {
+        const all=md2.rows.slice(1);
+        const gUp=giaiParam.toUpperCase();
+        _M=all.filter(r=>String(r[0]||'').trim().toUpperCase()===gUp);
+        if(!_M.length) _M=all; // nếu vẫn trống thì lấy tất cả
+      }
+    } catch(e){}
   }
 
-  // Results (KetQua)
+  // Results
   if(rd.rows?.length>1) _R=rd.rows.slice(1);
+  else if(!_R.length && giaiParam) {
+    try {
+      const rd2=await gGet({action:'results'});
+      if(rd2.rows?.length>1) {
+        const all=rd2.rows.slice(1);
+        const gUp=giaiParam.toUpperCase();
+        _R=all.filter(r=>String(r[1]||'').trim().toUpperCase()===gUp);
+        if(!_R.length) _R=all;
+      }
+    } catch(e){}
+  }
 
-  // Live scores
+  // Live
   if(ld.rows?.length>1) {
-    _L = ld.rows.slice(1).filter(r=>String(r[9]||'').toLowerCase()!=='finished');
+    _L=ld.rows.slice(1).filter(r=>String(r[9]||'').toLowerCase()!=='finished');
   } else _L=[];
 
-  // Tournament info
-  if(td.rows?.length>1) {
-    const trows=td.rows.slice(1);
-    // Find matching tournament
-    const gUpper=(giaiParam||'').toUpperCase();
-    _T=trows.find(r=>String(r[0]||'').toUpperCase()===gUpper||String(r[1]||'').toUpperCase()===gUpper)||trows[0]||null;
-    if(_T) _giaiName=String(_T[1]||'');
+  // Update tournament info nếu cần
+  if(!_T && td2.rows?.length>1) {
+    const trows=td2.rows.slice(1);
+    const gUpper=(giaiParam||'').trim().toUpperCase();
+    _T=trows.find(r=>
+      String(r[0]||'').trim().toUpperCase()===gUpper ||
+      String(r[1]||'').trim().toUpperCase()===gUpper
+    ) || trows[0] || null;
+    if(_T) _giaiName=String(_T[1]||'').trim();
   }
 
-  // Build accessible noidungs
   buildNdList();
   renderTopBar();
   renderNdFilter();
   setUpdateTime();
 
-  // Live indicator
   $('tb-live').style.display=_L.length?'flex':'none';
 }
 
 function buildNdList() {
-  // Get all noidungs from matches that match this user's giai
-  const gName=_giaiName||USER_GIAI;
+  // Get all noidungs from matches that match this user's giai (case-insensitive, ID or name)
   const allNds=[...new Set(_M
-    .filter(m=>!gName||(String(m[0]||'')===gName||String(m[0]||'')===USER_GIAI))
+    .filter(m=>_giaiMatch(String(m[0]||'')))
     .map(m=>String(m[1]||'').trim()).filter(Boolean))];
 
   // Filter by user's noidung permission
@@ -692,12 +728,21 @@ function renderCurrentTab() {
 // ══════════════════════════════════════════════════
 function getGiaiName(){ return _giaiName||USER_GIAI; }
 
+function _giaiMatch(val) {
+  // So sánh giải: match tên hoặc ID, case-insensitive
+  if(!USER_GIAI && !_giaiName) return true; // không filter nếu không có giai
+  const v=String(val||'').trim().toUpperCase();
+  if(!v) return false;
+  const nameUp=(_giaiName||'').trim().toUpperCase();
+  const idUp=(USER_GIAI||'').trim().toUpperCase();
+  return v===nameUp||v===idUp;
+}
+
 function getFilteredMatches() {
-  const gName=getGiaiName();
   return _M.filter(m=>{
     const mg=String(m[0]||'');
     const mn=String(m[1]||'').trim();
-    const giaiOk=!gName||(mg===gName||mg===USER_GIAI);
+    const giaiOk=_giaiMatch(mg);
     const ndOk=!_curNd||mn===_curNd;
     return giaiOk&&ndOk;
   });
@@ -705,11 +750,10 @@ function getFilteredMatches() {
 
 function getResults() {
   // _R: [time,giai,nd,bang,code,teamA,teamB,sA,sB,winner,court,ref,rule]
-  const gName=getGiaiName();
   return _R.filter(r=>{
     const rg=String(r[1]||'');
     const rn=String(r[2]||'').trim();
-    const giaiOk=!gName||(rg===gName||rg===USER_GIAI);
+    const giaiOk=_giaiMatch(rg);
     const ndOk=!_curNd||rn===_curNd;
     return giaiOk&&ndOk;
   });
