@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -3019,7 +3019,47 @@ function doLogout() {
 // ════════════════════════════════════════════════════════════════
 const _cache = {}; // { key: { ts, data, ver } }
 let   _cacheVer = 0; // Tăng mỗi khi invalidate matches → cache cũ tự vô hiệu
-const CACHE_TTL = 120000; // 120s — giảm số lần hit GAS
+const CACHE_TTL = 300000; // 300s (5 phút) — stale-while-revalidate
+
+// ════ PREFETCH ENGINE ════
+// Prefetch ngầm tất cả giải sau khi load xong — không block UI
+let _prefetchDone = new Set();
+let _prefetchQueue = [];
+let _prefetching = false;
+
+async function _runPrefetchQueue() {
+  if (_prefetching) return;
+  _prefetching = true;
+  while (_prefetchQueue.length) {
+    const giaiId = _prefetchQueue.shift();
+    if (_prefetchDone.has(giaiId)) continue;
+    _prefetchDone.add(giaiId);
+    const cKey = 'matches_' + String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
+    if (cacheGet(cKey)) continue; // đã có cache, bỏ qua
+    try { await loadMatchesCache(giaiId, false); } catch(e) {}
+    await new Promise(r => setTimeout(r, 400)); // throttle 400ms giữa các giải
+  }
+  _prefetching = false;
+}
+
+function prefetchAllGiais() {
+  if (!_T?.length) return;
+  // Chỉ prefetch giải của manager, hoặc tất cả nếu admin (tối đa 6)
+  const toFetch = ROLE === 'manager'
+    ? _T.filter(t => MY_GIAI_LIST.includes(String(t[0]||'')))
+    : _T.slice(0, 6);
+  _prefetchQueue = toFetch.map(t => String(t[0]||'')).filter(Boolean);
+  setTimeout(() => _runPrefetchQueue(), 1500); // delay 1.5s sau khi UI xong
+}
+
+function prefetchGiai(giaiId) {
+  // Prefetch 1 giải cụ thể khi hover card
+  if (!giaiId || _prefetchDone.has(giaiId)) return;
+  const cKey = 'matches_' + String((_T.find(t=>String(t[0]||'')===giaiId)||[])[1]||giaiId);
+  if (cacheGet(cKey)) return;
+  _prefetchDone.add(giaiId);
+  loadMatchesCache(giaiId, false).catch(() => {});
+}
 
 function cacheGet(key) {
   const c = _cache[key];
@@ -3168,6 +3208,7 @@ async function prefetchAll() {
       _T = _filterTournsForRole(tRes.rows.slice(1));
       _syncManagerGiaiList();
       cacheSet('tournaments', _T);
+      prefetchAllGiais(); // Bắt đầu prefetch ngầm tất cả giải
     }
     if (mRes.rows?.length > 1) {
       const allRows = normalizeMatchRows(mRes.rows.slice(1));
@@ -4507,7 +4548,7 @@ function renderTournCards(rows) {
     const id  = esc(r[0]);
     return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:16px;cursor:pointer;transition:all .15s"
               onmouseover="this.style.borderColor='var(--ac)'" onmouseout="this.style.borderColor='var(--bdr)'"
-              onclick="openTournDetail('${id}')">
+              onmouseenter="prefetchGiai('${id}')" onclick="openTournDetail('${id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div>
           <div style="font-family:var(--mo);font-size:11px;color:var(--ac);font-weight:600;margin-bottom:3px">${r[0]}</div>
@@ -4543,14 +4584,28 @@ async function openTournDetail(id) {
   document.getElementById('td-sub').textContent  = (r[2]||'') + (r[4]?' · '+fmtD(r[4])+' → '+fmtD(r[5]):'');
   showTournView('detail');
 
-  // Render ngay từ cache (có thể 0 trận nếu chưa load) — UX không bị block
+  // Render NGAY lập tức từ cache (dù có data hay chưa)
   renderNdCards(r);
 
-  // Load data nền → re-render cards với thông tin đúng
-  try {
-    await loadMatchesCache(id, false);
-    if (_curTourn === r) renderNdCards(r); // chỉ update nếu vẫn đang xem giải này
-  } catch(e) {}
+  // Kiểm tra cache còn mới không
+  const giaiName = String(r[1]||id);
+  const cKey = 'matches_' + giaiName;
+  const hasFreshCache = !!cacheGet(cKey);
+
+  if (!hasFreshCache) {
+    // Chưa có cache → fetch ngay (non-blocking)
+    loadMatchesCache(id, false)
+      .then(() => { if (_curTourn === r) renderNdCards(r); })
+      .catch(() => {});
+  } else {
+    // Đã có cache → hiện ngay, revalidate ngầm sau 1.5s
+    setTimeout(() => {
+      if (_curTourn !== r) return; // user đã chuyển giải
+      loadMatchesCache(id, false)
+        .then(() => { if (_curTourn === r) renderNdCards(r); })
+        .catch(() => {});
+    }, 1500);
+  }
 }
 
 // ── Render cards nội dung thi đấu ──
@@ -4577,7 +4632,7 @@ function renderNdCards(r) {
     const bangs = [...new Set(_M.filter(mFilter).map(m=>String(m[2]||'')).filter(Boolean))];
     return `<div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:16px;
               cursor:pointer;transition:all .15s;border-top:3px solid ${c}"
-              onmouseover="this.style.boxShadow='0 0 0 1px ${c}33'" onmouseout="this.style.boxShadow='none'"
+              onmouseover="this.style.boxShadow='0 0 0 1px ${c}33';prefetchGiai('${esc(String(r[0]||''))}')" onmouseout="this.style.boxShadow='none'"
               onclick="openNdDetail('${esc(String(r[0]||''))}','${ndId}')">
       <div style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px">${nd}</div>
       <div style="font-size:12px;color:var(--tx3);margin-bottom:10px" class="nd-card-stats">
