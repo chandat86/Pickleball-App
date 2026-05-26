@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v45.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -3234,7 +3234,7 @@ function emptyRow(colspan, icon, msg) { return `<tr><td colspan="${colspan}"><di
 // Điền tất cả dropdown giải đấu
 function populateTournamentDropdowns() {
   const ids = ['dash-giai','bxh-giai','asgn-giai','clear-giai','m-giai','r-giai','u-giai','p-giai','rr-giai','m-giai-i','assign-giai','bk-giai'];
-  const tourns = ROLE === 'manager' ? _T.filter(r => String(r[0]||'') === MY_GIAI) : _T;
+  const tourns = ROLE === 'manager' ? _T.filter(r => MY_GIAI_LIST.includes(String(r[0]||''))) : _T;
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -3245,7 +3245,7 @@ function populateTournamentDropdowns() {
     el.innerHTML = firstOpt + tourns.map(t => `<option value="${esc(t[0])}">${t[1]||t[0]}</option>`).join('');
     if (val) el.value = val;
     // Manager: tự chọn giải của mình
-    if (ROLE === 'manager' && MY_GIAI) el.value = MY_GIAI;
+    if (ROLE === 'manager' && MY_GIAI_LIST.length===1) el.value = MY_GIAI_LIST[0];
   });
 }
 
@@ -10094,9 +10094,9 @@ function openBatchMo() {
   document.getElementById('rr-save').disabled=true;
   _rrRows=[];
   const sel=document.getElementById('rr-giai');
-  const tourns=ROLE==='manager'?_T.filter(t=>String(t[0]||'')===MY_GIAI):_T;
+  const tourns=ROLE==='manager'?_T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))):_T;
   sel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
-  if(ROLE==='manager') sel.value=MY_GIAI;
+  if(ROLE==='manager'&&MY_GIAI_LIST.length===1) sel.value=MY_GIAI_LIST[0];
   openMo('mo-rr');
 }
 function genRR() {
@@ -10588,6 +10588,9 @@ async function atrConfirm() {
 
 function openUserMo(pre=null) {
   _editU=pre;
+  // Đảm bảo MY_GIAI_LIST luôn đầy đủ trước khi build dropdown
+  _syncManagerGiaiList();
+
   document.getElementById('user-tt').textContent=pre?'Sửa Trọng tài':'Thêm Trọng tài';
   // Manager chỉ tạo/sửa TT active — ẩn role admin/manager
   const statusSel = document.getElementById('u-status');
@@ -10612,10 +10615,17 @@ function openUserMo(pre=null) {
   // Focus vào SĐT ngay khi mở form
   setTimeout(()=>document.getElementById('u-phone').focus(), 100);
 
-  // Populate ref giải dropdown
+  // Populate ref giải dropdown — manager thấy TẤT CẢ giải đang quản lý
   const refSel = document.getElementById('u-giai-ref-sel');
-  const tourns = ROLE==='manager' ? _T.filter(t=>String(t[0]||'')===MY_GIAI) : _T;
-  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
+  const myListUpper = MY_GIAI_LIST.map(g=>g.toUpperCase());
+  const tourns = ROLE==='manager'
+    ? _T.filter(t => {
+        const tid = String(t[0]||'').trim().toUpperCase();
+        const owner = String(t[8]||'').trim().toUpperCase();
+        return myListUpper.includes(tid) || owner === CODE.toUpperCase();
+      })
+    : _T;
+  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||t[0]||''))}</option>`).join('');
 
   // Build manager multi-picker
   const giaiRaw = pre?.giai || '';
@@ -10629,7 +10639,7 @@ function openUserMo(pre=null) {
     refSel.value = pre.giai;
   } else if (ROLE === 'manager' && pre) {
     // Manager sửa TT của mình → set MY_GIAI nếu TT chưa có giải
-    refSel.value = MY_GIAI;
+    if(MY_GIAI_LIST.length===1) refSel.value = MY_GIAI_LIST[0]; // auto-select nếu chỉ có 1 giải
   } else {
     refSel.value = ''; // mặc định trống
   }
@@ -10839,9 +10849,19 @@ function openPlayerUserMo(pre=null) {
   document.getElementById('pu-note').value=pre?.note||'';
   document.getElementById('pu-nd').value=pre?.noidung||'';
 
-  // Populate giai selector
+  // Đảm bảo MY_GIAI_LIST đầy đủ trước khi build dropdown
+  _syncManagerGiaiList();
+
+  // Populate giai selector — manager thấy TẤT CẢ giải đang quản lý
   const gSel=document.getElementById('pu-giai-sel');
-  const managedT = ROLE==='manager' ? _T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))) : _T;
+  const myListUpper2 = MY_GIAI_LIST.map(g=>g.toUpperCase());
+  const managedT = ROLE==='manager'
+    ? _T.filter(t=>{
+        const tid=String(t[0]||'').trim().toUpperCase();
+        const owner=String(t[8]||'').trim().toUpperCase();
+        return myListUpper2.includes(tid)||owner===CODE.toUpperCase();
+      })
+    : _T;
   gSel.innerHTML='<option value="">— Chọn giải —</option>'+managedT.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||''))}</option>`).join('');
   gSel.value=pre?.giai||'';
 
@@ -11035,9 +11055,9 @@ function openPlayerMo(pre=null) {
   document.getElementById('p-phone').value=pre?.phone||'';
   document.getElementById('p-note').value=pre?.note||'';
   const sel=document.getElementById('p-giai');
-  const tourns=ROLE==='manager'?_T.filter(t=>String(t[0]||'')===MY_GIAI):_T;
+  const tourns=ROLE==='manager'?_T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))):_T;
   sel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${t[0]}">${t[1]||t[0]}</option>`).join('');
-  if(pre?.giai) sel.value=pre.giai; else if(ROLE==='manager') sel.value=MY_GIAI;
+  if(pre?.giai) sel.value=pre.giai; else if(ROLE==='manager'&&MY_GIAI_LIST.length===1) sel.value=MY_GIAI_LIST[0];
   document.getElementById('p-save').disabled=false;
   openMo('mo-player');
 }
