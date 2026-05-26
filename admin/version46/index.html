@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2516,7 +2516,13 @@ async function doLogin() {
   localStorage.setItem('pb_adm_code', code);
 
   const baseUrl = url.replace(/\/+$/, '');
-  const fetchUrl = `${baseUrl}?action=validate&code=${encodeURIComponent(code)}&device=AdminPanel&_t=${Date.now()}`;
+  // Detect: nếu input thuần số >= 8 ký tự → là SĐT → gửi phone param
+  const codeClean = code.replace(/\D/g, '');
+  const isPhone = /^\d{8,12}$/.test(codeClean) && !/[A-Z]/.test(code);
+  const loginParam = isPhone
+    ? `phone=${encodeURIComponent(codeClean)}`
+    : `code=${encodeURIComponent(code)}`;
+  const fetchUrl = `${baseUrl}?action=validate&${loginParam}&device=AdminPanel&_t=${Date.now()}`;
 
   // Fetch với timeout 12s + retry 1 lần nếu timeout
   async function fetchWithTimeout(url, ms) {
@@ -10955,10 +10961,10 @@ async function delPlayerUser(phoneOrCode, name) {
 }
 
 function copyPlayerUrl() {
-  const base=window.location.href.replace(/\/[^/]+$','/').replace('index_admin','');
-  const url=base+'index_player.html';
-  try{navigator.clipboard.writeText(url).then(()=>toast('📋 Đã copy link Player Viewer!','ok'));}
-  catch{toast(url,'ok',5000);}
+  const base = window.location.href.replace(/\/[^/]+$/, '/').replace(/index_admin[^/]*\.html/, '');
+  const url = base + 'index_player.html';
+  try { navigator.clipboard.writeText(url).then(() => toast('📋 Đã copy link Player Viewer!', 'ok')); }
+  catch(e) { toast(url, 'ok', 5000); }
 }
 
 // ════════════════════════════════════════════════════════════════
