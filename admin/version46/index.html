@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.44 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -858,7 +858,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
         </div>
       </div>
       <label class="lbl">🔗 Google Apps Script URL</label>
-      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"
+      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec"
         oninput="localStorage.setItem('pb_gs_url',this.value.trim())"
         onpaste="setTimeout(()=>localStorage.setItem('pb_gs_url',this.value.trim()),50)">
       <label class="lbl">🔑 Mã đăng nhập</label>
