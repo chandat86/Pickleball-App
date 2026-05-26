@@ -4,7 +4,7 @@
 <!-- Pickleball Player Viewer v1.0 | 2026-05-26 | Standalone viewer for players/spectators -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Pickleball v2 — Xem Giải Đấu</title>
+<title>Pickleball V2.1 — Xem Giải Đấu</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap');
 
@@ -633,7 +633,14 @@ async function loadAll() {
   // Debug: hiện thông tin resolve (xóa sau khi test xong)
   const dbgEl = document.getElementById('debug-info');
   if(dbgEl) {
-    dbgEl.innerHTML = `<b>USER_GIAI:</b> ${esc(USER_GIAI)} | <b>_giaiName:</b> ${esc(_giaiName)} | <b>_M:</b> ${_M.length} trận | <b>_R:</b> ${_R.length} KQ | <b>_L:</b> ${_L.length} live | <b>_allNds:</b> ${_allNds.join(', ')||'(trống)'}`;
+    const resMap = buildResultMap();
+    const filtered = getFilteredMatches();
+    const done = filtered.filter(m=>isMatchDone(m,resMap)).length;
+    const pending = filtered.length - done;
+    // Sample key từ _M và _R để so sánh
+    const mSample = _M[0] ? `M[0]: nd="${_M[0][1]}" bang="${_M[0][2]}" code="${_M[0][3]}"` : '';
+    const rSample = _R[0] ? `R[0]: nd="${_R[0][2]}" bang="${_R[0][3]}" code="${_R[0][4]}"` : '';
+    dbgEl.innerHTML = `<b>USER_GIAI:</b> ${esc(USER_GIAI)} | <b>_giaiName:</b> ${esc(_giaiName)} | <b>_M:</b> ${_M.length} trận | <b>_R:</b> ${_R.length} KQ | <b>_L:</b> ${_L.length} live | <b>_allNds:</b> ${_allNds.join(', ')||'(trống)'} | <b>curNd:</b> ${esc(_curNd)} | <b>filtered:</b> ${filtered.length} | <b>done:</b> ${done} | <b>pending:</b> ${pending}<br><span style="opacity:.7">${esc(mSample)} || ${esc(rSample)}</span>`;
     dbgEl.style.display = 'block';
   }
 }
@@ -839,54 +846,63 @@ function renderLive() {
 // ══════════════════════════════════════════════════
 //  RENDER SCHEDULE
 // ══════════════════════════════════════════════════
+//  RENDER SCHEDULE
+// ══════════════════════════════════════════════════
 function renderSchedule() {
   const wrap=$('schedule-content');
   const matches=getFilteredMatches();
-  const resMap=buildResultMap();
-  const liveCodes=new Set(_L.map(l=>String(l[0]||'')));
-
-  // Only upcoming + live (not done)
-  const pending=matches.filter(m=>!isMatchDone(m,resMap));
-
-  if(!pending.length) {
-    wrap.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div>
-      <div class="empty-msg">Không có trận nào sắp diễn ra</div></div>`;
+  if(!matches.length){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">Không có trận nào</div></div>';
     return;
   }
-
-  // Group by bang
-  const byBang=new Map();
-  pending.forEach(m=>{
-    const bang=String(m[2]||'Khác');
-    if(!byBang.has(bang)) byBang.set(bang,[]);
-    byBang.get(bang).push(m);
+  const resMap=buildResultMap();
+  const liveCodes=new Set(_L.map(l=>String(l[0]||'')));
+  const liveMs=[], pendingMs=[], doneMs=[];
+  matches.forEach(m=>{
+    const code=String(m[3]||'');
+    if(isMatchDone(m,resMap)) doneMs.push(m);
+    else if(liveCodes.has(code)) liveMs.push(m);
+    else pendingMs.push(m);
   });
-
-  wrap.innerHTML=[...byBang.entries()].map(([bang,ms])=>`
-    <div class="match-group">
-      <div class="mg-title">🏓 ${esc(bang)} <span style="font-weight:400;font-size:11px">${ms.length} trận</span></div>
-      ${ms.map(m=>{
-        const code=String(m[3]||'');
-        const isLive=liveCodes.has(code);
-        const ls=isLive?getLiveScore(m):null;
-        const teamA=String(m[4]||'—'), teamB=String(m[7]||'—');
-        const court=String(m[8]||''), round=String(m[9]||'');
-        const sA=ls?.sA??'', sB=ls?.sB??'';
-        return `<div class="match-row ${isLive?'live':'pending'}">
-          <div class="mr-team">${esc(teamA)}</div>
-          <div class="mr-mid">
-            ${isLive?`<div class="mr-score"><span>${sA}</span><span style="color:var(--tx3);margin:0 3px;font-size:14px">–</span><span>${sB}</span></div>
-              <div class="mr-live-badge"><div class="dot"></div>LIVE</div>`
-            :`<div class="mr-vs">VS</div>`}
-            <div class="mr-meta">${court?esc(court):''}${round?' · '+esc(round):''}</div>
-          </div>
-          <div class="mr-team right">${esc(teamB)}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  `).join('');
+  function groupByBang(ms){
+    const map=new Map();
+    ms.forEach(m=>{const b=String(m[2]||'Khác');if(!map.has(b))map.set(b,[]);map.get(b).push(m);});
+    return map;
+  }
+  function renderRow(m,st){
+    const code=String(m[3]||'');
+    const tA=String(m[4]||'—'),tB=String(m[7]||'—');
+    const court=String(m[8]||''),round=String(m[9]||'');
+    const key=String(m[1]||'')+'|'+String(m[2]||'')+'|'+code;
+    const res=st==='done'?resMap.get(key):null;
+    const sA=res!=null?res.sA:'',sB=res!=null?res.sB:'';
+    const ls=st==='live'?getLiveScore(m):null;
+    const lsA=ls&&ls.sA!==undefined?ls.sA:'',lsB=ls&&ls.sB!==undefined?ls.sB:'';
+    const aW=res&&Number(res.sA)>Number(res.sB),bW=res&&Number(res.sB)>Number(res.sA);
+    const mid=st==='done'
+      ?'<div class="mr-score"><span class="'+(aW?'w':'')+'">'+sA+'</span><span style="color:var(--tx3);margin:0 3px;font-size:14px">–</span><span class="'+(bW?'w':'')+'">'+sB+'</span></div>'
+      :st==='live'
+      ?'<div class="mr-score">'+lsA+'<span style="color:var(--tx3);margin:0 3px">–</span>'+lsB+'</div><div class="mr-live-badge"><div class="dot"></div>LIVE</div>'
+      :'<div class="mr-vs">VS</div>';
+    return '<div class="match-row '+st+'">'
+      +'<div class="mr-team'+(aW?' winner':'')+'">'+esc(tA)+'</div>'
+      +'<div class="mr-mid">'+mid+'<div class="mr-meta">'+(court?esc(court):'')+(round?' · '+esc(round):'')+'</div></div>'
+      +'<div class="mr-team right'+(bW?' winner':'')+'">'+esc(tB)+'</div>'
+      +'</div>';
+  }
+  function renderGroup(ms,st){
+    let h='';
+    groupByBang(ms).forEach((rows,bang)=>{
+      h+='<div class="match-group"><div class="mg-title">'+esc(bang)+' <span style="font-weight:400;font-size:11px">'+rows.length+' trận</span></div>'+rows.map(m=>renderRow(m,st)).join('')+'</div>';
+    });
+    return h;
+  }
+  let html='';
+  if(liveMs.length) html+='<div style="font-family:var(--fh);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--rd);text-transform:uppercase;padding:8px 0 6px">🔴 ĐANG THI ĐẤU</div>'+renderGroup(liveMs,'live');
+  if(pendingMs.length) html+='<div style="font-family:var(--fh);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--ac);text-transform:uppercase;padding:8px 0 6px'+(liveMs.length?';margin-top:10px':'')+'">⏳ CHƯA THI ĐẤU ('+pendingMs.length+')</div>'+renderGroup(pendingMs,'pending');
+  if(doneMs.length) html+='<div style="font-family:var(--fh);font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gn);text-transform:uppercase;padding:8px 0 6px'+((liveMs.length||pendingMs.length)?';margin-top:10px':'')+'">✅ ĐÃ XONG ('+doneMs.length+')</div>'+renderGroup(doneMs,'done');
+  wrap.innerHTML=html||'<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">Không có trận nào</div></div>';
 }
-
 // ══════════════════════════════════════════════════
 //  RENDER RESULTS
 // ══════════════════════════════════════════════════
