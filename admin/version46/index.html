@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46.1 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -289,6 +289,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bm{background:rgba(6,182,212,.1);color:var(--cy);border:1px solid rgba(6,182,212,.2)}
 .bk{background:rgba(239,68,68,.1);color:var(--rd);border:1px solid rgba(239,68,68,.15)}
 .bo{background:rgba(34,197,94,.1);color:var(--gn);border:1px solid rgba(34,197,94,.15)}
+.bp{background:rgba(34,197,94,.08);color:#4ade80;border:1px solid rgba(34,197,94,.2)}
 .bw{background:rgba(245,158,11,.1);color:var(--or);border:1px solid rgba(245,158,11,.15)}
 .bg0{background:rgba(100,116,139,.1);color:var(--tx3);border:1px solid rgba(100,116,139,.15)}
 .live-nd-body{transition:max-height .3s ease,opacity .3s ease;overflow:hidden;}
@@ -908,6 +909,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('assign');toggleMobMore()">📌 Phân công TT</button>
     <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('results');toggleMobMore()">🎯 Kết quả</button>
     <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('users');toggleMobMore()">👥 Trọng tài</button>
+    <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('playerusers');toggleMobMore()">👁 Player viewers</button>
     <button class="btn bh" style="justify-content:flex-start;gap:8px" onclick="nav('players');toggleMobMore()">🏓 VĐV</button>
     <button class="btn br" style="grid-column:1/-1;justify-content:center" onclick="doLogout()">↩ Đăng xuất</button>
   </div>
@@ -946,6 +948,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <button class="ni" data-p="users"><span class="ic">👥</span><span>Trọng tài</span></button>
       <button class="ni" data-p="phanquyen"><span class="ic">🔑</span><span>Phân quyền</span></button>
       <button class="ni" data-p="players"><span class="ic">🏓</span><span>Vận động viên</span></button>
+      <button class="ni" data-p="playerusers"><span class="ic">👁</span><span>Player viewers</span></button>
     </div>
     <div class="sbbm">
       <div class="sbu" id="sb-usr">—</div>
@@ -1520,6 +1523,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <div class="rc adm"><h4>👑 Admin</h4>Toàn quyền mọi giải<br>Tạo/xóa giải đấu<br>Quản lý mọi TT</div>
           <div class="rc mgr"><h4>🔵 Manager</h4>Quản lý 1 giải được phân<br>Phân công TT trong giải<br>Xem dashboard giải</div>
           <div class="rc ref"><h4>🟢 Trọng tài (active)</h4>Chấm điểm theo sân/vòng<br>Sân trống → không thấy trận<br>Vòng trống → không thấy vòng</div>
+          <div class="rc" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)"><h4>👁 Player viewer</h4>Xem tỉ số · BXH · lịch<br>Không thể chấm điểm<br>Vào trang index_player.html</div>
         </div>
         <p style="font-size:11px;color:var(--rd);margin-top:8px">⚠️ Hết hạn để trống = đã quá hạn. Sân để trống = trọng tài không thấy bất kỳ trận nào.</p>
       </div>
@@ -1531,6 +1535,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <option value="admin">Admin</option>
           <option value="manager">Manager</option>
           <option value="active">Trọng tài</option>
+          <option value="player">Player viewer</option>
           <option value="khóa">Bị khóa</option>
         </select>
         <button class="rfbtn" onclick="loadUsers()">↻</button>
@@ -1580,6 +1585,50 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
       <div id="pq-wrap">
         <div class="empty"><span class="spin"></span></div>
+      </div>
+    </div>
+
+    <!-- ══ PLAYER VIEWERS ══ -->
+    <div class="page" id="page-playerusers">
+      <div class="ph">
+        <div>
+          <div class="ptitle">👁 Player Viewers</div>
+          <div class="psub">Tài khoản dành cho VĐV / khán giả xem tỉ số · BXH · lịch thi đấu</div>
+        </div>
+        <button class="btn bp" onclick="openPlayerUserMo()">＋ Thêm Player</button>
+      </div>
+      <!-- Role info card -->
+      <div class="card" style="margin-bottom:12px;padding:12px 16px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+          <div class="rc" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)">
+            <h4 style="color:var(--gn)">👁 Player (full giải)</h4>
+            Xem tất cả nội dung thi đấu<br>
+            Tỉ số · BXH · Lịch đấu<br>
+            <span style="font-size:10px;color:var(--tx3)">Để trống Nội dung = full giải</span>
+          </div>
+          <div class="rc" style="border-color:rgba(14,165,233,.3);background:rgba(14,165,233,.05)">
+            <h4 style="color:var(--ac)">👁 Player (1 nội dung)</h4>
+            Chỉ xem nội dung được phân<br>
+            VD: "Đôi Nữ" hoặc "Đôi Nam-Nữ"<br>
+            <span style="font-size:10px;color:var(--tx3)">Điền Nội dung để giới hạn</span>
+          </div>
+          <div class="rc" style="border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.05)">
+            <h4 style="color:var(--pu)">🔗 Link đăng nhập Player</h4>
+            Trang xem riêng: <code id="player-url-display" style="font-size:10px;color:var(--ac);word-break:break-all">index_player.html</code><br>
+            <button class="btn bsm" style="margin-top:6px;background:rgba(168,85,247,.12);color:var(--pu);border:1px solid rgba(168,85,247,.3)" onclick="copyPlayerUrl()">📋 Copy link</button>
+          </div>
+        </div>
+      </div>
+      <div class="sbar">
+        <input class="si" id="puq" placeholder="🔍 Tìm tên, SĐT..." oninput="dbt(filterPlayerUsers)">
+        <select class="fsel" id="pu-giai-f" onchange="filterPlayerUsers()"><option value="">Tất cả giải</option></select>
+        <button class="rfbtn" onclick="loadPlayerUsers()">↻</button>
+      </div>
+      <div class="tw">
+        <table class="tbl">
+          <thead><tr><th>Họ tên</th><th>📞 SĐT</th><th>Mã</th><th>Giải được xem</th><th>Nội dung</th><th>Hết hạn</th><th>Ghi chú</th><th></th></tr></thead>
+          <tbody id="pu-tb"><tr><td colspan="8" style="text-align:center;padding:28px"><span class="spin"></span></td></tr></tbody>
+        </table>
       </div>
     </div>
 
@@ -1688,6 +1737,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg"><label>Vai trò</label>
       <select id="u-status">
         <option value="active">🟢 Trọng tài (active)</option>
+        <option value="player">👁 Player viewer</option>
         <option value="manager">🔵 Manager giải</option>
         <option value="admin">👑 Admin</option>
         <option value="khóa">🔒 Khóa tài khoản</option>
@@ -1724,6 +1774,43 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-user')">Hủy</button>
     <button class="btn bp" id="u-save" onclick="saveUser()">💾 Lưu</button>
+  </div>
+</div></div>
+
+<!-- Player User Modal -->
+<div class="mo" id="mo-player-user"><div class="mbox w">
+  <div class="mh">
+    <div class="mtt" id="pu-tt">Thêm Player Viewer</div>
+    <button class="mc" onclick="closeMo('mo-player-user')">✕</button>
+  </div>
+  <div class="fgrid" style="padding:16px 18px">
+    <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label>
+      <input type="tel" id="pu-phone" placeholder="0901234567" oninput="this.value=this.value.replace(/[^0-9+]/g,'')">
+      <span class="hint">Dùng để đăng nhập vào trang Player. Phải là số duy nhất.</span></div>
+    <div class="fg"><label>Họ tên <span style="color:var(--rd)">*</span></label>
+      <input type="text" id="pu-name" placeholder="Nguyễn Văn An"></div>
+    <div class="fg full">
+      <label>🏆 Giải đấu được xem <span style="color:var(--rd)">*</span></label>
+      <select id="pu-giai-sel" style="width:100%" class="fsel" onchange="onPuGiaiChange()">
+        <option value="">— Chọn giải —</option>
+      </select>
+      <span class="hint">Player chỉ xem được giải này.</span>
+    </div>
+    <div class="fg full">
+      <label>Nội dung thi đấu <span style="font-size:10px;color:var(--tx3);font-weight:400">(để trống = xem tất cả nội dung)</span></label>
+      <div id="pu-nd-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;min-height:32px"></div>
+      <input type="hidden" id="pu-nd">
+      <span class="hint">Chọn nội dung muốn giới hạn, hoặc để trống cho xem full giải.</span>
+    </div>
+    <div class="fg"><label>Hết hạn</label>
+      <input type="date" id="pu-exp">
+      <span class="hint">Để trống = hết hạn ngay. Khuyến nghị đặt cuối ngày giải đấu.</span></div>
+    <div class="fg full"><label>Ghi chú</label>
+      <input type="text" id="pu-note" placeholder="Tên đội, HLV, BTC..."></div>
+  </div>
+  <div class="mf">
+    <button class="btn bh" onclick="closeMo('mo-player-user')">Hủy</button>
+    <button class="btn bp" id="pu-save" onclick="savePlayerUser()">💾 Lưu</button>
   </div>
 </div></div>
 
@@ -2588,7 +2675,7 @@ function showApp() {
   // ── PHÂN QUYỀN MANAGER: chỉ thấy Quản lý giải ──
   if (ROLE === 'manager') {
     // Chỉ giữ lại nav "Quản lý giải", ẩn tất cả còn lại
-    const MANAGER_ALLOWED_PAGES = ['tournaments', 'users'];
+    const MANAGER_ALLOWED_PAGES = ['tournaments', 'users', 'playerusers'];
     // Ẩn nav Phân quyền với Manager
     const pqNav = document.querySelector('.ni[data-p="phanquyen"]');
     if (pqNav) pqNav.style.display = 'none';
@@ -2995,6 +3082,7 @@ function nav(p, _skipHash) {
     users: loadUsers,
     phanquyen: loadPhanQuyen,
     players: loadPlayers,
+    playerusers: loadPlayerUsers,
   };
   if (loaders[p]) loaders[p]();
   // Restart live polling cho trang hiện tại
@@ -10186,8 +10274,8 @@ function renderUsers(rows) {
   if (!rows.length) { tb.innerHTML = emptyRow(9,'👥','Không có trọng tài'); return; }
   tb.innerHTML = rows.map(r => {
     const st=String(r[7]||'active').toLowerCase();
-    const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':'bo';
-    const bl=st==='admin'?'👑 Admin':st==='manager'?'🔵 Manager':st==='khóa'?'🔒 Khóa':'✅ Active';
+    const bc=st==='admin'?'ba':st==='manager'?'bm':st==='khóa'?'bk':st==='player'?'bp':'bo';
+    const bl=st==='admin'?'👑 Admin':st==='manager'?'🔵 Manager':st==='khóa'?'🔒 Khóa':st==='player'?'👁 Player':'✅ Active';
     const cts=String(r[3]||''),rts=String(r[4]||'');
     const ct=cts?cts.split(',').map(c=>`<span class="ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
     const rt=rts?rts.split(',').map(c=>`<span class="ptago ptag">${c.trim()}</span>`).join(''):'<span style="color:var(--tx3);font-size:12px">—</span>';
@@ -10222,7 +10310,7 @@ function renderUsers(rows) {
 function _updateUserRoleFields() {
   const status = document.getElementById('u-status').value;
   const isManager = status === 'manager';
-  const isRef = status === 'active';
+  const isRef = status === 'active' || status === 'player';
   document.getElementById('fg-giai-manager').style.display = isManager ? 'block' : 'none';
   document.getElementById('fg-giai-ref').style.display    = isRef     ? 'block' : 'none';
   // courts/rounds hints
@@ -10645,6 +10733,234 @@ async function delUser(phoneOrCode, name) {
     toast(`❌ Lỗi kết nối khi xóa: ${e.message}`, 'er');
   }
 }
+// ════════════════════════════════════════════════════════════════
+//  PLAYER USERS (viewer accounts)
+// ════════════════════════════════════════════════════════════════
+let _PU=[], _editPU=null; // player users list, currently editing
+
+async function loadPlayerUsers() {
+  const tb=document.getElementById('pu-tb');
+  if(!tb)return;
+  tb.innerHTML=spin(8);
+  // Load users, filter by status=player
+  try {
+    if(!_U.length) {
+      const du=await gGet({action:'getUsers',adminCode:CODE});
+      if(du?.ok&&du.rows?.length>1) _U=du.rows.slice(1);
+    }
+    _PU=_U.filter(r=>String(r[7]||'').toLowerCase()==='player');
+    // Update giai filter
+    const giaiSel=document.getElementById('pu-giai-f');
+    if(giaiSel) {
+      const cur=giaiSel.value;
+      const giaiSet=[...new Set(_PU.map(r=>String(r[8]||'')).filter(Boolean))];
+      giaiSel.innerHTML='<option value="">Tất cả giải</option>'+giaiSet.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+      if(cur) giaiSel.value=cur;
+    }
+    filterPlayerUsers();
+  }catch(e){toast('Lỗi tải danh sách player','er');}
+}
+
+function filterPlayerUsers() {
+  const q=(document.getElementById('puq')?.value||'').toLowerCase().trim();
+  const gf=(document.getElementById('pu-giai-f')?.value||'');
+  const rows=_PU.filter(r=>{
+    const nm=String(r[1]||'').toLowerCase(), ph=String(r[10]||'').toLowerCase(), cd=String(r[0]||'').toLowerCase();
+    const gi=String(r[8]||'');
+    if(q&&!nm.includes(q)&&!ph.includes(q)&&!cd.includes(q)) return false;
+    if(gf&&gi!==gf) return false;
+    return true;
+  });
+  renderPlayerUsers(rows);
+}
+
+function renderPlayerUsers(rows) {
+  const tb=document.getElementById('pu-tb');
+  if(!tb)return;
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--tx3)">
+      Chưa có Player Viewer nào.
+      <button class="btn bp bsm" style="margin-top:8px" onclick="openPlayerUserMo()">＋ Thêm ngay</button>
+    </td></tr>`;
+    return;
+  }
+  const fmtD=d=>{if(!d)return'—';try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return String(d);}};
+  tb.innerHTML=rows.map(r=>{
+    const nd=String(r[9]||'');
+    const giaiName=resolveGiaiName(String(r[8]||''))||String(r[8]||'—');
+    const exp=fmtD(r[2]);
+    const expDays=r[2]?Math.ceil((new Date(r[2])-new Date())/(86400000)):null;
+    const expClass=expDays!==null&&expDays<0?'color:var(--rd)':expDays!==null&&expDays<7?'color:var(--or)':'color:var(--tx2)';
+    return `<tr>
+      <td style="font-weight:600">${esc(String(r[1]||'—'))}</td>
+      <td style="font-family:var(--mo);font-size:12px">${esc(String(r[10]||'—'))}</td>
+      <td style="font-family:var(--mo);font-size:11px;color:var(--tx3)">${esc(String(r[0]||'—'))}</td>
+      <td><span class="ptag" style="font-size:11px">${esc(giaiName)}</span></td>
+      <td>${nd?`<span class="ptag" style="font-size:11px;background:rgba(14,165,233,.1);border-color:rgba(14,165,233,.2);color:var(--ac)">${esc(nd)}</span>`:'<span style="color:var(--gn);font-size:11px;font-weight:700">✓ Toàn bộ</span>'}</td>
+      <td style="${expClass};font-size:12px">${exp}${expDays!==null?` <span style="font-size:10px">(${expDays<0?'hết hạn':expDays+'d'})</span>`:''}</td>
+      <td style="font-size:12px;color:var(--tx3)">${esc(String(r[6]||''))}</td>
+      <td>
+        <button class="btn bsm" style="margin-right:4px" onclick="editPlayerUser(${rows.indexOf(r)})">✏️</button>
+        <button class="btn bsm" style="background:rgba(239,68,68,.1);color:var(--rd);border-color:rgba(239,68,68,.2)" onclick="delPlayerUser('${esc(String(r[10]||r[0]||''))}','${esc(String(r[1]||''))}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function resolveGiaiName(giaiId) {
+  if(!giaiId)return'';
+  const t=_T.find(t=>String(t[0]||'')===giaiId);
+  return t?String(t[1]||giaiId):giaiId;
+}
+
+function openPlayerUserMo(pre=null) {
+  _editPU=pre;
+  const tt=document.getElementById('pu-tt');
+  if(tt) tt.textContent=pre?'Sửa Player Viewer':'Thêm Player Viewer';
+
+  // Reset form
+  document.getElementById('pu-phone').value=pre?.phone||'';
+  document.getElementById('pu-name').value=pre?.name||'';
+  document.getElementById('pu-note').value=pre?.note||'';
+  document.getElementById('pu-nd').value=pre?.noidung||'';
+
+  // Populate giai selector
+  const gSel=document.getElementById('pu-giai-sel');
+  const managedT = ROLE==='manager' ? _T.filter(t=>MY_GIAI_LIST.includes(String(t[0]||''))) : _T;
+  gSel.innerHTML='<option value="">— Chọn giải —</option>'+managedT.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||''))}</option>`).join('');
+  gSel.value=pre?.giai||'';
+
+  // Exp
+  const expEl=document.getElementById('pu-exp');
+  if(pre?.expire){
+    // Convert to yyyy-mm-dd for date input
+    try {
+      const parts=pre.expire.split('/'); // dd/mm/yyyy
+      expEl.value=parts.length===3?`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`:pre.expire;
+    } catch{expEl.value='';}
+  } else expEl.value='';
+
+  onPuGiaiChange(); // render nd chips
+  openMo('mo-player-user');
+  setTimeout(()=>document.getElementById('pu-phone').focus(),100);
+}
+
+function onPuGiaiChange() {
+  const giaiId=document.getElementById('pu-giai-sel').value;
+  const chipsWrap=document.getElementById('pu-nd-chips');
+  const ndInput=document.getElementById('pu-nd');
+  if(!giaiId||!chipsWrap) return;
+
+  // Get noidungs for this giai from _T
+  const t=_T.find(t=>String(t[0]||'')===giaiId);
+  const nds=t?(String(t[7]||'').split(',').map(s=>s.trim()).filter(Boolean)):[];
+
+  if(!nds.length){chipsWrap.innerHTML='<span style="font-size:11px;color:var(--tx3)">Chưa có nội dung trong giải này</span>';return;}
+
+  // Current selected nds
+  const curNds=(ndInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+  function renderChips(selected) {
+    chipsWrap.innerHTML=nds.map(nd=>{
+      const on=selected.includes(nd);
+      return `<button type="button" style="padding:5px 13px;font-size:12px;font-weight:700;border-radius:20px;cursor:pointer;
+        border:1.5px solid ${on?'var(--ac)':'var(--bdr2)'};
+        background:${on?'rgba(14,165,233,.15)':'transparent'};
+        color:${on?'var(--ac)':'var(--tx3)'};font-family:var(--fn);transition:all .12s"
+        onclick="togglePuNd(this,'${esc(nd)}')">${esc(nd)}</button>`;
+    }).join('');
+    ndInput.value=selected.join(', ');
+  }
+  renderChips(curNds);
+}
+
+function togglePuNd(btn, nd) {
+  const ndInput=document.getElementById('pu-nd');
+  let cur=(ndInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  if(cur.includes(nd)) cur=cur.filter(x=>x!==nd);
+  else cur.push(nd);
+  // Re-render
+  onPuGiaiChange();
+  // Re-apply selection
+  const giaiId=document.getElementById('pu-giai-sel').value;
+  const t=_T.find(t=>String(t[0]||'')===giaiId);
+  const nds=t?(String(t[7]||'').split(',').map(s=>s.trim()).filter(Boolean)):[];
+  const chipsWrap=document.getElementById('pu-nd-chips');
+  chipsWrap.innerHTML=nds.map(n=>{
+    const on=cur.includes(n);
+    return `<button type="button" style="padding:5px 13px;font-size:12px;font-weight:700;border-radius:20px;cursor:pointer;
+      border:1.5px solid ${on?'var(--ac)':'var(--bdr2)'};
+      background:${on?'rgba(14,165,233,.15)':'transparent'};
+      color:${on?'var(--ac)':'var(--tx3)'};font-family:var(--fn);transition:all .12s"
+      onclick="togglePuNd(this,'${esc(n)}')">${esc(n)}</button>`;
+  }).join('');
+  ndInput.value=cur.join(', ');
+}
+
+function editPlayerUser(idx) {
+  const r=_PU[idx];if(!r)return;
+  const fmtISO=d=>{if(!d)return'';try{const p=new Date(d).toISOString().split('T')[0];return p;}catch{return'';}};
+  openPlayerUserMo({
+    phone:String(r[10]||''),name:String(r[1]||''),giai:String(r[8]||''),
+    noidung:String(r[9]||''),note:String(r[6]||''),expire:fmtISO(r[2]),
+    code:String(r[0]||'')
+  });
+}
+
+async function savePlayerUser() {
+  const btn=document.getElementById('pu-save');
+  const phone=document.getElementById('pu-phone').value.trim();
+  const name=document.getElementById('pu-name').value.trim();
+  const giai=document.getElementById('pu-giai-sel').value;
+  const noidung=document.getElementById('pu-nd').value.trim();
+  const note=document.getElementById('pu-note').value.trim();
+  const expire=document.getElementById('pu-exp').value;
+  if(!phone){toast('⚠️ Vui lòng nhập số điện thoại','er');return;}
+  if(!name){toast('⚠️ Vui lòng nhập họ tên','er');return;}
+  if(!giai){toast('⚠️ Vui lòng chọn giải đấu','er');return;}
+  if(!expire){toast('⚠️ Vui lòng chọn ngày hết hạn','er');return;}
+
+  btn.disabled=true;
+  const code=_editPU?.code||phone.replace(/\D/g,'');
+  const origPhone=_editPU?.phone||'';
+  const user={code, name, phone, giai, noidung, note, expire,
+    status:'player', courts:'', rounds:'', origPhone,
+    originalCode:_editPU?.code||''};
+  closeMo('mo-player-user');
+  toast(`✅ ${_editPU?'Cập nhật':'Thêm'} ${name}...`,'ok');
+  try{
+    const d=await gPost({action:_editPU?'updateUser':'addUser',adminCode:CODE,user});
+    if(!d.ok)toast('Lỗi: '+d.reason,'er');
+    else {
+      delete _cache['users']; _U=[];
+      await loadPlayerUsers();
+      await loadUsers(); // sync users tab too
+    }
+  }catch(e){toast('Lỗi kết nối','er');}
+  btn.disabled=false;
+}
+
+async function delPlayerUser(phoneOrCode, name) {
+  if(!confirm(`Xóa player viewer ${name}?`)) return;
+  const cleanPhone=String(phoneOrCode||'').replace(/\D/g,'');
+  _PU=_PU.filter(r=>String(r[10]||'').replace(/\D/g,'')!==cleanPhone&&String(r[0]||'')!==phoneOrCode);
+  delete _cache['users']; _U=[];
+  filterPlayerUsers();
+  toast(`⏳ Đang xóa ${name}...`,'in');
+  try{
+    const d=await gPost({action:'deleteUser',adminCode:CODE,code:phoneOrCode,phone:cleanPhone});
+    if(d?.ok){toast(`🗑 Đã xóa ${name}`,'ok');loadPlayerUsers();}
+    else{toast('❌ '+(d?.reason||'Lỗi'),'er');loadPlayerUsers();}
+  }catch(e){toast('❌ Lỗi kết nối','er');}
+}
+
+function copyPlayerUrl() {
+  const base=window.location.href.replace(/\/[^/]+$','/').replace('index_admin','');
+  const url=base+'index_player.html';
+  try{navigator.clipboard.writeText(url).then(()=>toast('📋 Đã copy link Player Viewer!','ok'));}
+  catch{toast(url,'ok',5000);}
+}
+
 // ════════════════════════════════════════════════════════════════
 //  PLAYERS
 // ════════════════════════════════════════════════════════════════
