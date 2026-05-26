@@ -462,7 +462,7 @@ async function gGet(params, timeout=12000) {
     const r=await fetch(url.toString(),{signal:ctrl.signal,cache:'no-store'});
     clearTimeout(timer);
     const j=await r.json();
-    return j.ok!==false?j:{};
+    return j; // trả về full response, không lọc ok
   } catch(e) { clearTimeout(timer); return {}; }
 }
 
@@ -475,7 +475,8 @@ function loadSaved() {
     if (!s) return false;
     const j=JSON.parse(s);
     if (!j.u||!j.c) return false;
-    GS=j.u; USER_NAME=j.n; USER_CODE=j.c; USER_GIAI=j.g||''; USER_ND=j.nd||'';
+    GS=j.u; USER_NAME=j.n||''; USER_CODE=j.c;
+    USER_GIAI=j.g||''; USER_ND=j.nd||'';
     $('gs-url').value=GS;
     return true;
   } catch(e){return false;}
@@ -486,29 +487,47 @@ async function doLogin() {
   const id=$('login-id').value.trim();
   if(!url){showErr('Vui lòng nhập địa chỉ hệ thống'); return;}
   if(!id){showErr('Vui lòng nhập số điện thoại hoặc mã'); return;}
-  GS=url;
+
+  // Auto-fix URL
+  let gsUrl = url;
+  if(!gsUrl.startsWith('http')) gsUrl='https://'+gsUrl;
+  gsUrl=gsUrl.replace(/(\/exec)(\/.*)?$/,'$1').replace(/\/+$/,'');
+  GS=gsUrl;
+  $('gs-url').value=gsUrl;
+
   const btn=$('login-btn'); btn.disabled=true; btn.textContent='Đang đăng nhập...';
   hideErr();
   try {
+    // Detect phone vs code
     const phone=id.replace(/\D/g,'');
-    const params={action:'login', device:'player-web'};
-    if(phone.length>=8) params.phone=phone; else params.code=id.toUpperCase();
-    const d=await gGet(params, 15000);
+    const isPhone=phone.length>=8&&phone.length<=12&&/^\d+$/.test(phone);
+
+    // Dùng action=validate (cùng GAS handler với admin)
+    const fetchUrl=gsUrl+'?action=validate&device=player-web&_t='+Date.now()
+      +(isPhone?'&phone='+encodeURIComponent(phone):'&code='+encodeURIComponent(id.toUpperCase()));
+
+    const r=await fetch(fetchUrl,{cache:'no-store'});
+    if(!r.ok){showErr('Lỗi kết nối HTTP '+r.status); btn.disabled=false; btn.textContent='Đăng nhập →'; return;}
+
+    const d=await r.json();
     if(!d.valid){
-      showErr(d.reason||'Đăng nhập thất bại');
+      showErr(d.reason||'Số điện thoại hoặc mã không đúng');
       btn.disabled=false; btn.textContent='Đăng nhập →';
       return;
     }
-    // Check role: only player, active (if giai assigned), admin, manager allowed
     const status=(d.statusRaw||'').toLowerCase();
-    if(status==='khóa'||status==='disabled'){showErr('Tài khoản bị khóa'); btn.disabled=false; btn.textContent='Đăng nhập →'; return;}
-    // Store
-    USER_NAME=d.name; USER_CODE=d.code; USER_GIAI=d.giai||''; USER_ND=d.noidung||'';
-    localStorage.setItem('pb_player3', JSON.stringify({u:GS,c:USER_CODE,n:USER_NAME,g:USER_GIAI,nd:USER_ND}));
-    localStorage.setItem('pb_gs_url', GS);
+    if(status==='khóa'||status==='disabled'){
+      showErr('Tài khoản bị khóa');
+      btn.disabled=false; btn.textContent='Đăng nhập →'; return;
+    }
+    // Store session
+    USER_NAME=d.name||''; USER_CODE=d.code||'';
+    USER_GIAI=d.giai||''; USER_ND=d.noidung||'';
+    localStorage.setItem('pb_player3', JSON.stringify({u:gsUrl,c:USER_CODE,n:USER_NAME,g:USER_GIAI,nd:USER_ND}));
+    localStorage.setItem('pb_gs_url', gsUrl);
     startApp();
   } catch(e){
-    showErr('Lỗi kết nối: '+e.message);
+    showErr('Lỗi kết nối: '+(e.message||'unknown'));
     btn.disabled=false; btn.textContent='Đăng nhập →';
   }
 }
