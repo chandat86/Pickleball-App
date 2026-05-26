@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee v19 – Pickleball</title>
+<title>Da Nang Referee v19.2 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -4456,6 +4456,41 @@ function _licHideScreen() {
   if (s) s.style.display = 'none';
 }
 
+// Fetch GAS an toàn — trả raw data kể cả ok:false (để lấy reason)
+// Dùng cùng pattern với getFromGS đang hoạt động ổn
+async function _gasValidate(params) {
+  if (!GS_URL) return null;
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const url = GS_URL + params + '&_t=' + Date.now();
+    console.log('[login] validate:', params.replace(/&_t=\d+/,''));
+    const res  = await fetch(url, { method: 'GET', redirect: 'follow', signal: ctrl.signal });
+    clearTimeout(tid);
+    const text = await res.text();
+    console.log('[login] resp:', res.status, text.slice(0, 120));
+    if (!text || !text.trim()) return null;
+    const t = text.trim();
+    // GAS trả plain text lỗi (ví dụ: "Host not in allowlist")
+    if (!t.startsWith('{') && !t.includes('(')) {
+      console.warn('[login] GAS plain-text error:', t);
+      return { ok: false, valid: false, reason: t };
+    }
+    let data = null;
+    if (t.startsWith('{')) {
+      data = JSON.parse(t);
+    } else {
+      const m = t.match(/\w+\((\{[\s\S]*?\})\)/);
+      if (m) data = JSON.parse(m[1]);
+    }
+    return data; // trả nguyên cả ok:false để caller lấy reason
+  } catch(e) {
+    clearTimeout(tid);
+    console.error('[login] error:', e.name, e.message);
+    return null;
+  }
+}
+
 async function licValidate() {
   const phoneInp = document.getElementById('lic-phone');
   const btn      = document.getElementById('lic-btn');
@@ -4480,30 +4515,34 @@ async function licValidate() {
   if (phoneInp) phoneInp.classList.remove('error');
   _licStatus('loading', '⏳ Đang xác thực...');
 
-  try {
-    const url = GS_URL
-      + '?action=validate'
-      + '&phone=' + encodeURIComponent(phone)
-      + '&device=' + encodeURIComponent(_deviceId())
-      + '&_t=' + Date.now();
-    const res  = await fetch(url, { method: 'GET', redirect: 'follow' });
-    const text = await res.text();
-    const data = JSON.parse(text.trim().startsWith('{') ? text : text.match(/\w+\((\{[\s\S]*\})\)/)[1]);
+  const params = '?action=validate'
+    + '&phone='  + encodeURIComponent(phone)
+    + '&device=' + encodeURIComponent(_deviceId());
 
-    if (data.ok && data.valid) {
-      licSave({ code: data.code || phone, phone, name: data.name, expire: data.expire,
-                courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
-                assignment: data.assignment || null, giai: data.giai || '', noidung: data.noidung || '' });
-      _applyPerm(data);
-      _licStatus('ok', '✅ ' + data.name + (data.giai ? ' · Giải: ' + data.giai : ''));
-      setTimeout(licEnter, 800);
-    } else {
-      if (phoneInp) phoneInp.classList.add('error');
-      _licStatus('err', '❌ ' + (data.reason || 'Số điện thoại chưa được đăng ký'));
-      if (btn) btn.disabled = false;
-    }
-  } catch(e) {
-    _licStatus('err', '⚠️ Lỗi kết nối — kiểm tra mạng và thử lại');
+  const data = await _gasValidate(params);
+
+  if (!data) {
+    _licStatus('err', '⚠️ GAS không phản hồi — kiểm tra mạng hoặc thử lại');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  // GAS trả text lỗi (không phải JSON) — ví dụ "Host not in allowlist"
+  if (typeof data === 'string' || !data.ok) {
+    _licStatus('err', '❌ ' + (data.reason || data.error || 'Lỗi xác thực từ máy chủ'));
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  if (data.ok && data.valid) {
+    licSave({ code: data.code || phone, phone, name: data.name, expire: data.expire,
+              courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
+              assignment: data.assignment || null, giai: data.giai || '', noidung: data.noidung || '' });
+    _applyPerm(data);
+    _licStatus('ok', '✅ ' + data.name + (data.giai ? ' · Giải: ' + data.giai : ''));
+    setTimeout(licEnter, 800);
+  } else {
+    if (phoneInp) phoneInp.classList.add('error');
+    _licStatus('err', '❌ ' + (data.reason || 'Số điện thoại chưa được đăng ký'));
     if (btn) btn.disabled = false;
   }
 }
@@ -4579,31 +4618,27 @@ async function licCheckOnStart() {
   // Validate lại qua GAS
   if (!GS_URL) { _applyPerm(saved); licEnter(); return; }
 
-  try {
-    const savedPhone = saved.phone || '';
-    const url = GS_URL
-      + (savedPhone
-          ? '?action=validate&phone=' + encodeURIComponent(savedPhone)
-          : '?action=validate&code='  + encodeURIComponent(saved.code))
-      + '&device=' + encodeURIComponent(_deviceId())
-      + '&_t=' + Date.now();
-    const res  = await fetch(url, { method: 'GET', redirect: 'follow' });
-    const text = await res.text();
-    const data = JSON.parse(text.trim().startsWith('{') ? text : text.match(/\w+\((\{[\s\S]*\})\)/)[1]);
-    if (data.ok && data.valid) {
-      licSave({ code: data.code || saved.code, phone: savedPhone, name: data.name,
-                expire: data.expire, courts: data.courts, rounds: data.rounds,
-                isAdmin: data.isAdmin, assignment: data.assignment || null,
-                giai: data.giai || '', noidung: data.noidung || '' });
-      _applyPerm(data);
-      licEnter();
-    } else {
-      licClear();
-      _licStatus('err', '❌ ' + (data.reason || 'Tài khoản không còn hợp lệ'));
-      _licShowScreen();
-    }
-  } catch(e) {
-    // Lỗi mạng → dùng cache cũ
+  const savedPhone = saved.phone || '';
+  const params = (savedPhone
+    ? '?action=validate&phone=' + encodeURIComponent(savedPhone)
+    : '?action=validate&code='  + encodeURIComponent(saved.code))
+    + '&device=' + encodeURIComponent(_deviceId());
+
+  const data = await _gasValidate(params);
+
+  if (data && data.ok && data.valid) {
+    licSave({ code: data.code || saved.code, phone: savedPhone, name: data.name,
+              expire: data.expire, courts: data.courts, rounds: data.rounds,
+              isAdmin: data.isAdmin, assignment: data.assignment || null,
+              giai: data.giai || '', noidung: data.noidung || '' });
+    _applyPerm(data);
+    licEnter();
+  } else if (data && !data.valid) {
+    licClear();
+    _licStatus('err', '❌ ' + (data.reason || 'Tài khoản không còn hợp lệ'));
+    _licShowScreen();
+  } else {
+    // null = lỗi mạng → dùng cache cũ
     _applyPerm(saved);
     licEnter();
   }
