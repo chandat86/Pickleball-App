@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Da Nang Referee v20 – Pickleball</title>
+<title>Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -4634,14 +4634,12 @@ async function licValidate() {
 
 function _licStatus(type, msg) {
   const el = document.getElementById('lic-status');
-  if (!el) return;
   el.className = `lic-status ${type}`;
   el.textContent = msg;
 }
 
 function licEnter() {
-  const scr = document.getElementById('license-screen');
-  if (scr) scr.style.display = 'none';
+  document.getElementById('license-screen').style.display = 'none';
   const saved = licLoad();
   if (saved) _applyPerm(saved);
 
@@ -4776,14 +4774,14 @@ async function licCheckOnStart() {
   const btn    = document.getElementById('lic-btn');
 
   if (saved) {
-    if (savedBox) savedBox.style.display = 'block';
+    savedBox.style.display = 'block';
     const courtStr = saved.courts?.length ? saved.courts.join(', ') : 'Tất cả sân';
     const roundStr = saved.rounds?.length ? saved.rounds.join(', ') : 'Tất cả vòng';
-    const nameEl = document.getElementById('lic-saved-name');
-    const expEl  = document.getElementById('lic-saved-exp');
-    if (nameEl) nameEl.textContent = `👤 ${saved.name||saved.code}`;
-    if (expEl)  expEl.textContent  = `HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
-    if (btn) { btn.textContent = '▶ Vào app'; btn.style.background = '#16a34a'; }
+    document.getElementById('lic-saved-name').textContent = `👤 ${saved.name||saved.code}`;
+    document.getElementById('lic-saved-exp').textContent  =
+      `HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
+    btn.textContent = '▶ Vào app';
+    btn.style.background = '#16a34a';
 
     const sinceCheck = Date.now() - (saved.checkedAt||0);
     if (sinceCheck < LIC_CHECK_MS) {
@@ -4794,6 +4792,7 @@ async function licCheckOnStart() {
 
     if (GS_URL) {
       try {
+        // Validate lại bằng SĐT đã lưu (nếu có) hoặc fallback mã cũ
         const savedPhone = saved.phone || '';
         const url = savedPhone
           ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
@@ -4811,13 +4810,9 @@ async function licCheckOnStart() {
         } else {
           licClear();
           _licStatus('err', `❌ ${data.reason||'Tài khoản không còn hợp lệ, đăng nhập lại'}`);
-          // FIX: dùng await 0 để DOM load xong trước khi truy cập screen
-          await new Promise(r => setTimeout(r, 0));
-          const scr = document.getElementById('license-screen');
-          if (scr) scr.style.display = 'flex';
+          screen.style.display = 'flex';
         }
       } catch(e) {
-        // GAS lỗi (403, mạng, timeout) → dùng cache cũ vào thẳng app
         _applyPerm(saved);
         licEnter();
         return;
@@ -4828,10 +4823,7 @@ async function licCheckOnStart() {
       return;
     }
   } else {
-    // FIX: await 1 tick để DOM parse xong license-screen (nằm sau </script>)
-    await new Promise(r => setTimeout(r, 0));
-    const scr = document.getElementById('license-screen');
-    if (scr) scr.style.display = 'flex';
+    screen.style.display = 'flex';
   }
 }
 initGsUrl();
