@@ -4,7 +4,7 @@
 <!-- Pickleball Player Viewer v1.0 | 2026-05-26 | Standalone viewer for players/spectators -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Pickleball V2.1 — Xem Giải Đấu</title>
+<title>Pickleball v2.2— Xem Giải Đấu</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap');
 
@@ -553,7 +553,7 @@ function doLogout(){
 async function startApp() {
   $('login-screen').style.display='none';
   $('app').style.display='block';
-  await loadAll();
+  try { await loadAll(); } catch(e) { console.error('loadAll error:', e); }
   switchTab('live');
   startAutoRefresh();
 }
@@ -624,25 +624,28 @@ async function loadAll() {
 
   } catch(e) { console.warn('loadAll: fetch data error', e); }
 
-  buildNdList();
-  renderTopBar();
-  renderNdFilter();
-  setUpdateTime();
-  $('tb-live').style.display = _L.length ? 'flex' : 'none';
+  try {
+    buildNdList();
+    renderTopBar();
+    renderNdFilter();
+    setUpdateTime();
+    $('tb-live').style.display = _L.length ? 'flex' : 'none';
+  } catch(e) { console.error('loadAll post-process error:', e); }
 
-  // Debug: hiện thông tin resolve (xóa sau khi test xong)
-  const dbgEl = document.getElementById('debug-info');
-  if(dbgEl) {
-    const resMap = buildResultMap();
-    const filtered = getFilteredMatches();
-    const done = filtered.filter(m=>isMatchDone(m,resMap)).length;
-    const pending = filtered.length - done;
-    // Sample key từ _M và _R để so sánh
-    const mSample = _M[0] ? `M[0]: nd="${_M[0][1]}" bang="${_M[0][2]}" code="${_M[0][3]}"` : '';
-    const rSample = _R[0] ? `R[0]: nd="${_R[0][2]}" bang="${_R[0][3]}" code="${_R[0][4]}"` : '';
-    dbgEl.innerHTML = `<b>USER_GIAI:</b> ${esc(USER_GIAI)} | <b>_giaiName:</b> ${esc(_giaiName)} | <b>_M:</b> ${_M.length} trận | <b>_R:</b> ${_R.length} KQ | <b>_L:</b> ${_L.length} live | <b>_allNds:</b> ${_allNds.join(', ')||'(trống)'} | <b>curNd:</b> ${esc(_curNd)} | <b>filtered:</b> ${filtered.length} | <b>done:</b> ${done} | <b>pending:</b> ${pending}<br><span style="opacity:.7">${esc(mSample)} || ${esc(rSample)}</span>`;
-    dbgEl.style.display = 'block';
-  }
+  // Debug panel
+  try {
+    const dbgEl = document.getElementById('debug-info');
+    if(dbgEl) {
+      const resMap = buildResultMap();
+      const filtered = getFilteredMatches();
+      const done = filtered.filter(m=>isMatchDone(m,resMap)).length;
+      const pending = filtered.length - done;
+      const mSample = _M[0] ? `M[0]: nd="${_M[0][1]}" bang="${_M[0][2]}" code="${_M[0][3]}"` : '';
+      const rSample = _R[0] ? `R[0]: nd="${_R[0][2]}" bang="${_R[0][3]}" code="${_R[0][4]}"` : '';
+      dbgEl.innerHTML = `<b>USER_GIAI:</b> ${esc(USER_GIAI)} | <b>_giaiName:</b> ${esc(_giaiName)} | <b>_M:</b> ${_M.length} | <b>_R:</b> ${_R.length} | <b>_L:</b> ${_L.length} | <b>_allNds:</b> ${_allNds.join(',')||'—'} | <b>curNd:</b> ${esc(_curNd)} | <b>filtered:</b> ${filtered.length} | <b>done:</b> ${done} | <b>pending:</b> ${pending}<br><span style="opacity:.7">${esc(mSample)} || ${esc(rSample)}</span>`;
+      dbgEl.style.display = 'block';
+    }
+  } catch(e) { console.error('debug panel error:', e); }
 }
 
 function buildNdList() {
@@ -706,11 +709,20 @@ function switchTab(tab) {
 }
 
 function renderCurrentTab() {
-  switch(_curTab) {
-    case 'live':      renderLive(); break;
-    case 'schedule':  renderSchedule(); break;
-    case 'results':   renderResults(); break;
-    case 'standings': renderStandings(); break;
+  try {
+    switch(_curTab) {
+      case 'live':      renderLive(); break;
+      case 'schedule':  renderSchedule(); break;
+      case 'results':   renderResults(); break;
+      case 'standings': renderStandings(); break;
+    }
+  } catch(e) {
+    const wrap=$(_curTab+'-content');
+    if(wrap) wrap.innerHTML=`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);padding:14px;border-radius:8px;font-size:12px;color:#fca5a5;font-family:monospace;margin:8px">
+      ❌ Lỗi render [${_curTab}]: ${esc(e.message)}<br>
+      <small style="opacity:.7">${esc(e.stack?.split('\n').slice(0,3).join(' | ')||'')}</small>
+    </div>`;
+    console.error('renderCurrentTab error:', e);
   }
 }
 
