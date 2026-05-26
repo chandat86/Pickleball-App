@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v46 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v46.1 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -436,33 +436,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tb.on{background:var(--bg2);color:var(--ac);box-shadow:var(--shadow)}
 .tpanel{display:none}.tpanel.on{display:block}
 
-
-/* ═══ BRACKET MODE SEGMENTED CONTROL ═══ */
-.bk-mode-seg{
-  display:inline-flex;border-radius:8px;overflow:hidden;
-  border:1px solid var(--bdr2);background:var(--bg3);
-  flex-shrink:0;
-}
-.bk-seg-btn{
-  padding:6px 14px;font-size:12px;font-weight:700;
-  border:none;cursor:pointer;font-family:var(--fn);
-  background:transparent;color:var(--tx3);
-  transition:all .15s ease;white-space:nowrap;
-  position:relative;
-}
-.bk-seg-btn:not(:last-child)::after{
-  content:'';position:absolute;right:0;top:20%;height:60%;
-  width:1px;background:var(--bdr2);
-}
-.bk-seg-btn:hover{color:var(--tx);background:rgba(255,255,255,.04)}
-.bk-seg-btn.active-auto{
-  background:rgba(14,165,233,.2);color:var(--ac);
-  box-shadow:inset 0 0 0 1px rgba(14,165,233,.3);
-}
-.bk-seg-btn.active-manual{
-  background:rgba(168,85,247,.2);color:var(--pu);
-  box-shadow:inset 0 0 0 1px rgba(168,85,247,.3);
-}
 
 /* ═══ BRACKET / CÂY THI ĐẤU ═══ */
 /* ═══════════════════════════════════════════════════════════════
@@ -1243,10 +1216,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
               <button class="rfbtn" onclick="ndBkRefresh()" id="nd-bk-refresh-btn">↻ Làm mới</button>
               <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)"
                 onclick="bkShowRules()">📋 Quy tắc</button>
-              <div class="bk-mode-seg" id="nd-bk-mode-seg">
-                <button id="nd-btn-bk-auto"   onclick="bkSetMode(true)"  class="bk-seg-btn">🤖 Tự động</button>
-                <button id="nd-btn-bk-manual" onclick="bkSetMode(false)" class="bk-seg-btn active-manual">🖊 Thủ công</button>
-              </div>
+              <button class="btn bsm" id="nd-btn-bk-mode" onclick="bkToggleMode()"
+                style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
+                🖊 Thủ công
+              </button>
               <button class="btn bp bsm" id="nd-btn-autofill" onclick="ndBkAutoFill()">⚡ Điền ngay</button>
               <button class="btn bsm" style="background:rgba(34,197,94,.15);color:var(--gn);border:1px solid rgba(34,197,94,.3)"
                 onclick="ndBkSave()">💾 Lưu cây</button>
@@ -1288,10 +1261,10 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button class="rfbtn" onclick="bkRefresh()">↻ Làm mới</button>
             <button class="btn bsm" style="background:rgba(99,102,241,.12);color:var(--pu);border:1px solid rgba(99,102,241,.25)" onclick="bkShowRules()">📋 Quy tắc</button>
-            <div class="bk-mode-seg" id="bk-mode-seg">
-              <button id="btn-bk-auto"   onclick="bkSetMode(true)"  class="bk-seg-btn">🤖 Tự động</button>
-              <button id="btn-bk-manual" onclick="bkSetMode(false)" class="bk-seg-btn active-manual">🖊 Thủ công</button>
-            </div>
+            <button class="btn bsm" id="btn-bk-mode" onclick="bkToggleMode()"
+              style="background:rgba(100,116,139,.15);color:var(--tx3);border:1px solid var(--bdr);min-width:130px">
+              🖊 Thủ công
+            </button>
             <button class="btn bp bsm" id="btn-bk-autofill" onclick="bkAutoFill()">⚡ Điền ngay</button>
             <button class="btn bsm" style="background:var(--gn);color:#fff" onclick="bkSave()">💾 Lưu cây</button>
             <button class="btn bsm" style="background:rgba(239,68,68,.12);color:var(--rd);border:1px solid rgba(239,68,68,.3)" onclick="bkDeleteTree()" title="Xóa toàn bộ cây thi đấu (trận KO) khỏi lịch thi đấu">🗑 Xóa cây</button>
@@ -4263,14 +4236,22 @@ function renderTournCards(rows) {
 }
 
 // ── Click giải → View Detail ──
-function openTournDetail(id) {
+async function openTournDetail(id) {
   const r = _T.find(t => String(t[0]||'') === id);
   if (!r) return;
   _curTourn = r;
   document.getElementById('td-name').textContent = r[1] || id;
   document.getElementById('td-sub').textContent  = (r[2]||'') + (r[4]?' · '+fmtD(r[4])+' → '+fmtD(r[5]):'');
   showTournView('detail');
+
+  // Render ngay từ cache (có thể 0 trận nếu chưa load) — UX không bị block
   renderNdCards(r);
+
+  // Load data nền → re-render cards với thông tin đúng
+  try {
+    await loadMatchesCache(id, false);
+    if (_curTourn === r) renderNdCards(r); // chỉ update nếu vẫn đang xem giải này
+  } catch(e) {}
 }
 
 // ── Render cards nội dung thi đấu ──
@@ -4300,10 +4281,12 @@ function renderNdCards(r) {
               onmouseover="this.style.boxShadow='0 0 0 1px ${c}33'" onmouseout="this.style.boxShadow='none'"
               onclick="openNdDetail('${esc(String(r[0]||''))}','${ndId}')">
       <div style="font-size:16px;font-weight:800;color:var(--tx);margin-bottom:6px">${nd}</div>
-      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px">${matchCount} trận · ${bangs.length} bảng</div>
+      <div style="font-size:12px;color:var(--tx3);margin-bottom:10px" class="nd-card-stats">
+        ${matchCount > 0 ? `${matchCount} trận · ${bangs.length} bảng` : '<span style="opacity:.5">⏳ đang tải...</span>'}
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">
         ${bangs.length ? bangs.map(b=>`<span class="ptag" style="font-size:11px">${b}</span>`).join('')
-          : '<span style="font-size:11px;color:var(--tx3)">Chưa có bảng nào</span>'}
+          : (matchCount > 0 ? '<span style="font-size:11px;color:var(--tx3)">Chưa có bảng nào</span>' : '')}
       </div>
       <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
         <button class="btn bp bsm" style="flex:1" onclick="openNdDetail('${esc(String(r[0]||''))}','${ndId}')">📋 Xem bảng đấu</button>
@@ -4960,7 +4943,7 @@ function openNdDetail(giaiId, nd) {
   document.getElementById('tv-nd-sub').textContent   = giaiName + ' · ' + (r[2]||'');
   showTournView('nd');
 
-  // Render ngay lập tức từ cache (dù có hay không)
+  // Render ngay lập tức từ cache (dù có hay không) — UX không bị block
   renderBangList(giaiId, nd);
 
   // Load nền — không block UI, cập nhật khi fetch xong
@@ -7673,41 +7656,36 @@ function bkShowRules() {
 }
 
 // ── Bracket mode: Tự động / Thủ công ──
-function bkSetMode(autoOn) {
-  _bkAutoMode = autoOn;
+function bkToggleMode() {
+  _bkAutoMode = !_bkAutoMode;
   _bkUpdateModeUI();
   if (_bkAutoMode) {
     toast('🤖 Chế độ TỰ ĐỘNG — tự điền ngay khi có kết quả trận KO', 'ok');
-    _bkStartAutoPolling();
+    _bkStartAutoPolling(); // bắt đầu poll + điền ngay
   } else {
     _bkStopAutoPolling();
     toast('🖊 Chế độ THỦ CÔNG — chỉnh sửa từng ô theo ý muốn', 'in');
   }
 }
 
-function bkToggleMode() { bkSetMode(!_bkAutoMode); }
-
 function _bkUpdateModeUI() {
-  // Segmented buttons in nd-panel-bracket
-  ['nd-btn-bk-auto','nd-btn-bk-manual'].forEach(id => {
+  const btns = ['btn-bk-mode', 'nd-btn-bk-mode'];
+  btns.forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    btn.classList.remove('active-auto','active-manual');
+    if (_bkAutoMode) {
+      btn.textContent = '🤖 Tự động';
+      btn.style.background = 'rgba(14,165,233,.15)';
+      btn.style.color = 'var(--ac)';
+      btn.style.border = '1px solid rgba(14,165,233,.3)';
+    } else {
+      btn.textContent = '🖊 Thủ công';
+      btn.style.background = 'rgba(100,116,139,.15)';
+      btn.style.color = 'var(--tx3)';
+      btn.style.border = '1px solid var(--bdr)';
+    }
   });
-  // Segmented buttons in page-bracket
-  ['btn-bk-auto','btn-bk-manual'].forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    btn.classList.remove('active-auto','active-manual');
-  });
-  if (_bkAutoMode) {
-    document.getElementById('nd-btn-bk-auto')?.classList.add('active-auto');
-    document.getElementById('btn-bk-auto')?.classList.add('active-auto');
-  } else {
-    document.getElementById('nd-btn-bk-manual')?.classList.add('active-manual');
-    document.getElementById('btn-bk-manual')?.classList.add('active-manual');
-  }
-  // Ẩn/hiện nút điền ngay (ẩn khi auto, hiện khi manual)
+  // Ẩn/hiện nút điền ngay
   ['btn-bk-autofill','nd-btn-autofill'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.style.display = _bkAutoMode ? 'none' : '';
