@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>DaNang Referee v18.999 – Pickleball</title>
+<title>v18 Da Nang Referee v18.1111 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -304,18 +304,18 @@ select, input { font-family: inherit; }
   padding: 5px 13px; border-radius: 50px; white-space: nowrap;
 }
 
-/* ── Nút ĐỔI GIAO ── */
+/* ── Nút ĐỔI GIAO – cùng hình dáng ctrl-btn ── */
 #btn-transfer-serve {
-  width: auto; border: none; border-radius: 50px;
+  border: none; border-radius: 12px;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: #fff; font-family: 'Oswald', sans-serif;
-  font-size: 20px; font-weight: 900; letter-spacing: 1.5px;
-  padding: 10px 44px; cursor: pointer;
-  box-shadow: 0 5px 16px rgba(245,158,11,.4);
+  font-size: 15px; font-weight: 900; letter-spacing: 1.2px;
+  padding: 12px 0; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(245,158,11,.4);
   transition: all .15s;
-  line-height: 1.2;
+  width: 100%;
 }
-#btn-transfer-serve:active  { transform: scale(.97); filter: brightness(.93); }
+#btn-transfer-serve:active  { transform: scale(.96); filter: brightness(.93); }
 #btn-transfer-serve:disabled {
   background: var(--g200) !important;
   color: var(--g400) !important;
@@ -356,7 +356,7 @@ select, input { font-family: inherit; }
 @media (max-width: 360px) {
   .snum { font-size: 74px; }
   .sc-btn { width: 42px; height: 42px; font-size: 20px; }
-  #btn-transfer-serve { font-size: 16px; padding: 14px 0; }
+  .ctrl-btn, #btn-transfer-serve { font-size: 10px; padding: 10px 0; }
 }
 /* ══════════════════════════════════════ */
 
@@ -782,16 +782,14 @@ select, input { font-family: inherit; }
     <div class="game-pill" id="game-pill" style="display:none">Game 1</div>
   </div>
 
-  <!-- Nút ĐỔI GIAO -->
-  <div style="display:flex;justify-content:center;">
-    <button id="btn-transfer-serve" onclick="transferServe()">⇄ ĐỔI GIAO</button>
-  </div>
+  <!-- Nút ĐỔI GIAO nằm trong ctrl-row -->
 
 </div>
 <!-- ── CONTROLS ── -->
-<div class="ctrl-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
+<div class="ctrl-row" style="grid-template-columns:repeat(5,1fr)">
   <button class="ctrl-btn start" id="btn-start" onclick="startMatch()">▶ Bắt đầu</button>
   <button class="ctrl-btn undo"  onclick="undo()">↩ Undo</button>
+  <button id="btn-transfer-serve" onclick="transferServe()" style="grid-column:span 2">⇄ ĐỔI GIAO</button>
   <button class="ctrl-btn save"  onclick="saveResult()">💾 Lưu</button>
   <button class="ctrl-btn reset" onclick="resetMatch()">↺ Reset</button>
   <button class="ctrl-btn swap"  onclick="swapSides()">⇄ Đổi sân</button>
