@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20.33 Da Nang Referee v17 – Pickleball</title>
+<title>v20.5 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1669,20 +1669,20 @@ function _sendLogsFallback(rows) {
   });
 }
 
-// ── Phát hiện reload bằng localStorage + timestamp ──
-// Logic: lưu timestamp lúc beforeunload, khi load lại kiểm tra nếu < 30s → reload
-const _RELOAD_KEY = 'pb_is_reload';
-const _SCROLL_KEY = 'pb_scroll_y';
-const _UNLOAD_TS_KEY = 'pb_unload_ts';
+// ── Session keys ──
+const _SCROLL_KEY    = 'pb_scroll_y';
+const _ACTIVE_TS_KEY = 'pb_active_ts';   // timestamp lần thao tác cuối
+const IDLE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // 4 giờ không thao tác → đăng xuất
 
-// Đánh dấu là đang trong session (để phân biệt reload vs mở mới)
-localStorage.setItem(_RELOAD_KEY, '1');
+// Ghi lại lần thao tác cuối ngay khi load (để reload luôn giữ session)
+localStorage.setItem(_ACTIVE_TS_KEY, String(Date.now()));
 
 // Flush ngay khi thoát trang (beforeunload)
 window.addEventListener('beforeunload', () => {
-  // Lưu timestamp và scroll để detect reload
-  localStorage.setItem(_UNLOAD_TS_KEY, String(Date.now()));
+  // Lưu scroll để khôi phục sau reload
   localStorage.setItem(_SCROLL_KEY, String(window.scrollY || 0));
+  // Cập nhật active timestamp (reload = vẫn active)
+  localStorage.setItem(_ACTIVE_TS_KEY, String(Date.now()));
   if (_logBuffer.length) {
     clearTimeout(_logTimer);
     const rows = _logBuffer.splice(0);
@@ -4921,10 +4921,31 @@ function _licStatus(type, msg) {
   el.textContent = msg;
 }
 
+// ── Idle tracker ──
+let _idleTrackerStarted = false;
+function _startIdleTracker() {
+  if (_idleTrackerStarted) return;
+  _idleTrackerStarted = true;
+  // Cập nhật active timestamp mỗi khi user thao tác
+  let _idleThrottle = 0;
+  const _touch = () => {
+    const now = Date.now();
+    if (now - _idleThrottle < 10000) return; // throttle 10s
+    _idleThrottle = now;
+    localStorage.setItem(_ACTIVE_TS_KEY, String(now));
+  };
+  ['touchstart','touchend','mousedown','keydown','scroll','click'].forEach(ev =>
+    document.addEventListener(ev, _touch, { passive: true, capture: true })
+  );
+}
+
 function licEnter() {
   document.getElementById('license-screen').style.display = 'none';
   const saved = licLoad();
   if (saved) _applyPerm(saved);
+
+  // ── Idle tracker: cập nhật active timestamp mỗi khi user thao tác ──
+  _startIdleTracker();
 
   // ── Khôi phục trận đang chấm ngay lập tức (không cần chờ GSheets) ──
   const _restored = restoreActiveMatch();
@@ -5055,55 +5076,67 @@ function licEnter() {
   }
 }
 
-async function licCheckOnStart() {
+function licCheckOnStart() {
   const saved  = licLoad();
   const screen = document.getElementById('license-screen');
   const savedBox = document.getElementById('lic-saved-box');
   const btn    = document.getElementById('lic-btn');
 
-  // ── Giống admin: có session → vào app ngay, không validate GAS lúc load ──
-  if (saved) {
-    savedBox.style.display = 'block';
-    const courtStr = saved.courts?.length ? saved.courts.join(', ') : 'Tất cả sân';
-    const roundStr = saved.rounds?.length ? saved.rounds.join(', ') : 'Tất cả vòng';
-    document.getElementById('lic-saved-name').textContent = `👤 ${saved.name||saved.code}`;
-    document.getElementById('lic-saved-exp').textContent  =
-      `HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
-    btn.textContent = '▶ Vào app';
-    btn.style.background = '#16a34a';
-
-    _applyPerm(saved);
-    licEnter();
-
-    // Validate GAS ngầm sau 5s — chỉ để cập nhật thông tin, không logout
-    if (GS_URL) {
-      setTimeout(async () => {
-        try {
-          const sinceCheck = Date.now() - (saved.checkedAt||0);
-          if (sinceCheck < LIC_CHECK_MS) return; // còn hạn cache → bỏ qua
-          const savedPhone = saved.phone || '';
-          const url = savedPhone
-            ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
-            : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
-          const res  = await fetch(url, {cache:'no-store'});
-          const data = await res.json();
-          if (data.ok && data.valid) {
-            licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
-                      courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
-                      assignment: data.assignment || null,
-                      giai: data.giai || '', noidung: data.noidung || '' });
-            _applyPerm(data);
-          }
-          // Nếu invalid → chỉ toast nhẹ, không logout (tránh gián đoạn giữa trận)
-          else { toast('⚠️ Phiên đăng nhập cần xác thực lại — nhấn đăng xuất khi xong trận', 6000); }
-        } catch(e) { /* lỗi mạng → bỏ qua */ }
-      }, 5000);
-    }
+  if (!saved) {
+    // Chưa đăng nhập bao giờ → hiện màn login
+    screen.style.display = 'flex';
     return;
   }
 
-  // Không có session → hiện màn hình đăng nhập
-  screen.style.display = 'flex';
+  // Kiểm tra idle timeout
+  const lastActive = parseInt(localStorage.getItem(_ACTIVE_TS_KEY) || '0', 10);
+  const idleMs = Date.now() - lastActive;
+
+  if (idleMs > IDLE_TIMEOUT_MS) {
+    // Quá thời gian không thao tác → đăng xuất, yêu cầu đăng nhập lại
+    licClear();
+    localStorage.removeItem(_ACTIVE_TS_KEY);
+    screen.style.display = 'flex';
+    // Hiện thông báo lý do
+    setTimeout(() => _licStatus('err', `⏱ Phiên làm việc đã hết hạn sau ${Math.round(IDLE_TIMEOUT_MS/3600000)} giờ không thao tác. Vui lòng đăng nhập lại.`), 100);
+    return;
+  }
+
+  // Còn trong thời hạn → vào app ngay (refresh/reload không cần đăng nhập lại)
+  savedBox.style.display = 'block';
+  const courtStr = saved.courts?.length ? saved.courts.join(', ') : 'Tất cả sân';
+  const roundStr = saved.rounds?.length ? saved.rounds.join(', ') : 'Tất cả vòng';
+  document.getElementById('lic-saved-name').textContent = `👤 ${saved.name||saved.code}`;
+  document.getElementById('lic-saved-exp').textContent  =
+    `HH: ${saved.expire} · ${courtStr} · ${roundStr}`;
+  btn.textContent = '▶ Vào app';
+  btn.style.background = '#16a34a';
+
+  _applyPerm(saved);
+  licEnter();
+
+  // Validate GAS ngầm sau 5s — chỉ cập nhật thông tin, không logout
+  if (GS_URL) {
+    setTimeout(async () => {
+      try {
+        const sinceCheck = Date.now() - (saved.checkedAt||0);
+        if (sinceCheck < LIC_CHECK_MS) return;
+        const savedPhone = saved.phone || '';
+        const url = savedPhone
+          ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
+          : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
+        const res  = await fetch(url, {cache:'no-store'});
+        const data = await res.json();
+        if (data.ok && data.valid) {
+          licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
+                    courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
+                    assignment: data.assignment || null,
+                    giai: data.giai || '', noidung: data.noidung || '' });
+          _applyPerm(data);
+        }
+      } catch(e) {}
+    }, 5000);
+  }
 }
 initGsUrl();
 if (matchList.length) syncDropdownsFromData(false);
@@ -5134,13 +5167,19 @@ licCheckOnStart();
     if (s) {
       var d = JSON.parse(s);
       if (d && (d.code || d.phone)) {
-        // Có session hợp lệ → ẩn màn login ngay (licCheckOnStart sẽ xử lý tiếp)
-        document.getElementById('license-screen').style.display = 'none';
-        return;
+        // Kiểm tra idle timeout
+        var lastActive = parseInt(localStorage.getItem('pb_active_ts') || '0', 10);
+        var idleMs = Date.now() - lastActive;
+        var IDLE_LIMIT = 4 * 60 * 60 * 1000; // 4 giờ
+        if (idleMs <= IDLE_LIMIT) {
+          // Còn trong hạn → ẩn màn login
+          document.getElementById('license-screen').style.display = 'none';
+          return;
+        }
       }
     }
   } catch(e) {}
-  // Không có session → hiện màn login
+  // Không có session hoặc đã hết hạn → hiện màn login
   document.getElementById('license-screen').style.display = 'flex';
 })();
 </script>
