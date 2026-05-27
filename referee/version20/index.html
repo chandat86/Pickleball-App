@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20.6 Da Nang Referee v17 – Pickleball</title>
+<title>v20.2 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -1669,8 +1669,16 @@ function _sendLogsFallback(rows) {
   });
 }
 
+// ── Đánh dấu reload để phân biệt reload vs thoát thật ──
+const _RELOAD_KEY = 'pb_is_reload';
+const _SCROLL_KEY = 'pb_scroll_y';
+// Đánh dấu ngay khi trang đang hoạt động (sẽ bị xóa nếu đóng tab hoàn toàn)
+sessionStorage.setItem(_RELOAD_KEY, '1');
+
 // Flush ngay khi thoát trang (beforeunload)
 window.addEventListener('beforeunload', () => {
+  // Lưu scroll position để khôi phục sau reload
+  sessionStorage.setItem(_SCROLL_KEY, String(window.scrollY || 0));
   if (_logBuffer.length) {
     clearTimeout(_logTimer);
     const rows = _logBuffer.splice(0);
@@ -4660,7 +4668,7 @@ function toast(msg, duration) {
   el._t = setTimeout(() => el.classList.remove('show'), duration || 2800);
 }
 const LIC_KEY      = 'pb_license_v1';
-const LIC_CHECK_MS = 6 * 60 * 60 * 1000; // re-validate mỗi 6 giờ
+const LIC_CHECK_MS = 24 * 60 * 60 * 1000; // re-validate mỗi 24 giờ (thay vì 6h)
 // _userPerm.assignment = { giai, courts[], noidung, rounds[] }
 // giai bắt buộc → tránh trùng tên sân giữa 2 giải cùng lúc
 let _userPerm = { courts: [], rounds: [], isAdmin: false, name: '', code: '', giai: '', noidung: '',
@@ -4956,6 +4964,12 @@ function licEnter() {
           <div style="font-size:12px;font-weight:600">Đang tải dữ liệu từ GSheets...</div>
         </div>`;
     }
+    // Khôi phục scroll sau reload (sau khi UI đã render xong)
+    const _savedScrollY = parseInt(sessionStorage.getItem(_SCROLL_KEY) || '0', 10);
+    if (_savedScrollY > 0) {
+      setTimeout(() => { window.scrollTo({ top: _savedScrollY, behavior: 'instant' }); }, 150);
+      sessionStorage.removeItem(_SCROLL_KEY);
+    }
     // Load GSheets ngầm — không block UI
     setTimeout(async () => {
       await loadAllFromGS();
@@ -5044,6 +5058,9 @@ async function licCheckOnStart() {
   const savedBox = document.getElementById('lic-saved-box');
   const btn    = document.getElementById('lic-btn');
 
+  // Phát hiện reload (sessionStorage còn → đang trong cùng tab session)
+  const isReload = sessionStorage.getItem(_RELOAD_KEY) === '1';
+
   if (saved) {
     savedBox.style.display = 'block';
     const courtStr = saved.courts?.length ? saved.courts.join(', ') : 'Tất cả sân';
@@ -5079,11 +5096,19 @@ async function licCheckOnStart() {
           licEnter();
           return;
         } else {
+          // Nếu đang reload (trong cùng tab) → không logout ngay, giữ session cũ + warning
+          if (isReload) {
+            _applyPerm(saved);
+            licEnter();
+            setTimeout(() => toast(`⚠️ ${data.reason||'Phiên làm việc có thể hết hạn — vui lòng đăng nhập lại khi xong trận'}`, 5000), 2000);
+            return;
+          }
           licClear();
           _licStatus('err', `❌ ${data.reason||'Tài khoản không còn hợp lệ, đăng nhập lại'}`);
           screen.style.display = 'flex';
         }
       } catch(e) {
+        // Lỗi mạng / GAS timeout → luôn dùng session cũ
         _applyPerm(saved);
         licEnter();
         return;
