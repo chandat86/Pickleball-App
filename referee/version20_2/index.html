@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20_222 Da Nang Referee v17 – Pickleball</title>
+<title>v20.33 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -434,7 +434,7 @@ select, input { font-family: inherit; }
 #license-screen {
   position:fixed; inset:0; z-index:9999;
   background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
-  display:flex; align-items:center; justify-content:center; padding:20px;
+  display:none; align-items:center; justify-content:center; padding:20px;
 }
 .lic-box {
   background:#fff; border-radius:20px; padding:24px 24px 28px;
@@ -5126,6 +5126,24 @@ licCheckOnStart();
 
 </script>
 <!-- ── LICENSE SCREEN ── -->
+<!-- Script đồng bộ: kiểm tra session TRƯỚC khi render, tránh flash màn login -->
+<script>
+(function(){
+  try {
+    var s = localStorage.getItem('pb_license_v1');
+    if (s) {
+      var d = JSON.parse(s);
+      if (d && (d.code || d.phone)) {
+        // Có session hợp lệ → ẩn màn login ngay (licCheckOnStart sẽ xử lý tiếp)
+        document.getElementById('license-screen').style.display = 'none';
+        return;
+      }
+    }
+  } catch(e) {}
+  // Không có session → hiện màn login
+  document.getElementById('license-screen').style.display = 'flex';
+})();
+</script>
 <div id="license-screen">
   <div class="lic-box">
     <!-- Logo giống header -->
