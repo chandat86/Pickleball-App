@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v28.6 Da Nang Referee v17 – Pickleball</title>
+<title>v28.7 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -148,7 +148,7 @@ select, input { font-family: inherit; }
   background: #fff;
   border: 2.5px solid var(--g200);
   border-radius: 18px;
-  padding: 10px 8px 8px;
+  padding: 10px 6px 8px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -196,30 +196,31 @@ select, input { font-family: inherit; }
 .players-list {
   width: 100%;
   position: relative;
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 3px;
   margin-bottom: 4px;
 }
 
-/* Mỗi hàng = flex: [khung tên flex:1] [dots+badge cố định] */
+/* Hàng = [khung tên flex:1] [dot] [badge] — không gap thừa, sát mép */
 .player-slot {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center;
   width: 100%;
+  gap: 0;
 }
 
-/* Khung tên — chiều cao & chiều ngang cố định, không bị đẩy */
+/* Khung tên — chiều cao cố định, flex:1 chiếm hết phần còn lại */
 .player-row {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 0 10px;
+  padding: 0 8px;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.08);
   background: #fff;
   transition: border-color .2s, background .2s;
-  height: 40px; min-height: 40px; max-height: 40px;
+  height: 44px; min-height: 44px; max-height: 44px;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  width: 0; /* force flex:1 không bị đẩy bởi serve-balls */
+  margin-right: 4px;
 }
 .player-row.is-server {
   background: rgba(34,197,94,.10);
@@ -232,17 +233,15 @@ select, input { font-family: inherit; }
 
 /* Tên + nút ghi chú */
 .player-name-wrap {
-  display: flex; align-items: center; gap: 4px;
-  width: 100%; min-width: 0; flex: 1;
+  display: flex; align-items: center; gap: 3px;
+  width: 100%; min-width: 0;
 }
 .player-name {
-  font-size: 13px; font-weight: 700; color: #1e3a5f;
+  font-size: 11px; font-weight: 700; color: #1e3a5f;
   white-space: normal; overflow: hidden;
   word-break: break-word;
-  line-height: 1.25; width: 100%;
-  display: block;
-  /* clamp to 2 lines max inside fixed-height box */
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  line-height: 1.2; min-width: 0; flex: 1;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .player-row.is-server .player-name { color: #1e3a5f; font-weight: 700; }
 .team-card.winner .player-row.is-server .player-name { color: var(--amber-dk); }
@@ -250,16 +249,17 @@ select, input { font-family: inherit; }
 .btn-note {
   background: none; border: none; padding: 1px;
   line-height: 1; cursor: pointer; flex-shrink: 0;
-  opacity: 0.45; transition: opacity .15s;
+  opacity: 0.4; transition: opacity .15s;
   display: flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px;
+  width: 14px; height: 14px;
 }
-.btn-note:hover { opacity: 0.9; }
+.btn-note:hover { opacity: 0.85; }
 
+/* Ghi chú text — nằm dưới tên, trong khung cố định */
 .player-note-text {
-  font-size: 9px; color: var(--g400); font-style: italic;
+  font-size: 8.5px; color: var(--g400); font-style: italic;
   width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  display: none; line-height: 1; flex-shrink: 0;
+  display: none; line-height: 1; flex-shrink: 0; margin-top: 1px;
 }
 .player-note-text.has-note { display: block; }
 
@@ -276,14 +276,17 @@ select, input { font-family: inherit; }
 }
 .player-note-input.visible { display: block; }
 
-/* Cột phải: dots dọc + badge */
+/* Dot cam — sát badge, không gap thừa */
 .player-right {
-  display: flex; align-items: center; gap: 3px;
+  display: flex; align-items: center; gap: 2px;
   flex-shrink: 0;
 }
-.serve-balls { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.serve-balls {
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+  margin-right: 2px;
+}
 .serve-dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   background: #f59e0b; display: inline-block; flex-shrink: 0;
 }
 .pos-badge {
@@ -2469,16 +2472,19 @@ function _renderPlayerRows() {
   _updateScoreBtnLock();
   _renderScoreAnnounce();
 }
-/* Tự động co font để tên hiển thị đầy đủ trong khung cố định, cho phép xuống hàng */
+/* Tự động co font để tên hiển thị đầy đủ trong khung cố định 44px */
 function fitPlayerName(el) {
   if (!el) return;
   const row = el.closest('.player-row');
-  const maxH = row ? row.clientHeight || 40 : 40;
+  if (!row) return;
+  // Tổng chiều cao khả dụng cho tên = khung - note text (nếu có)
+  const noteEl = row.querySelector('.player-note-text');
+  const noteH = (noteEl && noteEl.classList.contains('has-note')) ? 14 : 0;
+  const maxH = 44 - noteH - 8; // trừ padding
   let size = 13;
   el.style.fontSize = size + 'px';
-  el.style.webkitLineClamp = '2';
-  // shrink font until text fits within fixed height box
-  while ((el.scrollHeight > maxH || el.scrollWidth > el.clientWidth) && size > 7) {
+  // Shrink cho đến khi tên vừa trong chiều cao khả dụng
+  while (el.scrollHeight > maxH && size > 7) {
     size -= 0.5;
     el.style.fontSize = size + 'px';
   }
@@ -3297,6 +3303,9 @@ function savePlayerNote(side, slot) {
     txt.classList.toggle('has-note', !!val);
     txt.style.display = '';
   }
+  // Recalculate font size after note change
+  const nameEl = document.getElementById('pname-' + key);
+  if (nameEl) fitPlayerName(nameEl);
 }
 
 function undo() {
