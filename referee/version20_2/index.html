@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20_2 Da Nang Referee v17 – Pickleball</title>
+<title>v20_222 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -5061,11 +5061,7 @@ async function licCheckOnStart() {
   const savedBox = document.getElementById('lic-saved-box');
   const btn    = document.getElementById('lic-btn');
 
-  // Phát hiện reload: unload_ts được ghi lúc beforeunload
-  // Nếu < 30s trước → là refresh/reload, không phải mở tab mới
-  const _unloadTs = parseInt(localStorage.getItem(_UNLOAD_TS_KEY) || '0', 10);
-  const isReload = localStorage.getItem(_RELOAD_KEY) === '1' && (Date.now() - _unloadTs < 30000);
-
+  // ── Giống admin: có session → vào app ngay, không validate GAS lúc load ──
   if (saved) {
     savedBox.style.display = 'block';
     const courtStr = saved.courts?.length ? saved.courts.join(', ') : 'Tất cả sân';
@@ -5076,76 +5072,38 @@ async function licCheckOnStart() {
     btn.textContent = '▶ Vào app';
     btn.style.background = '#16a34a';
 
-    // ── KHI RELOAD: luôn vào app ngay, validate GAS ngầm sau ──
-    if (isReload) {
-      _applyPerm(saved);
-      licEnter();
-      if (GS_URL) {
-        setTimeout(async () => {
-          try {
-            const savedPhone = saved.phone || '';
-            const url = savedPhone
-              ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
-              : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
-            const res  = await fetch(url, {cache:'no-store'});
-            const data = await res.json();
-            if (data.ok && data.valid) {
-              licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
-                        courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
-                        assignment: data.assignment || null,
-                        giai: data.giai || '', noidung: data.noidung || '' });
-              _applyPerm(data);
-            }
-            // Nếu invalid → toast nhẹ, không logout giữa trận
-            else { setTimeout(() => toast('⚠️ Phiên đăng nhập cần xác thực lại — nhấn đăng xuất khi xong trận', 5000), 500); }
-          } catch(e) { /* lỗi mạng → bỏ qua */ }
-        }, 3000);
-      }
-      return;
-    }
+    _applyPerm(saved);
+    licEnter();
 
-    // ── KHÔNG PHẢI RELOAD: kiểm tra thời hạn cache trước ──
-    const sinceCheck = Date.now() - (saved.checkedAt||0);
-    if (sinceCheck < LIC_CHECK_MS) {
-      _applyPerm(saved);
-      licEnter();
-      return;
-    }
-
+    // Validate GAS ngầm sau 5s — chỉ để cập nhật thông tin, không logout
     if (GS_URL) {
-      try {
-        const savedPhone = saved.phone || '';
-        const url = savedPhone
-          ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
-          : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
-        const res  = await fetch(url, {cache:'no-store'});
-        const data = await res.json();
-        if (data.ok && data.valid) {
-          licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
-                    courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
-                    assignment: data.assignment || null,
-                    giai: data.giai || '', noidung: data.noidung || '' });
-          _applyPerm(data);
-          licEnter();
-          return;
-        } else {
-          licClear();
-          _licStatus('err', `❌ ${data.reason||'Tài khoản không còn hợp lệ, đăng nhập lại'}`);
-          screen.style.display = 'flex';
-        }
-      } catch(e) {
-        _applyPerm(saved);
-        licEnter();
-        return;
-      }
-    } else {
-      _applyPerm(saved);
-      licEnter();
-      return;
+      setTimeout(async () => {
+        try {
+          const sinceCheck = Date.now() - (saved.checkedAt||0);
+          if (sinceCheck < LIC_CHECK_MS) return; // còn hạn cache → bỏ qua
+          const savedPhone = saved.phone || '';
+          const url = savedPhone
+            ? `${GS_URL}?action=validate&phone=${encodeURIComponent(savedPhone)}&device=${encodeURIComponent(_deviceId())}`
+            : `${GS_URL}?action=validate&code=${encodeURIComponent(saved.code)}&device=${encodeURIComponent(_deviceId())}`;
+          const res  = await fetch(url, {cache:'no-store'});
+          const data = await res.json();
+          if (data.ok && data.valid) {
+            licSave({ code: data.code||saved.code, phone: savedPhone, name: data.name, expire: data.expire,
+                      courts: data.courts, rounds: data.rounds, isAdmin: data.isAdmin,
+                      assignment: data.assignment || null,
+                      giai: data.giai || '', noidung: data.noidung || '' });
+            _applyPerm(data);
+          }
+          // Nếu invalid → chỉ toast nhẹ, không logout (tránh gián đoạn giữa trận)
+          else { toast('⚠️ Phiên đăng nhập cần xác thực lại — nhấn đăng xuất khi xong trận', 6000); }
+        } catch(e) { /* lỗi mạng → bỏ qua */ }
+      }, 5000);
     }
-  } else {
-    screen.style.display = 'flex';
+    return;
   }
+
+  // Không có session → hiện màn hình đăng nhập
+  screen.style.display = 'flex';
 }
 initGsUrl();
 if (matchList.length) syncDropdownsFromData(false);
