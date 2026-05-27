@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v28.4 Da Nang Referee v17 – Pickleball</title>
+<title>v28.5 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -203,9 +203,10 @@ select, input { font-family: inherit; }
 /* Mỗi hàng = flex: [khung tên flex:1] [dots+badge cố định] */
 .player-slot {
   display: flex; align-items: center; gap: 4px;
+  width: 100%;
 }
 
-/* Khung tên — chiều cao cố định bằng nhau cho cả 2 hàng */
+/* Khung tên — chiều cao & chiều ngang cố định, không bị đẩy */
 .player-row {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center;
@@ -218,6 +219,7 @@ select, input { font-family: inherit; }
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  width: 0; /* force flex:1 không bị đẩy bởi serve-balls */
 }
 .player-row.is-server {
   background: rgba(34,197,94,.10);
@@ -234,13 +236,13 @@ select, input { font-family: inherit; }
   width: 100%; min-width: 0; flex: 1;
 }
 .player-name {
-  font-size: 11px; font-weight: 700; color: var(--green-dk);
-  flex: 1; white-space: normal; overflow: hidden; text-overflow: ellipsis;
-  word-break: break-word;
-  line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: 13px; font-weight: 700; color: #1e3a5f;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.3; width: 100%;
+  /* auto-shrink font nếu tên dài */
+  display: block;
 }
-.player-row.is-server .player-name { color: var(--green-dk); font-weight: 700; }
+.player-row.is-server .player-name { color: #1e3a5f; font-weight: 700; }
 .team-card.winner .player-row.is-server .player-name { color: var(--amber-dk); }
 
 .btn-note {
@@ -281,9 +283,9 @@ select, input { font-family: inherit; }
   background: #f59e0b; display: inline-block; flex-shrink: 0;
 }
 .pos-badge {
-  font-size: 11px; font-weight: 800; font-family: 'Oswald', sans-serif;
-  color: #fff; border-radius: 6px; padding: 4px 6px;
-  flex-shrink: 0; letter-spacing: .1px; min-width: 28px; text-align: center;
+  font-size: 9px; font-weight: 800; font-family: 'Oswald', sans-serif;
+  color: #fff; border-radius: 5px; padding: 3px 5px;
+  flex-shrink: 0; letter-spacing: .1px; min-width: 22px; text-align: center;
 }
 .pos-badge-1 { background: #0369a1; }
 .pos-badge-2 { background: #0891b2; }
@@ -2463,6 +2465,19 @@ function _renderPlayerRows() {
   _updateScoreBtnLock();
   _renderScoreAnnounce();
 }
+/* Tự động co font để tên vừa 1 hàng trong khung */
+function fitPlayerName(el) {
+  if (!el) return;
+  el.style.fontSize = '';
+  const maxW = el.parentElement ? el.parentElement.offsetWidth - 4 : 999;
+  let size = 13;
+  el.style.fontSize = size + 'px';
+  while (el.scrollWidth > maxW && size > 7) {
+    size -= 0.5;
+    el.style.fontSize = size + 'px';
+  }
+}
+
 function _setPlayerSlot(side, slot, players, pIdx, isServer, badgeLabel, badgeCls) {
   const row   = document.getElementById(`player-${side}-${slot}`);
   const name  = document.getElementById(`pname-${side}-${slot}`);
@@ -2472,6 +2487,7 @@ function _setPlayerSlot(side, slot, players, pIdx, isServer, badgeLabel, badgeCl
 
   name.textContent = players[pIdx] || (side==='a' ? `A${pIdx+1}` : `B${pIdx+1}`);
   name.title = name.textContent; // tooltip khi hover để xem đủ tên
+  fitPlayerName(name);
   row.classList.toggle('is-server', isServer);
 
   if (isServer) {
