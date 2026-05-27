@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v28.7 Da Nang Referee v17 – Pickleball</title>
+<title>v28.122 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -4015,12 +4015,24 @@ const _toss = {
   serverName: '',
   receiverName: '',
   serverSide: null, // 'a' | 'b' — side đang giao bóng
+  _spinIv: null,   // interval ID của animation bốc thăm
+  _spinTid: null,  // timeout ID sau spin
+  _pickTid: null,  // timeout ID sau pick team
 };
+
+function _tossStopSpin() {
+  if (_toss._spinIv)  { clearInterval(_toss._spinIv);  _toss._spinIv  = null; }
+  if (_toss._spinTid) { clearTimeout(_toss._spinTid);  _toss._spinTid = null; }
+  if (_toss._pickTid) { clearTimeout(_toss._pickTid);  _toss._pickTid = null; }
+  const spin = document.getElementById('toss-spinning');
+  if (spin) spin.style.display = 'none';
+}
 
 function openTossModal() {
   if (!S.currentMatch) { toast('⚠️ Chưa chọn trận!'); return; }
+  _tossStopSpin(); // Dừng mọi animation đang chạy từ trận trước
   const m = S.currentMatch;
-  Object.assign(_toss, {step:1, winner:null, choice:null, serverName:'', receiverName:'', serverSide:null});
+  Object.assign(_toss, {step:1, winner:null, choice:null, serverName:'', receiverName:'', serverSide:null, serverPlayerIdx:0});
   document.getElementById('toss-name-a').textContent = sn(m.origTeamA || m.teamA);
   document.getElementById('toss-name-b').textContent = sn(m.origTeamB || m.teamB);
   document.getElementById('toss-match-title').textContent = `${m.code} · ${m.noidung}${m.bang?' · '+m.bang:''}`;
@@ -4045,25 +4057,42 @@ function _tossShowStep(n) {
 }
 
 function tossPickTeam(side) {
+  _tossStopSpin(); // clear any running spin first
   document.getElementById('toss-btn-a').classList.toggle('selected', side==='a');
   document.getElementById('toss-btn-b').classList.toggle('selected', side==='b');
-  setTimeout(() => _tossSetWinner(side), 350);
+  // Disable buttons during transition to prevent double-tap
+  ['a','b'].forEach(s => { const b = document.getElementById('toss-btn-'+s); if(b) b.disabled = true; });
+  _toss._pickTid = setTimeout(() => {
+    _toss._pickTid = null;
+    ['a','b'].forEach(s => { const b = document.getElementById('toss-btn-'+s); if(b) b.disabled = false; });
+    _tossSetWinner(side);
+  }, 350);
 }
 
 function tossRandom() {
+  if (_toss._spinIv) return; // đang spin rồi, bỏ qua
+  _tossStopSpin();
   const drum = document.getElementById('toss-drum');
   const spin = document.getElementById('toss-spinning');
   spin.style.display = 'block';
+  // Disable nút ngẫu nhiên trong khi spin
+  const randBtn = document.querySelector('[onclick="tossRandom()"]');
+  if (randBtn) randBtn.disabled = true;
   const emojis = ['🎾','🏓','🎲','⚡','🌀','🎯','🏆','✨'];
   let i = 0, count = 0, total = 18 + Math.floor(Math.random()*12);
-  const iv = setInterval(() => {
+  _toss._spinIv = setInterval(() => {
     drum.textContent = emojis[i++ % emojis.length];
     count++;
     if (count >= total) {
-      clearInterval(iv);
+      clearInterval(_toss._spinIv);
+      _toss._spinIv = null;
+      if (randBtn) randBtn.disabled = false;
       const winner = Math.random() < 0.5 ? 'a' : 'b';
       document.getElementById('toss-btn-'+winner).classList.add('selected');
-      setTimeout(() => _tossSetWinner(winner), 400);
+      _toss._spinTid = setTimeout(() => {
+        _toss._spinTid = null;
+        _tossSetWinner(winner);
+      }, 400);
     }
   }, 100);
 }
@@ -4174,6 +4203,7 @@ function tossPrev() { _tossShowStep(Math.max(1, _toss.step - 1)); }
 function tossApply() {
   const m = S.currentMatch;
   if (!m) return;
+  _tossStopSpin(); // dọn dẹp trước khi đóng
   S.server = _toss.serverSide || 'a';
   S.serveNum = 2;
   S.isFirstServe = true;
@@ -4864,7 +4894,10 @@ function exportCSV() {
   toast('✅ Đã xuất 2 file CSV!');
 }
 function dl(c,fn){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv;charset=utf-8'}));a.download=fn;a.click();}
-function closeModal(id){document.getElementById(id).classList.remove('show');}
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+  if (id === 'modal-toss') _tossStopSpin();
+}
 document.querySelectorAll(".modal-ov").forEach(m=>m.onclick=e=>{if(e.target===m){if(m.id==="modal-camera"){const c=document.getElementById("cam-container");const o=c.querySelector("iframe,img");if(o)o.remove();}m.classList.remove("show");}});
 function now(){const d=new Date();return d.toLocaleDateString('vi-VN')+' '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 function nowMs(){return new Date().toISOString();} // ISO with ms: 2025-05-14T08:22:22.123Z — dùng để sort GAS
