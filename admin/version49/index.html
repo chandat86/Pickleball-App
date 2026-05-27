@@ -818,6 +818,49 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   .bsm{padding:6px 10px;font-size:12px}
 }
 
+/* ── Bang-list mobile layout ── */
+@media(max-width:640px){
+  #bang-main-grid{
+    grid-template-columns:1fr !important;
+  }
+  #bang-main-grid > div:nth-child(2){
+    position:static !important;
+  }
+  #bang-list{
+    max-height:none !important;
+    overflow-y:visible !important;
+    padding-right:0 !important;
+  }
+  /* Match table → card on mobile */
+  .match-tbl-wrap { display:none !important; }
+  .match-cards-wrap { display:flex !important; }
+  /* Stats 2x2 */
+  .stats[style*="repeat(4"]{grid-template-columns:1fr 1fr !important}
+  /* BXH grid tighter */
+  .bxh-grid-row{grid-template-columns:22px 1fr 22px 22px 22px 28px 28px 32px 32px !important}
+}
+/* Match cards — hidden on desktop, shown on mobile */
+.match-cards-wrap{display:none;flex-direction:column;gap:6px;padding:6px 8px}
+.match-card{
+  background:var(--bg3);border:1px solid var(--bdr);border-radius:10px;
+  padding:9px 10px;display:flex;flex-direction:column;gap:5px
+}
+.match-card.mc-live{border-left:3px solid #ea580c;background:rgba(234,88,12,.04)}
+.match-card.mc-done{border-left:3px solid var(--gn);background:rgba(34,197,94,.025)}
+.mc-top{display:flex;align-items:center;gap:7px}
+.mc-code{font-family:var(--mo);font-weight:800;font-size:12px;color:var(--ac);min-width:36px}
+.mc-score{font-family:var(--mo);font-weight:900;font-size:17px;color:var(--tx);
+  padding:2px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bdr);
+  display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mc-teams{display:flex;align-items:center;gap:5px;font-size:12px;flex:1;min-width:0}
+.mc-team{font-weight:600;color:var(--tx2);flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.mc-team.win{color:var(--gn);font-weight:700}
+.mc-vs{color:var(--bdr3);font-size:10px;flex-shrink:0}
+.mc-bot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mc-st{font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px}
+.mc-info{font-size:10px;color:var(--tx3)}
+
 /* Touch targets (all interactive) */
 @media(hover:none){
   .btn,.ni,.mni,.rfbtn,.sc{min-height:44px}
@@ -5168,7 +5211,7 @@ function renderBangList(giaiId, nd) {
       </tr>`;
     }).join('');
 
-    return `<div style="overflow-x:auto">
+    return `<div style="overflow-x:auto" class="match-tbl-wrap">
       <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:700px">
         <colgroup>
           <col style="width:62px">  <!-- mã -->
@@ -5195,7 +5238,46 @@ function renderBangList(giaiId, nd) {
           <th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
-      </table></div>`;
+      </table></div>
+    <div class="match-cards-wrap">
+      ${ms.map(m=>{
+        const done2=isDone(m), live2=isLive(m);
+        const st2=matchStatus(m);
+        const lk2=`${m[1]}|${m[2]}|${m[3]}`;
+        let sA2=null,sB2=null;
+        if(live2&&_liveScores[lk2]){sA2=_liveScores[lk2].scoreA;sB2=_liveScores[lk2].scoreB;}
+        else{const fs=getFinalScore(m);sA2=fs?.scoreA??null;sB2=fs?.scoreB??null;}
+        const lA2=sA2!==null&&sB2!==null&&sA2>sB2, lB2=sA2!==null&&sB2!==null&&sB2>sA2;
+        const scoreHtml=sA2!==null
+          ?`<span style="color:${lA2?'var(--gn)':live2?'var(--or)':'var(--tx)'};font-weight:900">${sA2}</span>
+            <span style="color:var(--bdr3);font-size:11px;font-weight:400">–</span>
+            <span style="color:${lB2?'var(--gn)':live2?'var(--or)':'var(--tx)'};font-weight:900">${sB2}</span>`
+          :`<span style="color:var(--bdr3);font-size:12px;font-weight:500">vs</span>`;
+        const ref2=String(m[10]||getFinalScore(m)?.referee||'');
+        const cardCls=live2?'mc-live':done2?'mc-done':'';
+        const stBg=done2?'rgba(34,197,94,.12)':live2?'rgba(234,88,12,.12)':'var(--bg4)';
+        const stColor=done2?'var(--gn)':live2?'#ea580c':'var(--tx4)';
+        return `<div class="match-card ${cardCls}">
+          <div class="mc-top">
+            <span class="mc-code">${m[3]||''}</span>
+            <div class="mc-teams">
+              <span class="mc-team${lA2?' win':''}">${esc(m[4]||'TBD')}</span>
+              <div class="mc-score">${scoreHtml}</div>
+              <span class="mc-team${lB2?' win':''}">${esc(m[7]||'TBD')}</span>
+            </div>
+          </div>
+          <div class="mc-bot">
+            <span class="mc-st" style="background:${stBg};color:${stColor}">${st2.label}</span>
+            ${m[8]?`<span class="mc-info">📍 ${esc(m[8])}</span>`:''}
+            ${ref2?`<span class="mc-info">🎯 ${esc(ref2)}</span>`:''}
+            <div style="flex:1"></div>
+            <button onclick="openEditMatchMo('${esc(giaiId)}','${esc(nd)}','${esc(bang)}','${esc(String(m[3]||''))}')"
+              style="padding:3px 10px;font-size:11px;font-weight:600;background:var(--bg2);
+              color:var(--tx2);border:1px solid var(--bdr);border-radius:6px;cursor:pointer">✏️ Sửa</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
 
   // ── Bang card (collapsible) ──
@@ -5244,7 +5326,8 @@ function renderBangList(giaiId, nd) {
       <div style="flex:1"></div>
       <span id="live-section-arrow" style="font-size:11px;color:var(--tx3);transition:transform .2s;display:inline-block">▾</span>
     </div>
-    <div id="live-section-body" style="margin-top:10px;overflow-x:auto">
+    <div id="live-section-body" style="margin-top:10px">
+    <div class="match-tbl-wrap" style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:600px">
       <colgroup><col style="width:88px"><col><col style="width:120px"><col><col style="width:68px"><col style="width:90px"></colgroup>
       <thead><tr style="background:rgba(234,88,12,.07)">
@@ -5282,6 +5365,34 @@ function renderBangList(giaiId, nd) {
         </tr>`;
       }).join('')}</tbody>
     </table></div>
+    <div class="match-cards-wrap">
+      ${liveMAll.map(m=>{
+        const lk2=`${m[1]}|${m[2]}|${m[3]}`;const ls2=_liveScores[lk2]||{};
+        const sA2=ls2.scoreA??null,sB2=ls2.scoreB??null;
+        const lA2=sA2!==null&&sB2!==null&&sA2>sB2,lB2=sA2!==null&&sB2!==null&&sB2>sA2;
+        const ref2=String(ls2.referee||m[10]||'');
+        const scoreHtml2=sA2!==null
+          ?`<span style="color:${lA2?'var(--gn)':'#ea580c'};font-weight:900">${sA2}</span>
+            <span style="color:var(--bdr3);font-size:11px">–</span>
+            <span style="color:${lB2?'var(--gn)':'#ea580c'};font-weight:900">${sB2}</span>`
+          :`<span style="color:var(--bdr3)">vs</span>`;
+        return `<div class="match-card mc-live">
+          <div class="mc-top">
+            <span class="mc-code">${m[3]||''}</span>
+            <div class="mc-teams">
+              <span class="mc-team${lA2?' win':''}">${esc(m[4]||'?')}</span>
+              <div class="mc-score">${scoreHtml2}</div>
+              <span class="mc-team${lB2?' win':''}">${esc(m[7]||'?')}</span>
+            </div>
+          </div>
+          <div class="mc-bot">
+            <span class="mc-st" style="background:rgba(234,88,12,.12);color:#ea580c">🔴 Đang đấu</span>
+            ${m[8]?`<span class="mc-info">📍 ${esc(m[8])}</span>`:''}
+            ${ref2?`<span class="mc-info">🎯 ${esc(ref2)}</span>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
   </div>` : '';
 
   // ══════════════════════════════════════════════════════
@@ -5480,7 +5591,7 @@ function renderBangList(giaiId, nd) {
   const _bxhScrollTop = _bxhEl ? _bxhEl.scrollTop : 0;
 
   wrap.innerHTML = toolbarHtml + statHtml + `
-  <div style="display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start">
+  <div id="bang-main-grid" style="display:grid;grid-template-columns:1fr 420px;gap:14px;align-items:start">
     <div style="min-width:0">${leftHtml}</div>
     <div style="position:sticky;top:14px;display:flex;flex-direction:column;gap:0">
       ${courtPanel}
@@ -11904,15 +12015,13 @@ function _cpGiaiOk(rGiai){
 
 // ── Hiển thị notification card ──
 function _cpShow(c){
-  // Kiểm tra toggle bật/tắt
   var toggleBtn = document.getElementById('cp-toggle-btn');
   var popupEnabled = !toggleBtn || toggleBtn.classList.contains('on');
   if(!popupEnabled){ _cpUnread++; _cpBell(); return; }
 
   var tray = document.getElementById('cp-tray');
   if(!tray) return;
-  // Xoá card cũ nếu còn (chỉ hiện 1 popup tại 1 thời điểm)
-  tray.innerHTML = '';
+  tray.innerHTML = ''; // chỉ hiện 1 popup tại 1 thời điểm
   var meta = _cpM(c.callType);
   var mi = [c.matchBang, c.matchCode?'Mã '+c.matchCode:'', c.matchNd].filter(Boolean).join(' · ');
   var ts = new Date(c.ts).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -11974,7 +12083,6 @@ function _cpDismiss(nid){
   el.style.animation = 'cpOut .3s ease forwards';
   setTimeout(function(){
     if(el) el.remove();
-    // Xoá overlay tray nếu không còn card nào
     var tray = document.getElementById('cp-tray');
     if(tray && !tray.children.length) tray.style.background = '';
   }, 280);
