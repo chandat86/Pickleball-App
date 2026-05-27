@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v19 Da Nang Referee v17 – Pickleball</title>
+<title>v19.2 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -802,7 +802,7 @@ select, input { font-family: inherit; }
   <button onclick="cpOpenModal()"
     style="width:100%;border:none;border-radius:13px;padding:13px 0;
     background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;
-    font-family:Oswald,sans-serif;font-size:15px;font-weight:700;letter-spacing:.8px;
+    font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;letter-spacing:.8px;
     cursor:pointer;box-shadow:0 4px 18px rgba(109,40,217,.4);
     display:flex;align-items:center;justify-content:center;gap:9px">
     <span style="font-size:18px">📣</span>
@@ -5099,163 +5099,85 @@ licCheckOnStart();
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     📣 POPUP GỌI VĐV — Referee v19
-══════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════
+     📣 POPUP GỌI VĐV / GỌI TRẬN — Referee v19
+     Gửi qua action=callPlayer (POST) → GAS ghi EventLog
+     Admin đọc bằng action=getCallPlayer (GET) mỗi 6s
+══════════════════════════════════════════════════════════════ -->
 <style>
-#cp-modal-ref {
-  display:none; position:fixed; inset:0;
-  background:rgba(15,23,42,.65); backdrop-filter:blur(5px);
-  z-index:600; align-items:center; justify-content:center; padding:12px;
-}
-#cp-modal-ref.show { display:flex; }
-
-.cp-ref-box {
-  background:#fff; border-radius:22px;
-  width:100%; max-width:400px; max-height:92vh;
-  display:flex; flex-direction:column;
-  box-shadow:0 28px 64px rgba(0,0,0,.32);
-  overflow:hidden;
-  animation:cpRefPop .35s cubic-bezier(.34,1.4,.64,1);
-}
-@keyframes cpRefPop {
-  from { opacity:0; transform:scale(.88) translateY(20px); }
-  to   { opacity:1; transform:none; }
-}
-
-/* Header gradient tím */
-.cp-ref-hdr {
-  background:linear-gradient(135deg,#7c3aed,#5b21b6);
-  padding:16px 18px 14px; flex-shrink:0;
-}
-.cp-ref-hdr-top {
-  display:flex; align-items:center; gap:10px; margin-bottom:8px;
-}
-.cp-ref-hdr-icon {
-  width:40px; height:40px; border-radius:11px;
-  background:rgba(255,255,255,.18); font-size:20px;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-}
-.cp-ref-hdr-text { flex:1; min-width:0; }
-.cp-ref-title {
-  font-family:'Oswald',sans-serif; font-size:17px; font-weight:700;
-  color:#fff; letter-spacing:.5px;
-}
-.cp-ref-subtitle { font-size:11px; color:rgba(255,255,255,.7); margin-top:1px; }
-.cp-ref-close {
-  background:rgba(255,255,255,.15); border:none; color:#fff;
-  border-radius:8px; width:32px; height:32px; font-size:16px;
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-  flex-shrink:0;
-}
-.cp-ref-match-pill {
-  background:rgba(255,255,255,.13); border-radius:8px;
-  padding:6px 11px; font-size:11px; color:rgba(255,255,255,.9);
-  display:none; line-height:1.4;
-}
-
-/* Body */
-.cp-ref-body {
-  flex:1; overflow-y:auto; padding:14px;
-}
-
-/* Team cards */
-.cp-team-grid {
-  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:13px;
-}
-.cp-team-card {
-  border-radius:14px; padding:11px;
-}
-.cp-team-card.side-a {
-  background:#f0fdf4; border:2px solid #bbf7d0;
-}
-.cp-team-card.side-b {
-  background:#eff6ff; border:2px solid #bfdbfe;
-}
-.cp-team-label {
-  display:flex; align-items:center; gap:5px; margin-bottom:9px;
-}
-.cp-team-dot {
-  width:7px; height:7px; border-radius:50%; flex-shrink:0;
-}
-.side-a .cp-team-dot { background:#22c55e; }
-.side-b .cp-team-dot { background:#3b82f6; }
-.cp-team-name {
-  font-family:'Oswald',sans-serif; font-size:11.5px; font-weight:700;
-  text-transform:uppercase; letter-spacing:.4px;
-}
-.side-a .cp-team-name { color:#15803d; }
-.side-b .cp-team-name { color:#1d4ed8; }
-
-/* VĐV buttons */
-.cp-vdv-btn {
-  width:100%; border-radius:9px; padding:8px 9px;
-  display:flex; align-items:center; gap:6px;
-  text-align:left; cursor:pointer; transition:all .18s;
-  margin-bottom:6px; background:#fff;
-}
-.side-a .cp-vdv-btn { border:1.5px solid #bbf7d0; }
-.side-b .cp-vdv-btn { border:1.5px solid #bfdbfe; }
-.side-a .cp-vdv-btn:hover { background:#dcfce7; border-color:#22c55e; }
-.side-b .cp-vdv-btn:hover { background:#dbeafe; border-color:#3b82f6; }
-.side-a .cp-vdv-btn:active { background:#bbf7d0; transform:scale(.97); }
-.side-b .cp-vdv-btn:active { background:#bfdbfe; transform:scale(.97); }
-.cp-vdv-btn.called { opacity:.55; pointer-events:none; }
-
-.cp-vdv-lbl { font-size:9px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
-.cp-vdv-name { font-size:12px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-/* Gọi cả đội */
-.cp-call-team-btn {
-  width:100%; border:none; border-radius:9px; padding:9px;
-  font-family:'Oswald',sans-serif; font-size:12px; font-weight:700;
-  letter-spacing:.4px; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; gap:5px;
-  transition:all .15s; color:#fff; margin-top:2px;
-}
-.cp-call-team-btn:active { transform:scale(.96); opacity:.85; }
-.side-a .cp-call-team-btn { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 3px 10px rgba(34,197,94,.35); }
-.side-b .cp-call-team-btn { background:linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow:0 3px 10px rgba(59,130,246,.35); }
-
-/* Divider */
-.cp-divider {
-  display:flex; align-items:center; gap:10px; margin-bottom:12px;
-}
-.cp-divider-line { flex:1; height:1px; background:#e2e8f0; }
-.cp-divider-txt { font-size:11px; color:#94a3b8; font-weight:600; white-space:nowrap; }
-
-/* Gọi cả trận */
-.cp-call-match-btn {
-  width:100%; border:none; border-radius:14px; padding:15px;
-  background:linear-gradient(135deg,#7c3aed,#5b21b6); color:#fff;
-  font-family:'Oswald',sans-serif; font-size:15px; font-weight:700; letter-spacing:.6px;
-  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px;
-  box-shadow:0 6px 20px rgba(109,40,217,.38); transition:all .15s; margin-bottom:10px;
-}
-.cp-call-match-btn:active { transform:scale(.96); }
-
-/* Status bar */
-.cp-status {
-  border-radius:10px; padding:9px 13px;
-  font-size:12px; font-weight:600; display:none;
-  align-items:center; gap:7px;
-}
-.cp-status.ok  { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
-.cp-status.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
-.cp-status.sending { background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
-
-/* Footer */
-.cp-ref-footer {
-  padding:10px 14px; border-top:1px solid #f1f5f9; background:#f8fafc;
-  font-size:10.5px; color:#94a3b8; text-align:center; flex-shrink:0;
-}
+#cp-modal-ref{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);
+  backdrop-filter:blur(5px);z-index:600;align-items:center;justify-content:center;padding:12px}
+#cp-modal-ref.show{display:flex}
+.cp-ref-box{background:#fff;border-radius:22px;width:100%;max-width:400px;max-height:92vh;
+  display:flex;flex-direction:column;box-shadow:0 28px 64px rgba(0,0,0,.32);overflow:hidden;
+  animation:cpRefPop .35s cubic-bezier(.34,1.4,.64,1)}
+@keyframes cpRefPop{from{opacity:0;transform:scale(.88) translateY(20px)}to{opacity:1;transform:none}}
+.cp-ref-hdr{background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:16px 18px 14px;flex-shrink:0}
+.cp-ref-hdr-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.cp-ref-hdr-icon{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.18);
+  font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cp-ref-hdr-text{flex:1;min-width:0}
+.cp-ref-title{font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:#fff;letter-spacing:.5px}
+.cp-ref-subtitle{font-size:11px;color:rgba(255,255,255,.7);margin-top:1px}
+.cp-ref-close{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
+  width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cp-ref-match-pill{background:rgba(255,255,255,.13);border-radius:8px;padding:6px 11px;
+  font-size:11px;color:rgba(255,255,255,.9);display:none;line-height:1.4;margin-top:4px}
+.cp-ref-body{flex:1;overflow-y:auto;padding:14px}
+.cp-team-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}
+.cp-team-card{border-radius:14px;padding:11px}
+.cp-team-card.side-a{background:#f0fdf4;border:2px solid #bbf7d0}
+.cp-team-card.side-b{background:#eff6ff;border:2px solid #bfdbfe}
+.cp-team-label{display:flex;align-items:center;gap:5px;margin-bottom:9px}
+.cp-team-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.side-a .cp-team-dot{background:#22c55e}
+.side-b .cp-team-dot{background:#3b82f6}
+.cp-team-name{font-family:'Oswald',sans-serif;font-size:11.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.4px}
+.side-a .cp-team-name{color:#15803d}
+.side-b .cp-team-name{color:#1d4ed8}
+.cp-vdv-btn{width:100%;border-radius:9px;padding:8px 9px;
+  display:flex;align-items:center;gap:6px;text-align:left;cursor:pointer;
+  transition:all .18s;margin-bottom:6px;background:#fff}
+.side-a .cp-vdv-btn{border:1.5px solid #bbf7d0}
+.side-b .cp-vdv-btn{border:1.5px solid #bfdbfe}
+.side-a .cp-vdv-btn:hover{background:#dcfce7;border-color:#22c55e}
+.side-b .cp-vdv-btn:hover{background:#dbeafe;border-color:#3b82f6}
+.side-a .cp-vdv-btn:active{background:#bbf7d0;transform:scale(.97)}
+.side-b .cp-vdv-btn:active{background:#bfdbfe;transform:scale(.97)}
+.cp-vdv-lbl{font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.cp-vdv-name{font-size:12px;font-weight:700;color:#0f172a;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cp-call-team-btn{width:100%;border:none;border-radius:9px;padding:9px;
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;letter-spacing:.4px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;
+  transition:all .15s;color:#fff;margin-top:2px}
+.cp-call-team-btn:active{transform:scale(.96);opacity:.85}
+.side-a .cp-call-team-btn{background:linear-gradient(135deg,#22c55e,#16a34a);
+  box-shadow:0 3px 10px rgba(34,197,94,.35)}
+.side-b .cp-call-team-btn{background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+  box-shadow:0 3px 10px rgba(59,130,246,.35)}
+.cp-divider{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.cp-divider-line{flex:1;height:1px;background:#e2e8f0}
+.cp-divider-txt{font-size:11px;color:#94a3b8;font-weight:600;white-space:nowrap}
+.cp-call-match-btn{width:100%;border:none;border-radius:14px;padding:15px;
+  background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;
+  font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;letter-spacing:.6px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;
+  box-shadow:0 6px 20px rgba(109,40,217,.38);transition:all .15s;margin-bottom:10px}
+.cp-call-match-btn:active{transform:scale(.96)}
+.cp-status{border-radius:10px;padding:9px 13px;font-size:12px;font-weight:600;
+  display:none;align-items:center;gap:7px}
+.cp-status.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d}
+.cp-status.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+.cp-status.sending{background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8}
+.cp-ref-footer{padding:10px 14px;border-top:1px solid #f1f5f9;background:#f8fafc;
+  font-size:10.5px;color:#94a3b8;text-align:center;flex-shrink:0}
 </style>
 
-<!-- Modal GỌI VĐV -->
+<!-- Modal -->
 <div id="cp-modal-ref">
   <div class="cp-ref-box">
-
-    <!-- Header -->
     <div class="cp-ref-hdr">
       <div class="cp-ref-hdr-top">
         <div class="cp-ref-hdr-icon">📣</div>
@@ -5267,13 +5189,8 @@ licCheckOnStart();
       </div>
       <div class="cp-ref-match-pill" id="cp-match-pill"></div>
     </div>
-
-    <!-- Body -->
     <div class="cp-ref-body">
-
-      <!-- 2 đội -->
       <div class="cp-team-grid">
-
         <!-- Đội A -->
         <div class="cp-team-card side-a">
           <div class="cp-team-label">
@@ -5282,14 +5199,14 @@ licCheckOnStart();
           </div>
           <button class="cp-vdv-btn" id="cp-btn-a0" onclick="cpCallPlayer('a',0)">
             <span style="font-size:14px">🏓</span>
-            <div style="min-width:0;flex:1">
+            <div style="min-width:0;flex:1;overflow:hidden">
               <div class="cp-vdv-lbl">VĐV 1</div>
               <div class="cp-vdv-name" id="cp-name-a0">—</div>
             </div>
           </button>
           <button class="cp-vdv-btn" id="cp-btn-a1" onclick="cpCallPlayer('a',1)">
             <span style="font-size:14px">🏓</span>
-            <div style="min-width:0;flex:1">
+            <div style="min-width:0;flex:1;overflow:hidden">
               <div class="cp-vdv-lbl">VĐV 2</div>
               <div class="cp-vdv-name" id="cp-name-a1">—</div>
             </div>
@@ -5298,7 +5215,6 @@ licCheckOnStart();
             <span>📢</span> GỌI ĐỘI A
           </button>
         </div>
-
         <!-- Đội B -->
         <div class="cp-team-card side-b">
           <div class="cp-team-label">
@@ -5307,14 +5223,14 @@ licCheckOnStart();
           </div>
           <button class="cp-vdv-btn" id="cp-btn-b0" onclick="cpCallPlayer('b',0)">
             <span style="font-size:14px">🏓</span>
-            <div style="min-width:0;flex:1">
+            <div style="min-width:0;flex:1;overflow:hidden">
               <div class="cp-vdv-lbl">VĐV 1</div>
               <div class="cp-vdv-name" id="cp-name-b0">—</div>
             </div>
           </button>
           <button class="cp-vdv-btn" id="cp-btn-b1" onclick="cpCallPlayer('b',1)">
             <span style="font-size:14px">🏓</span>
-            <div style="min-width:0;flex:1">
+            <div style="min-width:0;flex:1;overflow:hidden">
               <div class="cp-vdv-lbl">VĐV 2</div>
               <div class="cp-vdv-name" id="cp-name-b1">—</div>
             </div>
@@ -5323,17 +5239,12 @@ licCheckOnStart();
             <span>📢</span> GỌI ĐỘI B
           </button>
         </div>
-
       </div>
-
-      <!-- Divider -->
       <div class="cp-divider">
         <div class="cp-divider-line"></div>
         <span class="cp-divider-txt">HOẶC GỌI CẢ TRẬN</span>
         <div class="cp-divider-line"></div>
       </div>
-
-      <!-- Gọi cả trận -->
       <button class="cp-call-match-btn" onclick="cpCallMatch()">
         <span style="font-size:20px">🔊</span>
         <div style="text-align:left">
@@ -5341,217 +5252,187 @@ licCheckOnStart();
           <div id="cp-match-desc" style="font-size:11px;font-weight:400;opacity:.8;margin-top:1px">Gọi tất cả 4 VĐV vào sân</div>
         </div>
       </button>
-
-      <!-- Status -->
       <div class="cp-status" id="cp-status">
         <span id="cp-status-icon">✅</span>
-        <span id="cp-status-text">Đã gửi!</span>
+        <span id="cp-status-text"></span>
       </div>
     </div>
-
-    <!-- Footer -->
-    <div class="cp-ref-footer">
-      📡 Hiển thị ngay trên màn hình Admin quản lý giải đấu này
-    </div>
-
+    <div class="cp-ref-footer">📡 Hiển thị ngay trên màn hình Admin quản lý giải đấu này</div>
   </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  📣 CALL PLAYER — Referee Side
-//  Gửi qua GAS LiveScore (action=live) với key "CALL|giai|ts"
-//  Admin nhận từ live poll mỗi 8s → hiển thị popup
+//  📣 CALL PLAYER — Referee v19
+//  POST action=callPlayer → GAS ghi EventLog
+//  Admin poll action=getCallPlayer → nhận và hiển thị popup
 // ══════════════════════════════════════════════════════════════
 
 function cpOpenModal() {
-  const m = S.currentMatch;
-  const pA = m?.playersA || S.playersA || ['',''];
-  const pB = m?.playersB || S.playersB || ['',''];
-  const tA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
-  const tB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
+  var m  = S.currentMatch;
+  var pA = (m && m.playersA) ? m.playersA : (S.playersA || ['','']);
+  var pB = (m && m.playersB) ? m.playersB : (S.playersB || ['','']);
+  var tA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
+  var tB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
 
-  // Update labels
-  _cpRefSetText('cp-label-a', sn(tA) || 'ĐỘI A');
-  _cpRefSetText('cp-label-b', sn(tB) || 'ĐỘI B');
-  _cpRefSetText('cp-name-a0', pA[0] || (sn(tA)+' VĐV 1'));
-  _cpRefSetText('cp-name-a1', pA[1] || (sn(tA)+' VĐV 2'));
-  _cpRefSetText('cp-name-b0', pB[0] || (sn(tB)+' VĐV 1'));
-  _cpRefSetText('cp-name-b1', pB[1] || (sn(tB)+' VĐV 2'));
+  function ste(id, txt) { var el=document.getElementById(id); if(el) el.textContent=txt; }
+  ste('cp-label-a', (sn(tA)||'ĐỘI A').toUpperCase());
+  ste('cp-label-b', (sn(tB)||'ĐỘI B').toUpperCase());
+  ste('cp-name-a0', pA[0] || sn(tA)+' VĐV 1');
+  ste('cp-name-a1', pA[1] || sn(tA)+' VĐV 2');
+  ste('cp-name-b0', pB[0] || sn(tB)+' VĐV 1');
+  ste('cp-name-b1', pB[1] || sn(tB)+' VĐV 2');
 
-  // Match pill
-  const pill = document.getElementById('cp-match-pill');
-  const desc = document.getElementById('cp-match-desc');
+  var pill = document.getElementById('cp-match-pill');
+  var desc = document.getElementById('cp-match-desc');
   if (m) {
-    const matchStr = [m.bang, m.code ? 'Mã '+m.code : ''].filter(Boolean).join(' · ');
-    const fullStr  = [m.noidung, matchStr, m.court].filter(Boolean).join(' · ');
-    if (pill) { pill.textContent = '🏆 '+fullStr; pill.style.display='block'; }
-    if (desc) desc.textContent = (matchStr||'Trận đấu')+' — Gọi tất cả 4 VĐV';
+    var ms = [m.bang, m.code ? 'Mã '+m.code : ''].filter(Boolean).join(' · ');
+    var fs = [m.noidung, ms, m.court].filter(Boolean).join(' · ');
+    if (pill) { pill.textContent = '🏆 '+fs; pill.style.display='block'; }
+    if (desc) desc.textContent = (ms||'Trận đấu')+' — Gọi tất cả 4 VĐV';
   } else {
     if (pill) pill.style.display='none';
     if (desc) desc.textContent = 'Gọi tất cả 4 VĐV vào sân';
   }
 
-  // Reset button states + status
-  ['a0','a1','b0','b1'].forEach(id => {
-    const btn = document.getElementById('cp-btn-'+id);
-    if (btn) btn.classList.remove('called');
-  });
-  _cpRefStatus('hide');
+  var st = document.getElementById('cp-status');
+  if (st) st.style.display = 'none';
 
   document.getElementById('cp-modal-ref').classList.add('show');
 }
 
-function _cpRefSetText(id, txt) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = txt;
-}
-
-function _cpRefStatus(type, msg) {
-  const el = document.getElementById('cp-status');
-  const icon = document.getElementById('cp-status-icon');
-  const txt  = document.getElementById('cp-status-text');
+function _cpStatus(type, msg) {
+  var el = document.getElementById('cp-status');
+  var ic = document.getElementById('cp-status-icon');
+  var tx = document.getElementById('cp-status-text');
   if (!el) return;
   if (type === 'hide') { el.style.display='none'; return; }
   el.className = 'cp-status ' + (type||'ok');
   el.style.display = 'flex';
-  if (icon) icon.textContent = type==='ok'?'✅':type==='err'?'⚠️':'⏳';
-  if (txt)  txt.textContent  = msg || '';
+  if (ic) ic.textContent = type==='ok'?'✅':type==='err'?'⚠️':'⏳';
+  if (tx) tx.textContent = msg || '';
   if (type === 'ok') {
-    clearTimeout(el._timer);
-    el._timer = setTimeout(() => { el.style.display='none'; }, 4000);
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.style.display='none'; }, 4500);
   }
 }
 
-// ── Core: build và gửi CALL row vào LiveScore sheet ──
-async function _cpSendCall(callType, players) {
+// Core: POST action=callPlayer đến GAS
+async function _cpPost(callType, players) {
   if (!GS_URL) {
-    _cpRefStatus('err', '⚠️ Chưa kết nối GSheets!');
-    toast('⚠️ Chưa kết nối GSheets — không gửi được!');
+    _cpStatus('err', 'Chưa kết nối GSheets!');
     return false;
   }
+  var m     = S.currentMatch;
+  var giai  = (m && m.giai) ? m.giai : '';
+  var court = (document.getElementById('inp-court') || {}).value || '';
+  var ref   = (document.getElementById('inp-referee') || {}).value || '';
 
-  const m     = S.currentMatch;
-  const giai  = m?.giai || '';
-  const ts    = Date.now();
-
-  // key = "CALL|giai|ts" — admin nhận dạng qua prefix CALL|
-  const key   = 'CALL|' + (giai||'unknown') + '|' + ts;
-
-  // Extra info (matchCode, matchNd) encode vào col r[4] dưới dạng JSON
-  const extra = JSON.stringify({
-    matchCode: m?.code   || '',
-    matchNd:   m?.noidung || '',
+  var body = JSON.stringify({
+    action     : 'callPlayer',
+    callType   : callType,
+    players    : players,
+    matchGiai  : giai,
+    matchNd    : m ? (m.noidung || '') : '',
+    matchBang  : m ? (m.bang    || '') : '',
+    matchCode  : m ? (m.code    || '') : '',
+    court      : court,
+    referee    : ref,
+    ts         : Date.now(),
   });
 
-  const court   = document.getElementById('inp-court')?.value || '';
-  const referee = document.getElementById('inp-referee')?.value || '';
-
-  // Row format for LiveScore sheet:
-  // [key, giai, JSON_players, callType, extraJSON, matchBang, court, ts, referee, "call"]
-  const row = [
-    key,
-    giai,
-    JSON.stringify(players),
-    callType,
-    extra,
-    m?.bang   || '',
-    court,
-    ts,
-    referee,
-    'call',   // status — admin filter bằng field này
-  ];
-
-  _cpRefStatus('sending', '⏳ Đang gửi...');
-  setDot('syn');
+  _cpStatus('sending', 'Đang gửi...');
+  setDot && setDot('syn');
 
   try {
-    const res = await fetch(GS_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body:    JSON.stringify({ action: 'live', row, giai }),
+    var res = await fetch(GS_URL, {
+      method  : 'POST',
+      headers : { 'Content-Type': 'text/plain;charset=utf-8' },
+      body    : body,
       redirect: 'follow',
     });
-    // GAS không nhất thiết phải trả ok:true — chỉ cần không throw
-    setDot('ok');
-    setTimeout(() => setDot(''), 2000);
-    return true;
+    var json = {};
+    try { json = await res.json(); } catch(e) {}
+    if (json.ok !== false) {
+      setDot && setDot('ok');
+      setTimeout(function(){ setDot && setDot(''); }, 2000);
+      return true;
+    } else {
+      throw new Error(json.error || 'GAS returned error');
+    }
   } catch(e) {
-    setDot('err');
-    _cpRefStatus('err', '⚠️ Gửi thất bại: ' + e.message);
+    setDot && setDot('err');
+    _cpStatus('err', 'Gửi thất bại: ' + e.message);
     return false;
   }
 }
 
 function cpCallPlayer(side, idx) {
-  const m   = S.currentMatch;
-  const pA  = m?.playersA || S.playersA || ['',''];
-  const pB  = m?.playersB || S.playersB || ['',''];
-  const tA  = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
-  const tB  = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
-  const ps  = side==='a' ? pA : pB;
-  const tn  = side==='a' ? sn(tA) : sn(tB);
-  const p   = ps[idx] || (tn+' VĐV '+(idx+1));
+  var m  = S.currentMatch;
+  var pA = (m && m.playersA) ? m.playersA : (S.playersA || ['','']);
+  var pB = (m && m.playersB) ? m.playersB : (S.playersB || ['','']);
+  var tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  var tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  var ps = side==='a' ? pA : pB;
+  var tn = side==='a' ? sn(tA) : sn(tB);
+  var p  = ps[idx] || (tn+' VĐV '+(idx+1));
 
   // Flash button
-  const btn = document.getElementById('cp-btn-'+side+idx);
+  var btn = document.getElementById('cp-btn-'+side+idx);
   if (btn) {
-    btn.style.background = side==='a' ? '#dcfce7' : '#dbeafe';
-    btn.style.borderColor = side==='a' ? '#22c55e' : '#3b82f6';
-    setTimeout(() => {
-      if (btn) {
-        btn.style.background = '#fff';
-        btn.style.borderColor = side==='a' ? '#bbf7d0' : '#bfdbfe';
-      }
+    btn.style.background = side==='a'?'#dcfce7':'#dbeafe';
+    btn.style.borderColor = side==='a'?'#22c55e':'#3b82f6';
+    setTimeout(function(){
+      if (btn) { btn.style.background='#fff'; btn.style.borderColor=side==='a'?'#bbf7d0':'#bfdbfe'; }
     }, 1000);
   }
 
-  _cpSendCall('player_'+side+idx, [p]).then(ok => {
+  _cpPost('player_'+side+idx, [p]).then(function(ok) {
     if (ok) {
-      _cpRefStatus('ok', 'Đã gọi: '+p);
-      toast('📣 Đã gọi: '+p, 2500);
+      _cpStatus('ok', 'Đã gọi: '+p);
+      toast && toast('📣 Đã gọi: '+p, 2500);
       navigator.vibrate && navigator.vibrate([70,40,70]);
     }
   });
 }
 
 function cpCallTeam(side) {
-  const m  = S.currentMatch;
-  const pA = m?.playersA || S.playersA || ['',''];
-  const pB = m?.playersB || S.playersB || ['',''];
-  const tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
-  const tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
-  const ps = side==='a' ? pA : pB;
-  const tn = side==='a' ? sn(tA) : sn(tB);
-  const p0 = ps[0] || (tn+' VĐV 1');
-  const p1 = ps[1] || (tn+' VĐV 2');
-  const tl = side==='a' ? 'ĐỘI A' : 'ĐỘI B';
+  var m  = S.currentMatch;
+  var pA = (m && m.playersA) ? m.playersA : (S.playersA || ['','']);
+  var pB = (m && m.playersB) ? m.playersB : (S.playersB || ['','']);
+  var tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  var tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  var ps = side==='a' ? pA : pB;
+  var tn = side==='a' ? sn(tA) : sn(tB);
+  var p0 = ps[0] || (tn+' VĐV 1');
+  var p1 = ps[1] || (tn+' VĐV 2');
+  var tl = side==='a' ? 'ĐỘI A' : 'ĐỘI B';
 
-  _cpSendCall('team_'+side, [p0, p1]).then(ok => {
+  _cpPost('team_'+side, [p0, p1]).then(function(ok) {
     if (ok) {
-      _cpRefStatus('ok', 'Đã gọi '+tl+': '+p0+' & '+p1);
-      toast('📢 Đã gọi '+tl+'!', 2500);
+      _cpStatus('ok', 'Đã gọi '+tl+': '+p0+' & '+p1);
+      toast && toast('📢 Đã gọi '+tl+'!', 2500);
       navigator.vibrate && navigator.vibrate([80,40,80,40,120]);
     }
   });
 }
 
 function cpCallMatch() {
-  const m  = S.currentMatch;
-  const pA = m?.playersA || S.playersA || ['',''];
-  const pB = m?.playersB || S.playersB || ['',''];
-  const tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
-  const tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
-  const p0 = pA[0] || (sn(tA)+' VĐV 1');
-  const p1 = pA[1] || (sn(tA)+' VĐV 2');
-  const p2 = pB[0] || (sn(tB)+' VĐV 1');
-  const p3 = pB[1] || (sn(tB)+' VĐV 2');
-  const matchStr = m ? [(m.bang||''), m.code?'Mã '+m.code:''].filter(Boolean).join(' ') : 'Trận đấu';
+  var m  = S.currentMatch;
+  var pA = (m && m.playersA) ? m.playersA : (S.playersA || ['','']);
+  var pB = (m && m.playersB) ? m.playersB : (S.playersB || ['','']);
+  var tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  var tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  var p0 = pA[0] || (sn(tA)+' VĐV 1');
+  var p1 = pA[1] || (sn(tA)+' VĐV 2');
+  var p2 = pB[0] || (sn(tB)+' VĐV 1');
+  var p3 = pB[1] || (sn(tB)+' VĐV 2');
+  var ms = m ? [(m.bang||''), m.code?'Mã '+m.code:''].filter(Boolean).join(' ') : 'Trận đấu';
 
-  _cpSendCall('match', [p0,p1,p2,p3]).then(ok => {
+  _cpPost('match', [p0,p1,p2,p3]).then(function(ok) {
     if (ok) {
-      _cpRefStatus('ok', 'Đã gọi trận: '+matchStr);
-      toast('🔊 Đã gọi: '+matchStr, 3000);
+      _cpStatus('ok', 'Đã gọi: '+ms);
+      toast && toast('🔊 Đã gọi: '+ms, 3000);
       navigator.vibrate && navigator.vibrate([100,50,100,50,200]);
     }
   });
