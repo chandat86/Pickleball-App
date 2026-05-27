@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v48.2.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v48.22.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -11666,9 +11666,18 @@ const _origNdBkRender = window._ndBkRender;
 ══════════════════════════════════════════════════════════════ -->
 <style>
 /* ── Tray ── */
-#cp-tray{position:fixed;top:16px;right:16px;z-index:9990;
-  display:flex;flex-direction:column;gap:10px;pointer-events:none;
-  max-width:360px;width:calc(100vw - 32px)}
+#cp-tray{
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:99999;  /* above everything */
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
+  max-width:360px;
+  width:min(360px, calc(100vw - 32px));
+}
 
 /* ── Card ── */
 .cpn{background:linear-gradient(145deg,#160830,#1e0d42);
@@ -11806,19 +11815,22 @@ const _origNdBkRender = window._ndBkRender;
 //  Lọc theo giai của manager, admin thấy tất cả
 // ══════════════════════════════════════════════════════════════
 
-var _cpHist    = [];
-var _cpSeen    = new Set();
-var _cpUnread  = 0;
-var _cpTimer   = null;
-var _cpSince   = 0;        // timestamp của lệnh gọi cuối đã xử lý
-var _cpDismissMs = 16000;  // tự đóng sau 16s
+var _cpHist      = [];
+var _cpSeen      = new Set();
+var _cpUnread    = 0;
+var _cpTimer     = null;
+var _cpDismissMs = 15000;  // tự đóng sau 15 giây (theo yêu cầu)
 
-// Load history từ localStorage
+// _cpSince: chỉ nhận call MỚI kể từ khi mở trang (tránh spam lại call cũ)
+// Cho phép nhận lại call trong vòng 2 phút trước (trường hợp vừa login xong)
+var _cpSince = Date.now() - 120000;
+
+// Load history từ localStorage (chỉ để hiển thị lịch sử, không ảnh hưởng _cpSince)
 try {
   var _raw = JSON.parse(localStorage.getItem('pb_cp_hist_v3') || '[]');
   _cpHist = _raw;
   _raw.forEach(function(r){ _cpSeen.add(r.ts); });
-  if (_raw.length) _cpSince = Math.max.apply(null, _raw.map(function(r){ return r.ts||0; }));
+  // Nếu có call trong 2 phút gần nhất → đã seen, không show lại
 } catch(e){}
 
 function _cpSave(){
@@ -11843,14 +11855,26 @@ function _cpSide(ct, i){
   return 'a';
 }
 
-// ── Kiểm tra giải khớp ──
+// ── Kiểm tra giải khớp (so sánh cả tên lẫn mã giải) ──
 function _cpGiaiOk(rGiai){
   if(!rGiai) return true;
   if(typeof ROLE==='undefined' || ROLE==='admin') return true;
   var list = (typeof MY_GIAI_LIST !== 'undefined') ? MY_GIAI_LIST : [];
   if(!list.length) return true;
   var rg = rGiai.trim().toLowerCase();
-  return list.some(function(g){ return g.trim().toLowerCase()===rg; });
+  // So khớp trực tiếp với MY_GIAI_LIST (mã giải)
+  if(list.some(function(g){ return g.trim().toLowerCase()===rg; })) return true;
+  // So khớp với tên giải trong _T (tournaments array)
+  if(typeof _T !== 'undefined' && Array.isArray(_T)){
+    return _T.some(function(t){
+      var tId   = String(t[0]||'').trim().toLowerCase();
+      var tName = String(t[1]||'').trim().toLowerCase();
+      var isMyGiai = list.some(function(g){ return g.trim().toLowerCase()===tId; });
+      if(!isMyGiai) return false;
+      return rg===tId || rg===tName;
+    });
+  }
+  return false;
 }
 
 // ── Hiển thị notification card ──
@@ -11981,11 +12005,9 @@ async function _cpPoll(){
   var gs = (typeof GS !== 'undefined') ? GS : null;
   if(!gs) return;
   try {
-    var giaiParam = '';
-    if(typeof ROLE!=='undefined' && ROLE==='manager' && typeof MY_GIAI!=='undefined' && MY_GIAI){
-      giaiParam = '&giai='+encodeURIComponent(MY_GIAI.split(',')[0].trim());
-    }
-    var url = gs+'?action=getCallPlayer&since='+_cpSince+giaiParam+'&_t='+Date.now();
+    // Không filter giai ở GAS — client tự lọc bằng _cpGiaiOk()
+    // (vì GAS lưu tên giải, client có MY_GIAI_LIST là mã giải → mismatch nếu filter ở GAS)
+    var url = gs+'?action=getCallPlayer&since='+_cpSince+'&_t='+Date.now();
     var res  = await fetch(url, {method:'GET', redirect:'follow'});
     var text = await res.text();
     var data;
@@ -12008,27 +12030,25 @@ async function _cpPoll(){
   } catch(e){ /* silent */ }
 }
 
-// ── Start polling sau khi GS đã set (sau login) ──
+// ── Start polling ──
 function _cpStart(){
   if(_cpTimer) return;
   _cpTimer = setInterval(_cpPoll, 6000);
-  setTimeout(_cpPoll, 800); // poll ngay lần đầu
+  _cpPoll(); // poll ngay lập tức
 }
 
-// Hook vào showApp — chạy sau khi GS được set
-(function(){
-  function _hookShowApp(){
-    var orig = window.showApp;
-    if(typeof orig === 'function'){
-      window.showApp = function(){
-        orig.apply(this, arguments);
-        setTimeout(_cpStart, 600);
-      };
-    } else {
-      setTimeout(_hookShowApp, 150);
+// ── Khởi động: chờ GS được set (sau login hoặc restore session) ──
+// Không dùng hook showApp vì có thể đã bị gọi trước khi script này chạy
+(function _cpWaitAndStart(){
+  var _waitTimer = setInterval(function(){
+    var gs = (typeof GS !== 'undefined') ? GS : null;
+    if(gs){
+      clearInterval(_waitTimer);
+      _cpStart();
     }
-  }
-  _hookShowApp();
+  }, 500);
+  // Timeout tối đa 5 phút (600 lần × 500ms)
+  setTimeout(function(){ clearInterval(_waitTimer); }, 300000);
 })();
 
 // ── Test từ console: cpTest('match') hoặc cpTest('team_a') ──
