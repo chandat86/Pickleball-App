@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v28.2 Da Nang Referee v17 – Pickleball</title>
+<title>v28.3 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -195,21 +195,22 @@ select, input { font-family: inherit; }
 */
 .players-list {
   width: 100%;
+  position: relative;
   display: flex; flex-direction: column; gap: 2px;
   margin-bottom: 4px;
 }
 
 /* Mỗi hàng = flex: [khung tên flex:1] [dots+badge cố định] */
 .player-slot {
-  display: flex; align-items: stretch; gap: 4px;
+  display: flex; align-items: center; gap: 4px;
 }
 
 /* Khung tên — tự động co giãn theo nội dung */
 .player-row {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 5px 8px;
-  border-radius: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.08);
   background: #fff;
   transition: border-color .2s, background .2s;
@@ -232,18 +233,18 @@ select, input { font-family: inherit; }
   width: 100%; min-width: 0; flex: 1;
 }
 .player-name {
-  font-size: 10.5px; font-weight: 600; color: var(--g700);
+  font-size: 13px; font-weight: 700; color: var(--green-dk);
   flex: 1; white-space: normal; overflow: visible; text-overflow: unset;
   word-break: break-word;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .player-row.is-server .player-name { color: var(--green-dk); font-weight: 700; }
 .team-card.winner .player-row.is-server .player-name { color: var(--amber-dk); }
 
 .btn-note {
   background: none; border: none; padding: 0;
-  font-size: 11px; line-height: 1; cursor: pointer; flex-shrink: 0;
-  opacity: 0.4; transition: opacity .15s;
+  font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0;
+  opacity: 0.75; transition: opacity .15s;
 }
 .btn-note:hover { opacity: 1; }
 
@@ -267,53 +268,50 @@ select, input { font-family: inherit; }
 }
 .player-note-input.visible { display: block; }
 
-/* Cột phải: dots + badge */
+/* Cột phải: dots dọc + badge */
 .player-right {
-  display: flex; align-items: center; justify-content: center; gap: 3px;
+  display: flex; align-items: center; gap: 3px;
   flex-shrink: 0;
 }
-.serve-balls { display: flex; gap: 2px; align-items: center; }
+.serve-balls { display: flex; flex-direction: column; gap: 2px; align-items: center; }
 .serve-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
   background: #f59e0b; display: inline-block; flex-shrink: 0;
 }
 .pos-badge {
-  font-size: 8px; font-weight: 800; font-family: 'Oswald', sans-serif;
-  color: #fff; border-radius: 4px; padding: 2px 5px;
-  flex-shrink: 0; letter-spacing: .1px; min-width: 22px; text-align: center;
+  font-size: 11px; font-weight: 800; font-family: 'Oswald', sans-serif;
+  color: #fff; border-radius: 6px; padding: 4px 6px;
+  flex-shrink: 0; letter-spacing: .1px; min-width: 28px; text-align: center;
 }
 .pos-badge-1 { background: #0369a1; }
 .pos-badge-2 { background: #0891b2; }
 
-/* Nút ↑↓ — hàng riêng giữa 2 player, căn giữa, không che tên */
+/* Nút ↑↓ — absolute, chồng chính giữa khoảng giữa 2 hàng VĐV, căn center ngang */
 .swap-players-btn {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
   display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 20px;
-  background: rgba(255,255,255,0.95);
+  width: 32px; height: 24px;
+  background: rgba(255,255,255,0.97);
   border: 1.5px solid var(--g300);
-  border-radius: 6px;
-  color: var(--g500); font-size: 12px; line-height: 1;
+  border-radius: 7px;
+  color: var(--g500); font-size: 13px; line-height: 1;
   cursor: pointer; transition: all .15s; padding: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
   letter-spacing: -2px;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  margin: 1px auto;
-  align-self: center;
 }
-/* Hàng chứa nút swap — căn phải thẳng cột badge (≈37px) */
-.swap-row {
-  display: flex;
-  justify-content: flex-end;
-  padding-right: 0;
-  margin: 0;
-}
+/* .swap-row không dùng nữa */
+.swap-row { display: contents; }
 .swap-players-btn:hover {
   border-color: var(--blue); color: var(--blue);
   background: rgba(239,246,255,.98);
   box-shadow: 0 2px 10px rgba(59,130,246,.25);
 }
-.swap-players-btn:active { transform: scale(.88); }
+.swap-players-btn:active { transform: translate(-50%, -50%) scale(.88); }
 
 /* ── Số điểm ── */
 .snum {
