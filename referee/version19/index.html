@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v19 Da Nang Referee v19 – Pickleball</title>
+<title>v19 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -799,18 +799,17 @@ select, input { font-family: inherit; }
 
 <!-- ── NÚT GỌI VĐV ── -->
 <div style="margin-top:8px">
-  <button id="btn-call-player" onclick="openCallPlayerModal()"
-    style="width:100%;border:none;border-radius:12px;padding:13px 0;
-    background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;
-    font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;
-    letter-spacing:.8px;cursor:pointer;
-    box-shadow:0 4px 16px rgba(109,40,217,.35);
-    display:flex;align-items:center;justify-content:center;gap:8px;
-    transition:all .15s">
+  <button onclick="cpOpenModal()"
+    style="width:100%;border:none;border-radius:13px;padding:13px 0;
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;
+    font-family:Oswald,sans-serif;font-size:15px;font-weight:700;letter-spacing:.8px;
+    cursor:pointer;box-shadow:0 4px 18px rgba(109,40,217,.4);
+    display:flex;align-items:center;justify-content:center;gap:9px">
     <span style="font-size:18px">📣</span>
     <span>GỌI VĐV / GỌI TRẬN ĐẤU</span>
   </button>
 </div>
+
 <div id="toss-bar" style="display:none;margin-top:8px">
 <div style="background:var(--card);border-radius:14px;padding:14px 14px 12px;box-shadow:var(--sh)">
 
@@ -5101,385 +5100,459 @@ licCheckOnStart();
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     MODAL GỌI VĐV / GỌI TRẬN ĐẤU
+     📣 POPUP GỌI VĐV — Referee v19
 ══════════════════════════════════════════════════════ -->
-<div class="modal-ov" id="modal-call-player" style="z-index:600;padding:12px">
-  <div style="background:#fff;border-radius:20px;width:100%;max-width:400px;
-    box-shadow:0 24px 64px rgba(0,0,0,.28);overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
+<style>
+#cp-modal-ref {
+  display:none; position:fixed; inset:0;
+  background:rgba(15,23,42,.65); backdrop-filter:blur(5px);
+  z-index:600; align-items:center; justify-content:center; padding:12px;
+}
+#cp-modal-ref.show { display:flex; }
+
+.cp-ref-box {
+  background:#fff; border-radius:22px;
+  width:100%; max-width:400px; max-height:92vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 28px 64px rgba(0,0,0,.32);
+  overflow:hidden;
+  animation:cpRefPop .35s cubic-bezier(.34,1.4,.64,1);
+}
+@keyframes cpRefPop {
+  from { opacity:0; transform:scale(.88) translateY(20px); }
+  to   { opacity:1; transform:none; }
+}
+
+/* Header gradient tím */
+.cp-ref-hdr {
+  background:linear-gradient(135deg,#7c3aed,#5b21b6);
+  padding:16px 18px 14px; flex-shrink:0;
+}
+.cp-ref-hdr-top {
+  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+}
+.cp-ref-hdr-icon {
+  width:40px; height:40px; border-radius:11px;
+  background:rgba(255,255,255,.18); font-size:20px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.cp-ref-hdr-text { flex:1; min-width:0; }
+.cp-ref-title {
+  font-family:'Oswald',sans-serif; font-size:17px; font-weight:700;
+  color:#fff; letter-spacing:.5px;
+}
+.cp-ref-subtitle { font-size:11px; color:rgba(255,255,255,.7); margin-top:1px; }
+.cp-ref-close {
+  background:rgba(255,255,255,.15); border:none; color:#fff;
+  border-radius:8px; width:32px; height:32px; font-size:16px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.cp-ref-match-pill {
+  background:rgba(255,255,255,.13); border-radius:8px;
+  padding:6px 11px; font-size:11px; color:rgba(255,255,255,.9);
+  display:none; line-height:1.4;
+}
+
+/* Body */
+.cp-ref-body {
+  flex:1; overflow-y:auto; padding:14px;
+}
+
+/* Team cards */
+.cp-team-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:13px;
+}
+.cp-team-card {
+  border-radius:14px; padding:11px;
+}
+.cp-team-card.side-a {
+  background:#f0fdf4; border:2px solid #bbf7d0;
+}
+.cp-team-card.side-b {
+  background:#eff6ff; border:2px solid #bfdbfe;
+}
+.cp-team-label {
+  display:flex; align-items:center; gap:5px; margin-bottom:9px;
+}
+.cp-team-dot {
+  width:7px; height:7px; border-radius:50%; flex-shrink:0;
+}
+.side-a .cp-team-dot { background:#22c55e; }
+.side-b .cp-team-dot { background:#3b82f6; }
+.cp-team-name {
+  font-family:'Oswald',sans-serif; font-size:11.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px;
+}
+.side-a .cp-team-name { color:#15803d; }
+.side-b .cp-team-name { color:#1d4ed8; }
+
+/* VĐV buttons */
+.cp-vdv-btn {
+  width:100%; border-radius:9px; padding:8px 9px;
+  display:flex; align-items:center; gap:6px;
+  text-align:left; cursor:pointer; transition:all .18s;
+  margin-bottom:6px; background:#fff;
+}
+.side-a .cp-vdv-btn { border:1.5px solid #bbf7d0; }
+.side-b .cp-vdv-btn { border:1.5px solid #bfdbfe; }
+.side-a .cp-vdv-btn:hover { background:#dcfce7; border-color:#22c55e; }
+.side-b .cp-vdv-btn:hover { background:#dbeafe; border-color:#3b82f6; }
+.side-a .cp-vdv-btn:active { background:#bbf7d0; transform:scale(.97); }
+.side-b .cp-vdv-btn:active { background:#bfdbfe; transform:scale(.97); }
+.cp-vdv-btn.called { opacity:.55; pointer-events:none; }
+
+.cp-vdv-lbl { font-size:9px; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.cp-vdv-name { font-size:12px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Gọi cả đội */
+.cp-call-team-btn {
+  width:100%; border:none; border-radius:9px; padding:9px;
+  font-family:'Oswald',sans-serif; font-size:12px; font-weight:700;
+  letter-spacing:.4px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+  transition:all .15s; color:#fff; margin-top:2px;
+}
+.cp-call-team-btn:active { transform:scale(.96); opacity:.85; }
+.side-a .cp-call-team-btn { background:linear-gradient(135deg,#22c55e,#16a34a); box-shadow:0 3px 10px rgba(34,197,94,.35); }
+.side-b .cp-call-team-btn { background:linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow:0 3px 10px rgba(59,130,246,.35); }
+
+/* Divider */
+.cp-divider {
+  display:flex; align-items:center; gap:10px; margin-bottom:12px;
+}
+.cp-divider-line { flex:1; height:1px; background:#e2e8f0; }
+.cp-divider-txt { font-size:11px; color:#94a3b8; font-weight:600; white-space:nowrap; }
+
+/* Gọi cả trận */
+.cp-call-match-btn {
+  width:100%; border:none; border-radius:14px; padding:15px;
+  background:linear-gradient(135deg,#7c3aed,#5b21b6); color:#fff;
+  font-family:'Oswald',sans-serif; font-size:15px; font-weight:700; letter-spacing:.6px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px;
+  box-shadow:0 6px 20px rgba(109,40,217,.38); transition:all .15s; margin-bottom:10px;
+}
+.cp-call-match-btn:active { transform:scale(.96); }
+
+/* Status bar */
+.cp-status {
+  border-radius:10px; padding:9px 13px;
+  font-size:12px; font-weight:600; display:none;
+  align-items:center; gap:7px;
+}
+.cp-status.ok  { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
+.cp-status.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+.cp-status.sending { background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
+
+/* Footer */
+.cp-ref-footer {
+  padding:10px 14px; border-top:1px solid #f1f5f9; background:#f8fafc;
+  font-size:10.5px; color:#94a3b8; text-align:center; flex-shrink:0;
+}
+</style>
+
+<!-- Modal GỌI VĐV -->
+<div id="cp-modal-ref">
+  <div class="cp-ref-box">
 
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:18px 20px 16px;flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:38px;height:38px;background:rgba(255,255,255,.18);border-radius:10px;
-            display:flex;align-items:center;justify-content:center;font-size:20px">📣</div>
-          <div>
-            <div style="font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:#fff;letter-spacing:.5px">GỌI VĐV / GỌI TRẬN</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:1px">Thông báo đến màn hình Admin</div>
-          </div>
+    <div class="cp-ref-hdr">
+      <div class="cp-ref-hdr-top">
+        <div class="cp-ref-hdr-icon">📣</div>
+        <div class="cp-ref-hdr-text">
+          <div class="cp-ref-title">GỌI VĐV / GỌI TRẬN</div>
+          <div class="cp-ref-subtitle">Thông báo đến màn hình Admin</div>
         </div>
-        <button onclick="closeModal('modal-call-player')"
-          style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;
-          width:32px;height:32px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+        <button class="cp-ref-close" onclick="closeModal('cp-modal-ref')">✕</button>
       </div>
-      <!-- Match info pill -->
-      <div id="cp-match-info" style="background:rgba(255,255,255,.12);border-radius:8px;padding:7px 12px;
-        font-size:11px;color:rgba(255,255,255,.85);display:none">
-        <span id="cp-match-label"></span>
-      </div>
+      <div class="cp-ref-match-pill" id="cp-match-pill"></div>
     </div>
 
-    <!-- Body scrollable -->
-    <div style="flex:1;overflow-y:auto;padding:16px">
+    <!-- Body -->
+    <div class="cp-ref-body">
 
-      <!-- 2 Team cards -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <!-- 2 đội -->
+      <div class="cp-team-grid">
 
         <!-- Đội A -->
-        <div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:14px;padding:12px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-            <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>
-            <span style="font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
-              color:#15803d;text-transform:uppercase;letter-spacing:.4px" id="cp-team-a-label">ĐỘI A</span>
+        <div class="cp-team-card side-a">
+          <div class="cp-team-label">
+            <div class="cp-team-dot"></div>
+            <span class="cp-team-name" id="cp-label-a">ĐỘI A</span>
           </div>
-          <!-- VĐV 1 đội A -->
-          <button onclick="callPlayer('a',0)"
-            id="cp-btn-a0"
-            style="width:100%;border:1.5px solid #bbf7d0;border-radius:9px;padding:8px 9px;
-            margin-bottom:7px;background:#fff;text-align:left;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;gap:6px">
+          <button class="cp-vdv-btn" id="cp-btn-a0" onclick="cpCallPlayer('a',0)">
             <span style="font-size:14px">🏓</span>
             <div style="min-width:0;flex:1">
-              <div style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">VĐV 1</div>
-              <div id="cp-name-a0" style="font-size:12px;font-weight:700;color:#0f172a;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="cp-vdv-lbl">VĐV 1</div>
+              <div class="cp-vdv-name" id="cp-name-a0">—</div>
             </div>
           </button>
-          <!-- VĐV 2 đội A -->
-          <button onclick="callPlayer('a',1)"
-            id="cp-btn-a1"
-            style="width:100%;border:1.5px solid #bbf7d0;border-radius:9px;padding:8px 9px;
-            background:#fff;text-align:left;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;gap:6px">
+          <button class="cp-vdv-btn" id="cp-btn-a1" onclick="cpCallPlayer('a',1)">
             <span style="font-size:14px">🏓</span>
             <div style="min-width:0;flex:1">
-              <div style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">VĐV 2</div>
-              <div id="cp-name-a1" style="font-size:12px;font-weight:700;color:#0f172a;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="cp-vdv-lbl">VĐV 2</div>
+              <div class="cp-vdv-name" id="cp-name-a1">—</div>
             </div>
           </button>
-          <!-- Gọi cả đội A -->
-          <button onclick="callTeam('a')"
-            id="cp-btn-team-a"
-            style="width:100%;border:none;border-radius:9px;padding:9px;margin-top:9px;
-            background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;
-            font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
-            letter-spacing:.4px;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;justify-content:center;gap:5px">
+          <button class="cp-call-team-btn" onclick="cpCallTeam('a')">
             <span>📢</span> GỌI ĐỘI A
           </button>
         </div>
 
         <!-- Đội B -->
-        <div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:14px;padding:12px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-            <div style="width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0"></div>
-            <span style="font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
-              color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px" id="cp-team-b-label">ĐỘI B</span>
+        <div class="cp-team-card side-b">
+          <div class="cp-team-label">
+            <div class="cp-team-dot"></div>
+            <span class="cp-team-name" id="cp-label-b">ĐỘI B</span>
           </div>
-          <!-- VĐV 1 đội B -->
-          <button onclick="callPlayer('b',0)"
-            id="cp-btn-b0"
-            style="width:100%;border:1.5px solid #bfdbfe;border-radius:9px;padding:8px 9px;
-            margin-bottom:7px;background:#fff;text-align:left;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;gap:6px">
+          <button class="cp-vdv-btn" id="cp-btn-b0" onclick="cpCallPlayer('b',0)">
             <span style="font-size:14px">🏓</span>
             <div style="min-width:0;flex:1">
-              <div style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">VĐV 1</div>
-              <div id="cp-name-b0" style="font-size:12px;font-weight:700;color:#0f172a;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="cp-vdv-lbl">VĐV 1</div>
+              <div class="cp-vdv-name" id="cp-name-b0">—</div>
             </div>
           </button>
-          <!-- VĐV 2 đội B -->
-          <button onclick="callPlayer('b',1)"
-            id="cp-btn-b1"
-            style="width:100%;border:1.5px solid #bfdbfe;border-radius:9px;padding:8px 9px;
-            background:#fff;text-align:left;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;gap:6px">
+          <button class="cp-vdv-btn" id="cp-btn-b1" onclick="cpCallPlayer('b',1)">
             <span style="font-size:14px">🏓</span>
             <div style="min-width:0;flex:1">
-              <div style="font-size:9px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.4px">VĐV 2</div>
-              <div id="cp-name-b1" style="font-size:12px;font-weight:700;color:#0f172a;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+              <div class="cp-vdv-lbl">VĐV 2</div>
+              <div class="cp-vdv-name" id="cp-name-b1">—</div>
             </div>
           </button>
-          <!-- Gọi cả đội B -->
-          <button onclick="callTeam('b')"
-            id="cp-btn-team-b"
-            style="width:100%;border:none;border-radius:9px;padding:9px;margin-top:9px;
-            background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;
-            font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
-            letter-spacing:.4px;cursor:pointer;transition:all .15s;
-            display:flex;align-items:center;justify-content:center;gap:5px">
+          <button class="cp-call-team-btn" onclick="cpCallTeam('b')">
             <span>📢</span> GỌI ĐỘI B
           </button>
         </div>
+
       </div>
 
       <!-- Divider -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <div style="flex:1;height:1px;background:#e2e8f0"></div>
-        <span style="font-size:11px;color:#94a3b8;font-weight:600;white-space:nowrap">HOẶC</span>
-        <div style="flex:1;height:1px;background:#e2e8f0"></div>
+      <div class="cp-divider">
+        <div class="cp-divider-line"></div>
+        <span class="cp-divider-txt">HOẶC GỌI CẢ TRẬN</span>
+        <div class="cp-divider-line"></div>
       </div>
 
       <!-- Gọi cả trận -->
-      <button onclick="callMatch()"
-        id="cp-btn-match"
-        style="width:100%;border:none;border-radius:13px;padding:15px;
-        background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;
-        font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;
-        letter-spacing:.6px;cursor:pointer;margin-bottom:10px;
-        box-shadow:0 6px 20px rgba(109,40,217,.35);
-        display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">
+      <button class="cp-call-match-btn" onclick="cpCallMatch()">
         <span style="font-size:20px">🔊</span>
         <div style="text-align:left">
           <div>GỌI TRẬN ĐẤU</div>
-          <div id="cp-match-title-btn" style="font-size:11px;font-weight:400;opacity:.85;margin-top:1px">Gọi tất cả 4 VĐV vào sân</div>
+          <div id="cp-match-desc" style="font-size:11px;font-weight:400;opacity:.8;margin-top:1px">Gọi tất cả 4 VĐV vào sân</div>
         </div>
       </button>
 
       <!-- Status -->
-      <div id="cp-call-status" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;
-        border-radius:10px;padding:10px 14px;font-size:12px;color:#15803d;
-        display:none;align-items:center;gap:8px">
-        <span style="font-size:16px">✅</span>
-        <span id="cp-call-status-text">Đã gửi lệnh gọi!</span>
-      </div>
-
-    </div>
-
-    <!-- Footer note -->
-    <div style="padding:12px 16px;border-top:1px solid #f1f5f9;background:#f8fafc;flex-shrink:0">
-      <div style="font-size:10.5px;color:#94a3b8;text-align:center;line-height:1.5">
-        📡 Thông báo hiển thị ngay trên màn hình Admin quản lý giải đấu
+      <div class="cp-status" id="cp-status">
+        <span id="cp-status-icon">✅</span>
+        <span id="cp-status-text">Đã gửi!</span>
       </div>
     </div>
+
+    <!-- Footer -->
+    <div class="cp-ref-footer">
+      📡 Hiển thị ngay trên màn hình Admin quản lý giải đấu này
+    </div>
+
   </div>
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════
-//  GỌI VĐV / GỌI TRẬN — Referee Side Functions
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  📣 CALL PLAYER — Referee Side
+//  Gửi qua GAS LiveScore (action=live) với key "CALL|giai|ts"
+//  Admin nhận từ live poll mỗi 8s → hiển thị popup
+// ══════════════════════════════════════════════════════════════
 
-function openCallPlayerModal() {
+function cpOpenModal() {
   const m = S.currentMatch;
-  const modal = document.getElementById('modal-call-player');
+  const pA = m?.playersA || S.playersA || ['',''];
+  const pB = m?.playersB || S.playersB || ['',''];
+  const tA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
+  const tB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
 
-  // Lấy tên vận động viên từ state hiện tại
-  const playersA = (m && m.playersA) ? m.playersA : S.playersA;
-  const playersB = (m && m.playersB) ? m.playersB : S.playersB;
-  const teamA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
-  const teamB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
+  // Update labels
+  _cpRefSetText('cp-label-a', sn(tA) || 'ĐỘI A');
+  _cpRefSetText('cp-label-b', sn(tB) || 'ĐỘI B');
+  _cpRefSetText('cp-name-a0', pA[0] || (sn(tA)+' VĐV 1'));
+  _cpRefSetText('cp-name-a1', pA[1] || (sn(tA)+' VĐV 2'));
+  _cpRefSetText('cp-name-b0', pB[0] || (sn(tB)+' VĐV 1'));
+  _cpRefSetText('cp-name-b1', pB[1] || (sn(tB)+' VĐV 2'));
 
-  // Cập nhật tên đội
-  const labelA = document.getElementById('cp-team-a-label');
-  const labelB = document.getElementById('cp-team-b-label');
-  if (labelA) labelA.textContent = sn(teamA) || 'ĐỘI A';
-  if (labelB) labelB.textContent = sn(teamB) || 'ĐỘI B';
-
-  // Cập nhật tên VĐV
-  const nameA0 = playersA[0] || (sn(teamA) + ' · VĐV 1');
-  const nameA1 = playersA[1] || (sn(teamA) + ' · VĐV 2');
-  const nameB0 = playersB[0] || (sn(teamB) + ' · VĐV 1');
-  const nameB1 = playersB[1] || (sn(teamB) + ' · VĐV 2');
-
-  const na0 = document.getElementById('cp-name-a0'); if (na0) na0.textContent = nameA0;
-  const na1 = document.getElementById('cp-name-a1'); if (na1) na1.textContent = nameA1;
-  const nb0 = document.getElementById('cp-name-b0'); if (nb0) nb0.textContent = nameB0;
-  const nb1 = document.getElementById('cp-name-b1'); if (nb1) nb1.textContent = nameB1;
-
-  // Thông tin trận
-  const cpInfo = document.getElementById('cp-match-info');
-  const cpLabel = document.getElementById('cp-match-label');
-  const cpMatchTitle = document.getElementById('cp-match-title-btn');
+  // Match pill
+  const pill = document.getElementById('cp-match-pill');
+  const desc = document.getElementById('cp-match-desc');
   if (m) {
-    const matchDesc = [m.bang, m.code].filter(Boolean).join(' · Mã ');
-    if (cpLabel) cpLabel.textContent = `🏆 ${m.noidung || ''} · ${matchDesc}${m.court ? ' · ' + m.court : ''}`;
-    if (cpInfo)  cpInfo.style.display = 'block';
-    if (cpMatchTitle) cpMatchTitle.textContent = `${m.bang || ''}${m.code ? ' Mã ' + m.code : ''} — Gọi tất cả 4 VĐV`;
+    const matchStr = [m.bang, m.code ? 'Mã '+m.code : ''].filter(Boolean).join(' · ');
+    const fullStr  = [m.noidung, matchStr, m.court].filter(Boolean).join(' · ');
+    if (pill) { pill.textContent = '🏆 '+fullStr; pill.style.display='block'; }
+    if (desc) desc.textContent = (matchStr||'Trận đấu')+' — Gọi tất cả 4 VĐV';
   } else {
-    if (cpInfo)  cpInfo.style.display = 'none';
-    if (cpMatchTitle) cpMatchTitle.textContent = 'Gọi tất cả 4 VĐV vào sân';
+    if (pill) pill.style.display='none';
+    if (desc) desc.textContent = 'Gọi tất cả 4 VĐV vào sân';
   }
 
-  // Reset status
-  const statusEl = document.getElementById('cp-call-status');
-  if (statusEl) statusEl.style.display = 'none';
+  // Reset button states + status
+  ['a0','a1','b0','b1'].forEach(id => {
+    const btn = document.getElementById('cp-btn-'+id);
+    if (btn) btn.classList.remove('called');
+  });
+  _cpRefStatus('hide');
 
-  modal.classList.add('show');
+  document.getElementById('cp-modal-ref').classList.add('show');
 }
 
-function _showCallStatus(msg) {
-  const el = document.getElementById('cp-call-status');
-  const txt = document.getElementById('cp-call-status-text');
-  if (!el || !txt) return;
-  txt.textContent = msg;
+function _cpRefSetText(id, txt) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = txt;
+}
+
+function _cpRefStatus(type, msg) {
+  const el = document.getElementById('cp-status');
+  const icon = document.getElementById('cp-status-icon');
+  const txt  = document.getElementById('cp-status-text');
+  if (!el) return;
+  if (type === 'hide') { el.style.display='none'; return; }
+  el.className = 'cp-status ' + (type||'ok');
   el.style.display = 'flex';
-  clearTimeout(el._hideTimer);
-  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 4000);
+  if (icon) icon.textContent = type==='ok'?'✅':type==='err'?'⚠️':'⏳';
+  if (txt)  txt.textContent  = msg || '';
+  if (type === 'ok') {
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.style.display='none'; }, 4000);
+  }
 }
 
-async function _sendCallToGS(callData) {
+// ── Core: build và gửi CALL row vào LiveScore sheet ──
+async function _cpSendCall(callType, players) {
   if (!GS_URL) {
-    toast('⚠️ Chưa kết nối GSheets — không thể gửi lệnh gọi!');
+    _cpRefStatus('err', '⚠️ Chưa kết nối GSheets!');
+    toast('⚠️ Chưa kết nối GSheets — không gửi được!');
     return false;
   }
-  const m = S.currentMatch;
-  const payload = {
-    action: 'callPlayer',
-    callType: callData.callType,   // 'player_a0','player_a1','team_a','player_b0','player_b1','team_b','match'
-    message:  callData.message,
-    playerNames: callData.playerNames || [],
-    matchCode: m ? m.code : '',
-    matchBang: m ? m.bang : '',
-    matchNd:   m ? m.noidung : '',
-    matchGiai: m ? m.giai : '',
-    court:     document.getElementById('inp-court')?.value || '',
-    referee:   document.getElementById('inp-referee')?.value || '',
-    ts: Date.now(),
-  };
+
+  const m     = S.currentMatch;
+  const giai  = m?.giai || '';
+  const ts    = Date.now();
+
+  // key = "CALL|giai|ts" — admin nhận dạng qua prefix CALL|
+  const key   = 'CALL|' + (giai||'unknown') + '|' + ts;
+
+  // Extra info (matchCode, matchNd) encode vào col r[4] dưới dạng JSON
+  const extra = JSON.stringify({
+    matchCode: m?.code   || '',
+    matchNd:   m?.noidung || '',
+  });
+
+  const court   = document.getElementById('inp-court')?.value || '';
+  const referee = document.getElementById('inp-referee')?.value || '';
+
+  // Row format for LiveScore sheet:
+  // [key, giai, JSON_players, callType, extraJSON, matchBang, court, ts, referee, "call"]
+  const row = [
+    key,
+    giai,
+    JSON.stringify(players),
+    callType,
+    extra,
+    m?.bang   || '',
+    court,
+    ts,
+    referee,
+    'call',   // status — admin filter bằng field này
+  ];
+
+  _cpRefStatus('sending', '⏳ Đang gửi...');
+  setDot('syn');
+
   try {
-    setDot('syn');
     const res = await fetch(GS_URL, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
+      body:    JSON.stringify({ action: 'live', row, giai }),
       redirect: 'follow',
     });
+    // GAS không nhất thiết phải trả ok:true — chỉ cần không throw
     setDot('ok');
     setTimeout(() => setDot(''), 2000);
     return true;
   } catch(e) {
     setDot('err');
-    console.warn('[callPlayer]', e.message);
+    _cpRefStatus('err', '⚠️ Gửi thất bại: ' + e.message);
     return false;
   }
 }
 
-function callPlayer(side, idx) {
-  const m = S.currentMatch;
-  const playersA = (m && m.playersA) ? m.playersA : S.playersA;
-  const playersB = (m && m.playersB) ? m.playersB : S.playersB;
-  const players  = side === 'a' ? playersA : playersB;
-  const teamA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
-  const teamB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
-  const teamName = side === 'a' ? sn(teamA) : sn(teamB);
-  const playerName = players[idx] || `${teamName} · VĐV ${idx+1}`;
-  const teamLabel = side === 'a' ? 'Đội A' : 'Đội B';
+function cpCallPlayer(side, idx) {
+  const m   = S.currentMatch;
+  const pA  = m?.playersA || S.playersA || ['',''];
+  const pB  = m?.playersB || S.playersB || ['',''];
+  const tA  = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  const tB  = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  const ps  = side==='a' ? pA : pB;
+  const tn  = side==='a' ? sn(tA) : sn(tB);
+  const p   = ps[idx] || (tn+' VĐV '+(idx+1));
 
-  // Visual feedback — flash button
-  const btnId = `cp-btn-${side}${idx}`;
-  const btn = document.getElementById(btnId);
+  // Flash button
+  const btn = document.getElementById('cp-btn-'+side+idx);
   if (btn) {
-    btn.style.background = side === 'a' ? '#dcfce7' : '#dbeafe';
-    btn.style.borderColor = side === 'a' ? '#22c55e' : '#3b82f6';
+    btn.style.background = side==='a' ? '#dcfce7' : '#dbeafe';
+    btn.style.borderColor = side==='a' ? '#22c55e' : '#3b82f6';
     setTimeout(() => {
-      btn.style.background = '#fff';
-      btn.style.borderColor = side === 'a' ? '#bbf7d0' : '#bfdbfe';
-    }, 1200);
+      if (btn) {
+        btn.style.background = '#fff';
+        btn.style.borderColor = side==='a' ? '#bbf7d0' : '#bfdbfe';
+      }
+    }, 1000);
   }
 
-  const matchDesc = m ? `${m.bang || ''} Mã ${m.code || '?'}` : '';
-  const message = `📣 GỌI VĐV: ${playerName} (${teamLabel}) — ${matchDesc}${m?.court ? ' · ' + m.court : ''}`;
-
-  _sendCallToGS({
-    callType: `player_${side}${idx}`,
-    message,
-    playerNames: [playerName],
-  }).then(ok => {
+  _cpSendCall('player_'+side+idx, [p]).then(ok => {
     if (ok) {
-      _showCallStatus(`✅ Đã gọi: ${playerName}`);
-      toast(`📣 Đã gọi: ${playerName}`, 2500);
-      navigator.vibrate && navigator.vibrate([80, 40, 80]);
-    } else {
-      _showCallStatus('⚠️ Gửi thất bại — kiểm tra kết nối GSheets');
+      _cpRefStatus('ok', 'Đã gọi: '+p);
+      toast('📣 Đã gọi: '+p, 2500);
+      navigator.vibrate && navigator.vibrate([70,40,70]);
     }
   });
 }
 
-function callTeam(side) {
-  const m = S.currentMatch;
-  const playersA = (m && m.playersA) ? m.playersA : S.playersA;
-  const playersB = (m && m.playersB) ? m.playersB : S.playersB;
-  const players  = side === 'a' ? playersA : playersB;
-  const teamA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
-  const teamB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
-  const teamName = side === 'a' ? sn(teamA) : sn(teamB);
-  const p1 = players[0] || `${teamName} VĐV 1`;
-  const p2 = players[1] || `${teamName} VĐV 2`;
-  const teamLabel = side === 'a' ? 'Đội A' : 'Đội B';
+function cpCallTeam(side) {
+  const m  = S.currentMatch;
+  const pA = m?.playersA || S.playersA || ['',''];
+  const pB = m?.playersB || S.playersB || ['',''];
+  const tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  const tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  const ps = side==='a' ? pA : pB;
+  const tn = side==='a' ? sn(tA) : sn(tB);
+  const p0 = ps[0] || (tn+' VĐV 1');
+  const p1 = ps[1] || (tn+' VĐV 2');
+  const tl = side==='a' ? 'ĐỘI A' : 'ĐỘI B';
 
-  // Visual feedback
-  const btnTeam = document.getElementById(`cp-btn-team-${side}`);
-  if (btnTeam) {
-    const origBg = btnTeam.style.background;
-    btnTeam.style.opacity = '0.7';
-    setTimeout(() => { btnTeam.style.opacity = '1'; }, 800);
-  }
-
-  const matchDesc = m ? `${m.bang || ''} Mã ${m.code || '?'}` : '';
-  const message = `📢 GỌI ĐỘI ${teamLabel.toUpperCase()}: ${p1} & ${p2} — ${matchDesc}${m?.court ? ' · ' + m.court : ''}`;
-
-  _sendCallToGS({
-    callType: `team_${side}`,
-    message,
-    playerNames: [p1, p2],
-  }).then(ok => {
+  _cpSendCall('team_'+side, [p0, p1]).then(ok => {
     if (ok) {
-      _showCallStatus(`✅ Đã gọi ${teamLabel}: ${p1} & ${p2}`);
-      toast(`📢 Đã gọi ${teamLabel.toUpperCase()}!`, 2500);
-      navigator.vibrate && navigator.vibrate([80, 40, 80, 40, 120]);
-    } else {
-      _showCallStatus('⚠️ Gửi thất bại — kiểm tra kết nối GSheets');
+      _cpRefStatus('ok', 'Đã gọi '+tl+': '+p0+' & '+p1);
+      toast('📢 Đã gọi '+tl+'!', 2500);
+      navigator.vibrate && navigator.vibrate([80,40,80,40,120]);
     }
   });
 }
 
-function callMatch() {
-  const m = S.currentMatch;
-  const playersA = (m && m.playersA) ? m.playersA : S.playersA;
-  const playersB = (m && m.playersB) ? m.playersB : S.playersB;
-  const teamA = m ? (m.origTeamA || m.teamA || 'Đội A') : 'Đội A';
-  const teamB = m ? (m.origTeamB || m.teamB || 'Đội B') : 'Đội B';
-  const p_a0 = playersA[0] || `${sn(teamA)} VĐV 1`;
-  const p_a1 = playersA[1] || `${sn(teamA)} VĐV 2`;
-  const p_b0 = playersB[0] || `${sn(teamB)} VĐV 1`;
-  const p_b1 = playersB[1] || `${sn(teamB)} VĐV 2`;
+function cpCallMatch() {
+  const m  = S.currentMatch;
+  const pA = m?.playersA || S.playersA || ['',''];
+  const pB = m?.playersB || S.playersB || ['',''];
+  const tA = m ? (m.origTeamA||m.teamA||'Đội A') : 'Đội A';
+  const tB = m ? (m.origTeamB||m.teamB||'Đội B') : 'Đội B';
+  const p0 = pA[0] || (sn(tA)+' VĐV 1');
+  const p1 = pA[1] || (sn(tA)+' VĐV 2');
+  const p2 = pB[0] || (sn(tB)+' VĐV 1');
+  const p3 = pB[1] || (sn(tB)+' VĐV 2');
+  const matchStr = m ? [(m.bang||''), m.code?'Mã '+m.code:''].filter(Boolean).join(' ') : 'Trận đấu';
 
-  const matchDesc = m ? `${m.bang || ''} Mã ${m.code || '?'}` : 'Trận đấu';
-
-  // Visual feedback
-  const btn = document.getElementById('cp-btn-match');
-  if (btn) {
-    btn.style.opacity = '0.75';
-    setTimeout(() => { btn.style.opacity = '1'; }, 900);
-  }
-
-  const message = `🔊 GỌI TRẬN: ${matchDesc} — ${sn(teamA)} vs ${sn(teamB)}${m?.court ? ' · ' + m.court : ''}`;
-
-  _sendCallToGS({
-    callType: 'match',
-    message,
-    playerNames: [p_a0, p_a1, p_b0, p_b1],
-  }).then(ok => {
+  _cpSendCall('match', [p0,p1,p2,p3]).then(ok => {
     if (ok) {
-      _showCallStatus(`✅ Đã gọi trận ${matchDesc}`);
-      toast(`🔊 Đã gọi trận: ${matchDesc}`, 3000);
-      navigator.vibrate && navigator.vibrate([100, 50, 100, 50, 200]);
-    } else {
-      _showCallStatus('⚠️ Gửi thất bại — kiểm tra kết nối GSheets');
+      _cpRefStatus('ok', 'Đã gọi trận: '+matchStr);
+      toast('🔊 Đã gọi: '+matchStr, 3000);
+      navigator.vibrate && navigator.vibrate([100,50,100,50,200]);
     }
   });
 }
