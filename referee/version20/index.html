@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20 Da Nang Referee v17 – Pickleball</title>
+<title>v20.6 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -696,6 +696,32 @@ select, input { font-family: inherit; }
 <!-- ── SWAP NOTICE ── -->
 <div class="swap-notice" id="swap-notice">
   <span id="swap-notice-txt">⇄ ĐÃ ĐỔI SÂN!</span>
+</div>
+
+<!-- ── SWAP CONFIRM POPUP ── -->
+<div id="swap-confirm-overlay" style="display:none;position:fixed;inset:0;z-index:10000;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:24px;padding:28px 22px 22px;width:100%;max-width:340px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center;animation:pop .25s ease;">
+    <div style="font-size:44px;margin-bottom:10px;">⇄</div>
+    <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:900;
+      color:#1e293b;letter-spacing:.5px;margin-bottom:6px;">ĐỔI SÂN</div>
+    <div id="swap-confirm-msg" style="font-size:13px;color:#64748b;margin-bottom:22px;line-height:1.5;">
+      Đã đạt điểm đổi sân. Trọng tài xác nhận đổi sân?
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="swapConfirmCancel()"
+        style="flex:1;border:2px solid #e2e8f0;background:#f8fafc;color:#64748b;
+        border-radius:14px;padding:13px;font-family:'Oswald',sans-serif;
+        font-size:15px;font-weight:700;cursor:pointer;">Chưa</button>
+      <button onclick="swapConfirmOk()"
+        style="flex:2;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;
+        border-radius:14px;padding:13px;font-family:'Oswald',sans-serif;
+        font-size:15px;font-weight:900;letter-spacing:.5px;cursor:pointer;
+        box-shadow:0 4px 16px rgba(245,158,11,.45);">✅ XÁC NHẬN ĐỔI SÂN</button>
+    </div>
+  </div>
 </div>
 
 <!-- ── WIN BANNER ── -->
@@ -2451,31 +2477,53 @@ function checkAutoSwap() {
   if (isDone) return;
   const swapAt = RULES[winRule].swap;
   const hi     = Math.max(S.a, S.b);
-  const notice = document.getElementById('swap-notice');
 
   if (!swapNotified && hi >= swapAt) {
     swapNotified = true;
-    [S.a, S.b] = [S.b, S.a];
-    S.server = S.server === 'a' ? 'b' : 'a';
-    if (S.currentMatch) {
-      [S.currentMatch.teamA, S.currentMatch.teamB] = [S.currentMatch.teamB, S.currentMatch.teamA];
-      [S.currentMatch.playersA, S.currentMatch.playersB] = [S.currentMatch.playersB, S.currentMatch.playersA];
-      S.playersA = S.currentMatch.playersA;
-      S.playersB = S.currentMatch.playersB;
-      S.currentMatch.origSideA = S.currentMatch.origSideA === 'a' ? 'b' : 'a';
-    }
-    [S.posA, S.posB] = [S.posB, S.posA];
-    if (notice) {
-      const txt = notice.querySelector('#swap-notice-txt');
-      if (txt) txt.textContent = `⇄ ĐÃ ĐỔI SÂN (${swapAt} điểm)`;
-      notice.classList.add('show');
+    // Hiện popup xác nhận thay vì tự động đổi
+    const overlay = document.getElementById('swap-confirm-overlay');
+    const msg     = document.getElementById('swap-confirm-msg');
+    if (msg) msg.textContent = `Đã đạt ${swapAt} điểm — điểm đổi sân. Trọng tài xác nhận đổi sân?`;
+    if (overlay) {
+      overlay.style.display = 'flex';
       navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 300]);
-      clearTimeout(notice._hideTimer);
-      notice._hideTimer = setTimeout(() => notice.classList.remove('show'), 4000);
     }
-    pushLog(`⇄ TỰ ĐỘNG ĐỔI SÂN (${swapAt} điểm)`, null);
-    setTimeout(() => render(), 0);
+    pushLog(`⚠️ ĐẾN ĐIỂM ĐỔI SÂN (${swapAt} điểm) – chờ xác nhận`, null);
   }
+}
+
+function swapConfirmOk() {
+  const overlay = document.getElementById('swap-confirm-overlay');
+  if (overlay) overlay.style.display = 'none';
+  // Thực hiện đổi sân
+  [S.a, S.b] = [S.b, S.a];
+  S.server = S.server === 'a' ? 'b' : 'a';
+  if (S.currentMatch) {
+    [S.currentMatch.teamA, S.currentMatch.teamB] = [S.currentMatch.teamB, S.currentMatch.teamA];
+    [S.currentMatch.playersA, S.currentMatch.playersB] = [S.currentMatch.playersB, S.currentMatch.playersA];
+    S.playersA = S.currentMatch.playersA;
+    S.playersB = S.currentMatch.playersB;
+    S.currentMatch.origSideA = S.currentMatch.origSideA === 'a' ? 'b' : 'a';
+  }
+  [S.posA, S.posB] = [S.posB, S.posA];
+  pushLog(`⇄ ĐỔI SÂN (xác nhận tại ${RULES[winRule].swap} điểm)`, null);
+  navigator.vibrate && navigator.vibrate([200, 80, 200]);
+  const notice = document.getElementById('swap-notice');
+  if (notice) {
+    const txt = notice.querySelector('#swap-notice-txt');
+    if (txt) txt.textContent = `⇄ ĐÃ ĐỔI SÂN (${RULES[winRule].swap} điểm)`;
+    notice.classList.add('show');
+    clearTimeout(notice._hideTimer);
+    notice._hideTimer = setTimeout(() => notice.classList.remove('show'), 3000);
+  }
+  render();
+}
+
+function swapConfirmCancel() {
+  const overlay = document.getElementById('swap-confirm-overlay');
+  if (overlay) overlay.style.display = 'none';
+  // Không đổi sân, reset flag để popup không hiện lại
+  pushLog(`⚠️ BỎ QUA đổi sân (trọng tài chọn chưa đổi)`, null);
 }
 
 function renderMatchGrid() {
@@ -3053,7 +3101,11 @@ function undo() {
   S.serverPlayerIdx = typeof prev.serverPlayerIdx !== 'undefined' ? prev.serverPlayerIdx : 0;
   if (prev.posA) S.posA = prev.posA;
   if (prev.posB) S.posB = prev.posB;
-  if (Math.max(S.a, S.b) < RULES[winRule].swap) swapNotified = false;
+  if (Math.max(S.a, S.b) < RULES[winRule].swap) {
+    swapNotified = false;
+    const ov = document.getElementById('swap-confirm-overlay');
+    if (ov) ov.style.display = 'none';
+  }
   pushLog('↩ Undo: ' + last.desc, null);
   render();
   // ── FIX: Cập nhật LiveScore sau undo để admin thấy điểm đúng ──
@@ -3067,6 +3119,8 @@ function nextGame() {
   S.timeouts={a:0,b:0}; S.medicals={a:0,b:0}; _pm.serverSide=null; _pm.serverPlayerIdx=0; _pm.receiverPlayerIdx=0;
   swapNotified=false;
   document.getElementById('swap-notice').classList.remove('show');
+  const _scov = document.getElementById('swap-confirm-overlay');
+  if (_scov) _scov.style.display = 'none';
   pushLog(`▶ Game ${S.game} bắt đầu — 0-0-2`, null);
   logToGS(`▶ Bắt đầu Game ${S.game}`, '');
   render();
