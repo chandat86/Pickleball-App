@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v48 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v48.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -11661,198 +11661,267 @@ const _origNdBkRender = window._ndBkRender;
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
-     CALL PLAYER NOTIFICATION SYSTEM — Admin Side
+     📣 CALL PLAYER NOTIFICATION SYSTEM — Admin v48
+     Luồng: Referee POST vào LiveScore sheet (action=live) với
+     key bắt đầu "CALL|giai|ts" → Admin đọc từ live poll 8s
+     → hiển thị popup theo đúng giai của manager đó
 ══════════════════════════════════════════════════════════════ -->
 <style>
-/* ── Call Notification Tray ── */
-#call-tray {
+/* ═══ CALL NOTIFICATION TRAY ═══ */
+#cp-tray {
   position: fixed;
-  top: 14px;
-  right: 14px;
+  top: 16px; right: 16px;
   z-index: 9990;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: flex; flex-direction: column; gap: 10px;
   pointer-events: none;
-  max-width: 340px;
-  width: calc(100vw - 28px);
+  max-width: 360px;
+  width: calc(100vw - 32px);
 }
-.call-notif {
-  background: linear-gradient(135deg, #1e0b40, #2d1060);
-  border: 1.5px solid rgba(167, 139, 250, .4);
-  border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.1);
+
+.cpn {
+  background: linear-gradient(145deg, #160830 0%, #1e0d42 50%, #160830 100%);
+  border: 1.5px solid rgba(139,92,246,.45);
+  border-radius: 18px;
+  padding: 0;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,.65),
+    0 0 0 1px rgba(139,92,246,.12),
+    inset 0 1px 0 rgba(255,255,255,.05);
   pointer-events: all;
-  animation: callSlideIn .35s cubic-bezier(.34,1.3,.64,1);
-  position: relative;
   overflow: hidden;
-}
-.call-notif::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #a78bfa, #8b5cf6, #6d28d9);
-  border-radius: 16px 16px 0 0;
-}
-.call-notif.type-match::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
-.call-notif.type-team-a::before { background: linear-gradient(90deg, #22c55e, #16a34a); }
-.call-notif.type-team-b::before { background: linear-gradient(90deg, #3b82f6, #1d4ed8); }
-
-@keyframes callSlideIn {
-  from { opacity: 0; transform: translateX(60px) scale(.96); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes callFadeOut {
-  to { opacity: 0; transform: translateX(40px) scale(.94); }
+  animation: cpSlideIn .4s cubic-bezier(.34,1.4,.64,1);
+  position: relative;
 }
 
-.call-notif-hdr {
-  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px;
+@keyframes cpSlideIn {
+  from { opacity:0; transform: translateX(80px) scale(.92); }
+  to   { opacity:1; transform: none; }
 }
-.call-notif-icon {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-  background: rgba(167,139,250,.15);
-  display: flex; align-items: center; justify-content: center; font-size: 18px;
+@keyframes cpFadeOut {
+  to { opacity:0; transform: translateX(60px) scale(.94); }
 }
-.call-notif-title {
-  font-size: 11px; font-weight: 800; color: #a78bfa;
-  text-transform: uppercase; letter-spacing: .8px; margin-bottom: 2px;
+
+/* Accent bar trên đầu */
+.cpn-bar {
+  height: 3px; width: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa, #7c3aed);
 }
-.call-notif-match {
-  font-size: 12px; font-weight: 700; color: #e2e8f0; line-height: 1.35;
+.cpn.clr-match   .cpn-bar { background: linear-gradient(90deg, #f59e0b, #fbbf24, #d97706); }
+.cpn.clr-team-a  .cpn-bar { background: linear-gradient(90deg, #22c55e, #4ade80, #16a34a); }
+.cpn.clr-team-b  .cpn-bar { background: linear-gradient(90deg, #3b82f6, #60a5fa, #1d4ed8); }
+
+.cpn-inner { padding: 13px 15px 12px; }
+
+.cpn-hdr {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px;
 }
-.call-notif-close {
-  margin-left: auto; background: rgba(255,255,255,.08); border: none;
-  color: #94a3b8; border-radius: 6px; width: 22px; height: 22px;
-  font-size: 13px; cursor: pointer; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
+.cpn-icon {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.2);
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
 }
-.call-notif-players {
-  display: flex; flex-direction: column; gap: 5px;
+.cpn.clr-match  .cpn-icon { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.2); }
+.cpn.clr-team-a .cpn-icon { background: rgba(34,197,94,.15);  border-color: rgba(34,197,94,.2); }
+.cpn.clr-team-b .cpn-icon { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.2); }
+
+.cpn-meta { flex: 1; min-width: 0; }
+.cpn-type {
+  font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  text-transform: uppercase; color: #a78bfa; margin-bottom: 2px;
 }
-.call-notif-player {
+.cpn.clr-match  .cpn-type { color: #fbbf24; }
+.cpn.clr-team-a .cpn-type { color: #4ade80; }
+.cpn.clr-team-b .cpn-type { color: #60a5fa; }
+
+.cpn-match {
+  font-size: 12.5px; font-weight: 700; color: #f1f5f9; line-height: 1.3;
+}
+.cpn-close {
+  flex-shrink: 0; background: rgba(255,255,255,.07); border: none;
+  color: #64748b; border-radius: 7px;
+  width: 26px; height: 26px; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.cpn-close:hover { background: rgba(255,255,255,.14); color: #94a3b8; }
+
+/* Players list */
+.cpn-players { display: flex; flex-direction: column; gap: 5px; margin-bottom: 9px; }
+.cpn-player {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,.07); border-radius: 8px;
-  padding: 7px 10px;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 9px; padding: 7px 10px;
 }
-.call-notif-player-badge {
-  font-size: 9px; font-weight: 800; border-radius: 5px;
-  padding: 2px 6px; flex-shrink: 0; text-transform: uppercase; letter-spacing: .4px;
+.cpn-side {
+  font-size: 9px; font-weight: 800; letter-spacing: .4px;
+  padding: 2px 7px; border-radius: 5px; flex-shrink: 0; text-transform: uppercase;
 }
-.badge-a { background: rgba(34,197,94,.2); color: #86efac; }
-.badge-b { background: rgba(59,130,246,.2); color: #93c5fd; }
-.call-notif-player-name {
+.side-a { background: rgba(34,197,94,.18);  color: #86efac; border: 1px solid rgba(34,197,94,.2); }
+.side-b { background: rgba(59,130,246,.18); color: #93c5fd; border: 1px solid rgba(59,130,246,.2); }
+
+.cpn-pname {
   font-size: 12.5px; font-weight: 700; color: #f1f5f9;
-  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.call-notif-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 9px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.07);
-}
-.call-notif-court {
-  font-size: 10px; color: #94a3b8; font-weight: 600;
-}
-.call-notif-time {
-  font-size: 10px; color: #64748b;
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* ── Bell badge on dashboard ── */
-#call-bell-btn {
-  position: fixed;
-  bottom: 80px;
-  right: 16px;
+/* Footer */
+.cpn-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 7px; border-top: 1px solid rgba(255,255,255,.06);
+}
+.cpn-court { font-size: 10px; color: #94a3b8; font-weight: 600; }
+.cpn-time  { font-size: 10px; color: #475569; }
+
+/* Progress bar (auto-dismiss) */
+.cpn-progress {
+  height: 2px; background: rgba(139,92,246,.15);
+  margin-top: 9px; border-radius: 2px; overflow: hidden;
+}
+.cpn-progress-bar {
+  height: 100%; border-radius: 2px;
+  background: rgba(139,92,246,.5);
+  transition: width linear;
+}
+
+/* ═══ BELL BUTTON ═══ */
+#cp-bell {
+  position: fixed; bottom: 80px; right: 16px;
   z-index: 9980;
-  width: 50px; height: 50px;
-  border-radius: 50%; border: none;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
   background: linear-gradient(135deg, #7c3aed, #6d28d9);
   color: #fff; font-size: 22px; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(109,40,217,.5);
-  display: none;
-  align-items: center; justify-content: center;
-  animation: bellPulse 2s infinite;
+  box-shadow: 0 6px 24px rgba(109,40,217,.55);
+  display: none; align-items: center; justify-content: center;
+  animation: cpBellPulse 2.2s ease-in-out infinite;
+  transition: transform .15s;
 }
-#call-bell-btn.show { display: flex; }
-.call-badge {
-  position: absolute; top: -4px; right: -4px;
-  background: #ef4444; color: #fff; border-radius: 50%;
-  width: 20px; height: 20px; font-size: 11px; font-weight: 800;
+#cp-bell.show { display: flex; }
+#cp-bell:active { transform: scale(.93); }
+
+.cp-badge {
+  position: absolute; top: -3px; right: -3px;
+  background: #ef4444; color: #fff;
+  border: 2px solid #08111f; border-radius: 50%;
+  min-width: 20px; height: 20px; padding: 0 3px;
+  font-size: 10px; font-weight: 900;
   display: flex; align-items: center; justify-content: center;
-  border: 2px solid #0f1b2d;
-}
-@keyframes bellPulse {
-  0%,100% { box-shadow: 0 6px 20px rgba(109,40,217,.5); }
-  50% { box-shadow: 0 6px 28px rgba(109,40,217,.9), 0 0 0 8px rgba(109,40,217,.15); }
 }
 
-/* ── Call History Panel (modal) ── */
-#call-history-modal {
+@keyframes cpBellPulse {
+  0%,100% { box-shadow: 0 6px 24px rgba(109,40,217,.55); }
+  50%      { box-shadow: 0 6px 32px rgba(109,40,217,.9), 0 0 0 10px rgba(109,40,217,.12); }
+}
+
+/* ═══ HISTORY MODAL ═══ */
+#cp-modal {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
+  background: rgba(0,0,0,.72); backdrop-filter: blur(7px);
   z-index: 9995; align-items: center; justify-content: center; padding: 16px;
 }
-#call-history-modal.show { display: flex; }
-.call-history-box {
-  background: #0f1b2d; border: 1.5px solid #1b3255;
-  border-radius: 20px; width: 100%; max-width: 460px;
-  max-height: 85vh; display: flex; flex-direction: column;
-  box-shadow: 0 24px 64px rgba(0,0,0,.6);
-  animation: callSlideIn .3s ease;
+#cp-modal.show { display: flex; }
+
+.cp-modal-box {
+  background: #0f1b2d;
+  border: 1.5px solid #1b3255;
+  border-radius: 22px;
+  width: 100%; max-width: 480px; max-height: 88vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 28px 72px rgba(0,0,0,.65);
+  animation: cpSlideIn .32s cubic-bezier(.34,1.3,.64,1);
+  overflow: hidden;
 }
-.call-history-hdr {
+
+.cp-modal-hdr {
   padding: 18px 20px 14px;
   border-bottom: 1px solid #1b3255;
-  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(124,58,237,.08), transparent);
 }
-.call-history-title {
-  font-size: 15px; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 8px;
+.cp-modal-icon {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+  box-shadow: 0 4px 14px rgba(109,40,217,.4);
 }
-.call-history-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
-.call-hist-row {
-  border: 1px solid #1b3255; border-radius: 12px; padding: 11px 14px;
-  margin-bottom: 8px; background: rgba(255,255,255,.03);
+.cp-modal-title { flex: 1; }
+.cp-modal-title div:first-child {
+  font-size: 15px; font-weight: 700; color: #e2e8f0;
 }
-.call-hist-time { font-size: 10px; color: #64748b; margin-bottom: 4px; }
-.call-hist-msg { font-size: 13px; font-weight: 600; color: #e2e8f0; line-height: 1.4; margin-bottom: 6px; }
-.call-hist-players { display: flex; flex-wrap: wrap; gap: 5px; }
-.call-hist-player-tag {
-  background: rgba(167,139,250,.15); color: #c4b5fd;
-  border: 1px solid rgba(167,139,250,.3); border-radius: 6px;
+.cp-modal-title div:last-child {
+  font-size: 11px; color: #64748b; margin-top: 2px;
+}
+
+.cp-modal-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+
+.cp-hist-row {
+  border: 1px solid #1b3255; border-radius: 13px;
+  padding: 12px 14px; margin-bottom: 9px;
+  background: rgba(255,255,255,.025);
+  transition: background .15s;
+}
+.cp-hist-row:hover { background: rgba(255,255,255,.045); }
+.cp-hist-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.cp-hist-badge {
+  font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.hbg-match  { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+.hbg-team-a { background: rgba(34,197,94,.15);  color: #86efac;  border: 1px solid rgba(34,197,94,.2); }
+.hbg-team-b { background: rgba(59,130,246,.15); color: #93c5fd;  border: 1px solid rgba(59,130,246,.2); }
+.hbg-player { background: rgba(139,92,246,.15); color: #c4b5fd;  border: 1px solid rgba(139,92,246,.2); }
+
+.cp-hist-match {
+  font-size: 12px; font-weight: 700; color: #e2e8f0; flex: 1;
+}
+.cp-hist-time { font-size: 10px; color: #475569; }
+.cp-hist-players { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.cp-hist-ptag {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  color: #cbd5e1; border-radius: 6px;
   padding: 3px 9px; font-size: 11px; font-weight: 600;
+}
+.cp-hist-detail {
+  font-size: 10.5px; color: #64748b; margin-top: 5px; line-height: 1.4;
 }
 </style>
 
-<!-- Bell button (bottom-right) -->
-<button id="call-bell-btn" onclick="openCallHistory()" title="Lịch sử gọi VĐV">
+<!-- Bell button -->
+<button id="cp-bell" onclick="cpOpenHistory()" title="Lịch sử gọi VĐV">
   <span>📣</span>
-  <span class="call-badge" id="call-badge" style="display:none">0</span>
+  <span class="cp-badge" id="cp-badge" style="display:none">0</span>
 </button>
 
 <!-- Notification tray -->
-<div id="call-tray"></div>
+<div id="cp-tray"></div>
 
-<!-- Call History Modal -->
-<div id="call-history-modal">
-  <div class="call-history-box">
-    <div class="call-history-hdr">
-      <div class="call-history-title">
-        <span style="font-size:20px">📣</span>
-        Lịch sử Gọi VĐV / Trận
+<!-- History modal -->
+<div id="cp-modal">
+  <div class="cp-modal-box">
+    <div class="cp-modal-hdr">
+      <div class="cp-modal-icon">📣</div>
+      <div class="cp-modal-title">
+        <div>Lịch sử Gọi VĐV / Trận Đấu</div>
+        <div id="cp-modal-sub">Từ trọng tài thuộc giải của bạn</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button onclick="clearCallHistory()"
-          style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);
-          color:#f87171;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">
-          🗑 Xoá lịch sử
+      <div style="display:flex;gap:6px">
+        <button onclick="cpClearHistory()"
+          style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);
+          color:#f87171;border-radius:8px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer">
+          🗑 Xoá
         </button>
-        <button onclick="document.getElementById('call-history-modal').classList.remove('show')"
-          style="background:rgba(255,255,255,.08);border:none;color:#94a3b8;
-          border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
+        <button onclick="document.getElementById('cp-modal').classList.remove('show')"
+          style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);
+          color:#94a3b8;border-radius:8px;width:30px;height:30px;font-size:16px;cursor:pointer">✕</button>
       </div>
     </div>
-    <div class="call-history-body" id="call-history-body">
-      <div style="text-align:center;padding:32px 16px;color:#475569;font-size:13px">
+    <div class="cp-modal-body" id="cp-modal-body">
+      <div style="text-align:center;padding:36px 16px;color:#475569;font-size:13px">
+        <div style="font-size:36px;margin-bottom:10px">📭</div>
         Chưa có lệnh gọi nào
       </div>
     </div>
@@ -11861,231 +11930,421 @@ const _origNdBkRender = window._ndBkRender;
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  CALL PLAYER NOTIFICATION — Admin Side
-//  Polls GAS every 5s for new callPlayer events
+//  📣 CALL PLAYER — Admin-side notification engine
+//
+//  Luồng không cần thay đổi GAS:
+//  1. Referee POST vào LiveScore sheet với action='live'
+//     key = "CALL|giai|ts"  (prefix CALL| để admin nhận dạng)
+//     row = [key, teamA, nameJSON, callType, players, teamB, court, ts, referee, "call"]
+//           col: 0    1     2         3        4        5      6     7    8        9
+//
+//  2. Admin đọc từ live poll mỗi 8s (_buildLiveFromRows),
+//     hook vào để filter row có status="call"
+//
+//  3. Lọc đúng giai: ROLE=admin thấy tất cả,
+//     ROLE=manager chỉ thấy row trong MY_GIAI_LIST
 // ══════════════════════════════════════════════════════════════
 
-const _CP_KEY = 'pb_call_hist';
-let _callHistory = [];
-let _lastCallTs  = 0;
-let _callPollTimer = null;
-let _unreadCalls = 0;
+const _CP_HIST_KEY = 'pb_cp_hist_v2';
+let _cpHistory     = [];
+let _cpSeenTs      = new Set(); // tránh hiện trùng
+let _cpUnread      = 0;
+let _cpDismissAuto = 16000; // ms trước khi tự đóng
 
-try { 
-  _callHistory = JSON.parse(localStorage.getItem(_CP_KEY) || '[]');
-  _lastCallTs  = _callHistory.length ? Math.max(..._callHistory.map(c => c.ts||0)) : 0;
+// Load history
+try {
+  const raw = JSON.parse(localStorage.getItem(_CP_HIST_KEY) || '[]');
+  _cpHistory = raw;
+  raw.forEach(r => _cpSeenTs.add(r.ts));
 } catch(e) {}
 
-function _saveCallHistory() {
-  try { localStorage.setItem(_CP_KEY, JSON.stringify(_callHistory.slice(-50))); } catch(e) {}
+function _cpSaveHistory() {
+  try {
+    localStorage.setItem(_CP_HIST_KEY, JSON.stringify(_cpHistory.slice(-60)));
+  } catch(e) {}
 }
 
-function _formatCallTime(ts) {
-  const d = new Date(ts);
-  return d.toLocaleTimeString('vi-VN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+// ── Map callType → hiển thị ──
+const _CP_LABELS = {
+  'player_a0': { text: 'GỌI VĐV 1 · ĐỘI A', icon: '📣', cls: 'clr-player', hcls: 'hbg-player' },
+  'player_a1': { text: 'GỌI VĐV 2 · ĐỘI A', icon: '📣', cls: 'clr-player', hcls: 'hbg-player' },
+  'player_b0': { text: 'GỌI VĐV 1 · ĐỘI B', icon: '📣', cls: 'clr-player', hcls: 'hbg-player' },
+  'player_b1': { text: 'GỌI VĐV 2 · ĐỘI B', icon: '📣', cls: 'clr-player', hcls: 'hbg-player' },
+  'team_a':    { text: 'GỌI CẢ ĐỘI A',       icon: '📢', cls: 'clr-team-a', hcls: 'hbg-team-a' },
+  'team_b':    { text: 'GỌI CẢ ĐỘI B',       icon: '📢', cls: 'clr-team-b', hcls: 'hbg-team-b' },
+  'match':     { text: 'GỌI TRẬN ĐẤU',        icon: '🔊', cls: 'clr-match',  hcls: 'hbg-match'  },
+};
+function _cpMeta(ct) {
+  return _CP_LABELS[ct] || { text: 'GỌI VĐV', icon: '📣', cls: '', hcls: 'hbg-player' };
 }
 
-function _getCallTypeClass(callType) {
-  if (!callType) return '';
-  if (callType === 'match')       return 'type-match';
-  if (callType.startsWith('team_a')) return 'type-team-a';
-  if (callType.startsWith('team_b')) return 'type-team-b';
-  return '';
+// ── Nhận dạng side từ callType ──
+function _cpSide(callType, idx) {
+  if (!callType) return 'a';
+  if (callType.includes('_b') || callType === 'team_b') return 'b';
+  if (callType === 'match') return idx < 2 ? 'a' : 'b'; // 4 players: 0,1=A, 2,3=B
+  return 'a';
 }
 
-function _getCallIcon(callType) {
-  if (callType === 'match') return '🔊';
-  if (callType === 'team_a' || callType === 'team_b') return '📢';
-  return '📣';
+// ── Kiểm tra row có thuộc giai của user không ──
+function _cpGiaiMatch(rowGiai) {
+  if (!rowGiai) return true; // không có giai → hiển thị tất cả
+  if (ROLE === 'admin') return true; // admin thấy tất cả
+  if (!MY_GIAI_LIST || !MY_GIAI_LIST.length) return true;
+  const rg = String(rowGiai).trim().toLowerCase();
+  return MY_GIAI_LIST.some(g => g.trim().toLowerCase() === rg);
 }
 
-function _getCallTitle(callType) {
-  if (callType === 'match') return 'GỌI TRẬN ĐẤU';
-  if (callType === 'team_a') return 'GỌI ĐỘI A';
-  if (callType === 'team_b') return 'GỌI ĐỘI B';
-  if (callType === 'player_a0') return 'GỌI VĐV 1 · ĐỘI A';
-  if (callType === 'player_a1') return 'GỌI VĐV 2 · ĐỘI A';
-  if (callType === 'player_b0') return 'GỌI VĐV 1 · ĐỘI B';
-  if (callType === 'player_b1') return 'GỌI VĐV 2 · ĐỘI B';
-  return 'GỌI VĐV';
-}
-
-function _showCallNotification(callData) {
-  const tray = document.getElementById('call-tray');
+// ── Hiển thị một notification ──
+function _cpShowNotif(call) {
+  const tray = document.getElementById('cp-tray');
   if (!tray) return;
 
-  const notifId = 'callnotif_' + callData.ts;
-  const typeClass = _getCallTypeClass(callData.callType);
-  const icon = _getCallIcon(callData.callType);
-  const title = _getCallTitle(callData.callType);
+  const meta      = _cpMeta(call.callType);
+  const players   = call.players || [];
+  const matchInfo = [call.matchBang, call.matchCode ? 'Mã ' + call.matchCode : '', call.matchNd]
+                    .filter(Boolean).join(' · ');
+  const nid = 'cpn_' + call.ts;
 
-  // Build players HTML
-  const players = callData.playerNames || [];
-  const teamA = callData.teamA || '';
-  const teamB = callData.teamB || '';
+  // Build players rows
   let playersHtml = '';
-  if (players.length > 0) {
-    playersHtml = `<div class="call-notif-players">`;
+  if (players.length) {
+    playersHtml = `<div class="cpn-players">`;
     players.forEach((p, i) => {
-      let sideClass = 'badge-a';
-      let sideLabel = 'Đội A';
-      const ct = callData.callType || '';
-      if (ct.includes('_b') || ct === 'team_b') { sideClass = 'badge-b'; sideLabel = 'Đội B'; }
-      if (ct === 'match') {
-        // 4 players: first 2 = A, last 2 = B
-        sideClass = i < 2 ? 'badge-a' : 'badge-b';
-        sideLabel = i < 2 ? 'Đội A' : 'Đội B';
-      }
-      playersHtml += `<div class="call-notif-player">
-        <span class="call-notif-player-badge ${sideClass}">${sideLabel}</span>
-        <span class="call-notif-player-name">${p}</span>
+      const side = _cpSide(call.callType, i);
+      playersHtml += `<div class="cpn-player">
+        <span class="cpn-side side-${side}">${side === 'a' ? 'Đội A' : 'Đội B'}</span>
+        <span class="cpn-pname">${p || '—'}</span>
       </div>`;
     });
     playersHtml += `</div>`;
   }
 
-  const matchInfo = [
-    callData.matchBang, 
-    callData.matchCode ? 'Mã ' + callData.matchCode : '', 
-    callData.matchNd
-  ].filter(Boolean).join(' · ');
+  const timeStr = new Date(call.ts).toLocaleTimeString('vi-VN', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
 
   const el = document.createElement('div');
-  el.id = notifId;
-  el.className = `call-notif ${typeClass}`;
+  el.id        = nid;
+  el.className = `cpn ${meta.cls}`;
   el.innerHTML = `
-    <div class="call-notif-hdr">
-      <div class="call-notif-icon">${icon}</div>
-      <div style="flex:1;min-width:0">
-        <div class="call-notif-title">${title}</div>
-        <div class="call-notif-match">${matchInfo || callData.message || 'Gọi vận động viên'}</div>
+    <div class="cpn-bar"></div>
+    <div class="cpn-inner">
+      <div class="cpn-hdr">
+        <div class="cpn-icon">${meta.icon}</div>
+        <div class="cpn-meta">
+          <div class="cpn-type">${meta.text}</div>
+          <div class="cpn-match">${matchInfo || 'Gọi vận động viên'}</div>
+        </div>
+        <button class="cpn-close" onclick="_cpDismiss('${nid}')">✕</button>
       </div>
-      <button class="call-notif-close" onclick="dismissCallNotif('${notifId}')">✕</button>
-    </div>
-    ${playersHtml}
-    <div class="call-notif-footer">
-      <span class="call-notif-court">${callData.court ? '📍 ' + callData.court : ''}${callData.referee ? ' · TT: ' + callData.referee : ''}</span>
-      <span class="call-notif-time">${_formatCallTime(callData.ts)}</span>
+      ${playersHtml}
+      <div class="cpn-footer">
+        <span class="cpn-court">${call.court ? '📍 '+call.court : ''}${call.referee ? (call.court?' · ':'')+'TT: '+call.referee : ''}</span>
+        <span class="cpn-time">${timeStr}</span>
+      </div>
+      <div class="cpn-progress">
+        <div class="cpn-progress-bar" id="${nid}_pb" style="width:100%"></div>
+      </div>
     </div>
   `;
   tray.prepend(el);
 
-  // Auto-dismiss after 15s
-  el._dismissTimer = setTimeout(() => dismissCallNotif(notifId), 15000);
+  // Progress bar countdown
+  const pb = document.getElementById(nid + '_pb');
+  if (pb) {
+    pb.style.transition = `width ${_cpDismissAuto}ms linear`;
+    requestAnimationFrame(() => { pb.style.width = '0%'; });
+  }
 
-  // Vibrate + sound cue (optional)
-  navigator.vibrate && navigator.vibrate([100, 60, 100, 60, 200]);
+  // Auto-dismiss
+  el._autoTimer = setTimeout(() => _cpDismiss(nid), _cpDismissAuto);
 
-  // Bell button
-  _unreadCalls++;
-  _updateBellBadge();
+  // Badge + bell
+  _cpUnread++;
+  _cpUpdateBell();
+
+  // Vibrate
+  navigator.vibrate && navigator.vibrate([80, 50, 80, 50, 180]);
 }
 
-function dismissCallNotif(id) {
-  const el = document.getElementById(id);
+function _cpDismiss(nid) {
+  const el = document.getElementById(nid);
   if (!el) return;
-  clearTimeout(el._dismissTimer);
-  el.style.animation = 'callFadeOut .3s ease forwards';
-  setTimeout(() => el.remove(), 280);
+  clearTimeout(el._autoTimer);
+  el.style.animation = 'cpFadeOut .3s ease forwards';
+  setTimeout(() => el && el.remove(), 290);
 }
 
-function _updateBellBadge() {
-  const btn = document.getElementById('call-bell-btn');
-  const badge = document.getElementById('call-badge');
-  if (!btn || !badge) return;
-  if (_unreadCalls > 0) {
+function _cpUpdateBell() {
+  const btn   = document.getElementById('cp-bell');
+  const badge = document.getElementById('cp-badge');
+  if (!btn) return;
+  if (_cpUnread > 0) {
     btn.classList.add('show');
-    badge.style.display = 'flex';
-    badge.textContent = _unreadCalls > 9 ? '9+' : _unreadCalls;
+    if (badge) { badge.style.display = 'flex'; badge.textContent = _cpUnread > 9 ? '9+' : _cpUnread; }
   } else {
     btn.classList.remove('show');
-    badge.style.display = 'none';
+    if (badge) badge.style.display = 'none';
   }
 }
 
-function openCallHistory() {
-  _unreadCalls = 0;
-  _updateBellBadge();
-  _renderCallHistory();
-  document.getElementById('call-history-modal').classList.add('show');
+function cpOpenHistory() {
+  _cpUnread = 0;
+  _cpUpdateBell();
+  _cpRenderHistory();
+  document.getElementById('cp-modal').classList.add('show');
 }
 
-function clearCallHistory() {
+function cpClearHistory() {
   if (!confirm('Xoá toàn bộ lịch sử gọi VĐV?')) return;
-  _callHistory = [];
-  _lastCallTs = 0;
-  _saveCallHistory();
-  _renderCallHistory();
+  _cpHistory = [];
+  _cpSeenTs.clear();
+  _cpSaveHistory();
+  _cpRenderHistory();
 }
 
-function _renderCallHistory() {
-  const body = document.getElementById('call-history-body');
+function _cpRenderHistory() {
+  const body = document.getElementById('cp-modal-body');
   if (!body) return;
-  if (!_callHistory.length) {
-    body.innerHTML = `<div style="text-align:center;padding:32px 16px;color:#475569;font-size:13px">Chưa có lệnh gọi nào</div>`;
+  const sub  = document.getElementById('cp-modal-sub');
+  if (sub) {
+    sub.textContent = ROLE === 'manager'
+      ? `Giải: ${MY_GIAI || 'Tất cả'} · ${_cpHistory.length} lệnh gọi`
+      : `${_cpHistory.length} lệnh gọi`;
+  }
+  if (!_cpHistory.length) {
+    body.innerHTML = `<div style="text-align:center;padding:36px 16px;color:#475569;font-size:13px">
+      <div style="font-size:36px;margin-bottom:10px">📭</div>Chưa có lệnh gọi nào</div>`;
     return;
   }
-  body.innerHTML = _callHistory.slice().reverse().map(c => {
-    const title = _getCallTitle(c.callType);
-    const icon  = _getCallIcon(c.callType);
-    const matchInfo = [c.matchBang, c.matchCode ? 'Mã ' + c.matchCode : '', c.matchNd].filter(Boolean).join(' · ');
-    const playersHtml = (c.playerNames || []).map(p =>
-      `<span class="call-hist-player-tag">🏓 ${p}</span>`
-    ).join('');
-    return `<div class="call-hist-row">
-      <div class="call-hist-time">${_formatCallTime(c.ts)} ${c.court ? '· ' + c.court : ''} ${c.referee ? '· TT: ' + c.referee : ''}</div>
-      <div class="call-hist-msg">${icon} ${title}${matchInfo ? ' — ' + matchInfo : ''}</div>
-      ${playersHtml ? `<div class="call-hist-players">${playersHtml}</div>` : ''}
+  body.innerHTML = _cpHistory.slice().reverse().map(c => {
+    const meta      = _cpMeta(c.callType);
+    const players   = c.players || [];
+    const matchInfo = [c.matchBang, c.matchCode ? 'Mã ' + c.matchCode : '', c.matchNd]
+                      .filter(Boolean).join(' · ');
+    const timeStr   = new Date(c.ts).toLocaleTimeString('vi-VN', {
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    });
+    const ptags = players.map((p, i) => {
+      const side = _cpSide(c.callType, i);
+      return `<span class="cp-hist-ptag">${side === 'a' ? '🟢' : '🔵'} ${p}</span>`;
+    }).join('');
+
+    return `<div class="cp-hist-row">
+      <div class="cp-hist-top">
+        <span class="cp-hist-badge ${meta.hcls}">${meta.icon} ${meta.text}</span>
+        <span class="cp-hist-match">${matchInfo || '—'}</span>
+        <span class="cp-hist-time">${timeStr}</span>
+      </div>
+      ${ptags ? `<div class="cp-hist-players">${ptags}</div>` : ''}
+      <div class="cp-hist-detail">
+        ${c.court ? '📍 '+c.court+' · ' : ''}${c.referee ? 'TT: '+c.referee : ''}
+        ${c.matchGiai ? ' · Giải: '+c.matchGiai : ''}
+      </div>
     </div>`;
   }).join('');
 }
 
-// ── Poll GAS for new callPlayer events ──
-async function _pollCallPlayer() {
+// ══════════════════════════════════════════════════════════════
+//  HOOK vào _buildLiveFromRows có sẵn để nhận CALL rows
+//  LiveScore row format: [key, teamA, scoreA, scoreB, teamB, serve, game, updatedAt, referee, status]
+//  CALL row format:      [key, giai,  JSON_players, callType, JSON_names, matchBang, court, ts, referee, "call"]
+//  key = "CALL|giai|ts"
+// ══════════════════════════════════════════════════════════════
+(function _hookLiveForCall() {
+  const _origBuild = window._buildLiveFromRows || _buildLiveFromRows;
+
+  // Patch: override _buildLiveFromRows sau khi script gốc đã define
+  function _patchedBuildLive(rows) {
+    // Tách CALL rows ra trước
+    const callRows  = (rows || []).filter(r => String(r[0]||'').startsWith('CALL|'));
+    const liveRows  = (rows || []).filter(r => !String(r[0]||'').startsWith('CALL|'));
+
+    // Xử lý CALL rows
+    callRows.forEach(r => {
+      // r[0] = "CALL|giai|ts"
+      // r[1] = giai name
+      // r[2] = JSON array of player names (field scoreA)
+      // r[3] = callType (field scoreB)
+      // r[4] = JSON array of playerNames full (field teamB)
+      // r[5] = matchBang (field serve)
+      // r[6] = court (field game)
+      // r[7] = ts (field updatedAt)
+      // r[8] = referee
+      // r[9] = "call" (status)
+      const key    = String(r[0]||'');
+      const parts  = key.split('|');
+      const rowTs  = Number(r[7]||parts[2]||0);
+
+      if (_cpSeenTs.has(rowTs)) return; // đã xử lý
+
+      const rowGiai = String(r[1]||parts[1]||'');
+      if (!_cpGiaiMatch(rowGiai)) return; // không thuộc giai của user này
+
+      let players = [];
+      let matchCode = '';
+      let matchNd   = '';
+      try {
+        const parsed = JSON.parse(r[2] || '[]');
+        if (Array.isArray(parsed)) players = parsed;
+      } catch(e) {
+        if (r[2]) players = [String(r[2])];
+      }
+
+      const callType  = String(r[3]||'match');
+      const matchBang = String(r[5]||'');
+      const court     = String(r[6]||'');
+      const referee   = String(r[8]||'');
+
+      // Lấy matchCode và matchNd từ parts của key nếu có
+      // key = "CALL|giai|ts" → không có code ở đây, dùng field r[4]
+      let extraInfo = {};
+      try { extraInfo = JSON.parse(r[4]||'{}'); } catch(e) {}
+      matchCode = extraInfo.matchCode || '';
+      matchNd   = extraInfo.matchNd   || '';
+
+      const callData = {
+        ts: rowTs, callType, players, matchBang, matchCode, matchNd,
+        court, referee, matchGiai: rowGiai,
+      };
+
+      _cpSeenTs.add(rowTs);
+      _cpHistory.push(callData);
+      _cpHistory = _cpHistory.slice(-60);
+      _cpSaveHistory();
+      _cpShowNotif(callData);
+    });
+
+    // Pass live-only rows vào hàm gốc
+    _origBuild(liveRows);
+  }
+
+  // Cần override sau khi DOM loaded và hàm gốc đã được define
+  // _buildLiveFromRows là hàm global trong scope → override trực tiếp
+  // Nhưng vì script chạy sau script gốc nên có thể override ngay:
+  if (typeof _buildLiveFromRows === 'function') {
+    window._buildLiveFromRows = _patchedBuildLive;
+    // Patch tất cả nơi gọi nội bộ
+  }
+
+  // Nếu hàm chưa define (race condition), retry sau 500ms
+  let _hookRetry = 0;
+  function _tryHook() {
+    if (typeof _buildLiveFromRows === 'function') {
+      window._buildLiveFromRows = _patchedBuildLive;
+    } else if (_hookRetry++ < 10) {
+      setTimeout(_tryHook, 300);
+    }
+  }
+  setTimeout(_tryHook, 100);
+})();
+
+// ══════════════════════════════════════════════════════════════
+//  BACKUP POLLING: Poll trực tiếp action=live mỗi 6s
+//  phòng trường hợp hook không bắt được
+// ══════════════════════════════════════════════════════════════
+let _cpPollTimer = null;
+let _cpLastPollTs = Date.now() - 30000; // poll từ 30s trước
+
+async function _cpPoll() {
+  if (!GS) return;
   try {
-    if (!GS) return;
-    const url = GS + '?action=getCallPlayer&since=' + _lastCallTs + '&_t=' + Date.now();
+    const url = `${GS}?action=live&code=all&giai=&_t=${Date.now()}`;
     const res  = await fetch(url, { method: 'GET', redirect: 'follow' });
     const text = await res.text();
     let data;
-    try {
-      data = text.trim().startsWith('{') ? JSON.parse(text) : null;
-    } catch(e) { return; }
+    try { data = JSON.parse(text); } catch(e) { return; }
 
-    if (!data || !data.ok || !Array.isArray(data.calls) || !data.calls.length) return;
+    const rows = (data?.rows || []).slice(1); // skip header
+    const callRows = rows.filter(r => String(r[0]||'').startsWith('CALL|'));
 
-    data.calls.forEach(callData => {
-      if (callData.ts > _lastCallTs) {
-        _lastCallTs = callData.ts;
-        _callHistory.push(callData);
-        _showCallNotification(callData);
-      }
+    callRows.forEach(r => {
+      const key    = String(r[0]||'');
+      const parts  = key.split('|');
+      const rowTs  = Number(r[7]||parts[2]||0);
+      if (_cpSeenTs.has(rowTs)) return;
+      if (rowTs < _cpLastPollTs - 60000) return; // bỏ qua row cũ hơn 1 phút
+
+      const rowGiai = String(r[1]||parts[1]||'');
+      if (!_cpGiaiMatch(rowGiai)) return;
+
+      let players = [];
+      try {
+        const parsed = JSON.parse(r[2]||'[]');
+        if (Array.isArray(parsed)) players = parsed;
+      } catch(e) { if (r[2]) players = [String(r[2])]; }
+
+      const callType  = String(r[3]||'match');
+      const matchBang = String(r[5]||'');
+      const court     = String(r[6]||'');
+      const referee   = String(r[8]||'');
+
+      let extraInfo = {};
+      try { extraInfo = JSON.parse(r[4]||'{}'); } catch(e) {}
+
+      const callData = {
+        ts: rowTs, callType, players,
+        matchBang, matchCode: extraInfo.matchCode||'',
+        matchNd: extraInfo.matchNd||'',
+        court, referee, matchGiai: rowGiai,
+      };
+
+      _cpSeenTs.add(rowTs);
+      _cpHistory.push(callData);
+      _cpHistory = _cpHistory.slice(-60);
+      _cpSaveHistory();
+      _cpShowNotif(callData);
     });
-    _saveCallHistory();
-    if (_callHistory.length > 50) _callHistory = _callHistory.slice(-50);
   } catch(e) { /* silent */ }
 }
 
-// Start polling when logged in (GS available)
-function startCallPlayerPolling() {
-  if (_callPollTimer) return;
-  _callPollTimer = setInterval(_pollCallPlayer, 5000);
+function _cpStartPolling() {
+  if (_cpPollTimer) return;
+  _cpPollTimer = setInterval(_cpPoll, 6000);
+  // Poll ngay lần đầu sau 1s (chờ GS set)
+  setTimeout(_cpPoll, 1000);
 }
 
-// Hook into existing login flow: call startCallPlayerPolling() after GS is available
-// We poll every 5s for callPlayer events
-(function _hookCallPolling() {
-  const _origLoad = window.onload;
-  window.addEventListener('load', () => {
-    // Wait until GS is set (user logged in)
-    const waitGS = setInterval(() => {
-      if (typeof GS !== 'undefined' && GS) {
-        clearInterval(waitGS);
-        startCallPlayerPolling();
-      }
-    }, 1000);
-  });
+// Khởi động sau khi GS đã set (sau login)
+// Hook vào showApp thay vì window.onload để chắc chắn GS đã có giá trị
+(function _hookShowApp() {
+  const _origShowApp = window.showApp;
+  if (typeof _origShowApp === 'function') {
+    window.showApp = function() {
+      _origShowApp.apply(this, arguments);
+      setTimeout(_cpStartPolling, 500); // khởi động sau showApp
+    };
+  } else {
+    // Nếu showApp chưa define, wait
+    let _retry = 0;
+    const _wait = setInterval(() => {
+      if (typeof showApp === 'function') {
+        clearInterval(_wait);
+        const _orig = showApp;
+        window.showApp = function() {
+          _orig.apply(this, arguments);
+          setTimeout(_cpStartPolling, 500);
+        };
+      } else if (_retry++ > 20) clearInterval(_wait);
+    }, 200);
+  }
 })();
+
+// ── TEST FUNCTION (debug) ──
+// Gọi cpTestNotif() từ console để test popup mà không cần GAS
+window.cpTestNotif = function(type) {
+  const testData = {
+    ts: Date.now(),
+    callType: type || 'match',
+    players: ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Thị D'],
+    matchBang: 'Bảng B', matchCode: 'B2', matchNd: 'Đôi Nam',
+    court: 'Sân 3', referee: 'TT Minh', matchGiai: 'Giải Đà Nẵng 2026',
+  };
+  _cpSeenTs.delete(testData.ts); // cho phép test nhiều lần
+  _cpShowNotif(testData);
+  console.log('[CP] Test notification shown:', type);
+};
 </script>
 </body>
 </html>
