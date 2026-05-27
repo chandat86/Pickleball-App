@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20.4 Da Nang Referee v17 – Pickleball</title>
+<title>v20 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -223,31 +223,21 @@ select, input { font-family: inherit; }
 .snum {
   font-family: 'Oswald', sans-serif;
   font-size: 86px; font-weight: 700; line-height: 1;
-  color: var(--g900); transition: color .2s;
+  color: var(--g900); transition: color .2s, transform .1s;
   margin: 4px 0 4px; flex: 1;
   display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none;
+  border-radius: 16px;
 }
+.snum:active { transform: scale(.93); }
+.snum.tap-flash { animation: snumFlash .18s ease; }
+@keyframes snumFlash { 0%{transform:scale(1.12)} 100%{transform:scale(1)} }
+.snum.locked { opacity: .28; pointer-events: none; }
 .serving .snum { color: var(--green-dk); }
 .winner  .snum { color: var(--amber-dk); }
 
-/* ── Nút +/- ── */
-.sc-btns { display: flex; gap: 10px; justify-content: center; margin-bottom: 6px; }
-.sc-btn {
-  width: 46px; height: 46px; border-radius: 50%; border: none;
-  font-size: 22px; font-weight: 700;
-  transition: transform .12s, box-shadow .12s;
-  cursor: pointer;
-}
-.sc-btn:active { transform: scale(.84); }
-.sc-btn.plus  {
-  background: var(--green); color: #fff;
-  box-shadow: 0 4px 14px rgba(34,197,94,.45);
-}
-.sc-btn.minus {
-  background: var(--g100); color: var(--g500);
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
-}
-.sc-btn.locked { opacity: .2; pointer-events: none; }
+/* ── Nút +/- (ẩn, giữ lại cho Undo) ── */
+.sc-btns { display: none; }
 
 /* ── ex-btn base (dùng trong sb-action-bar) ── */
 .ex-btn {
@@ -348,7 +338,7 @@ select, input { font-family: inherit; }
 .ctrl-btn.swap  { background: #e0f2fe; color: #0369a1; box-shadow: 0 2px 8px rgba(3,105,161,.15); }
 
 /* Trạng thái chưa bắt đầu */
-.scoreboard.not-started .sc-btn { opacity: .3; pointer-events: none; }
+.scoreboard.not-started .snum { opacity: .3; pointer-events: none; cursor: default; }
 .scoreboard.not-started .sb-action-bar .ex-btn { opacity: .3; pointer-events: none; }
 .scoreboard.not-started #btn-transfer-serve { opacity: .45; pointer-events: none; }
 
@@ -738,7 +728,7 @@ select, input { font-family: inherit; }
           <span class="pos-badge pos-badge-1" id="pos-a-bot">Ô1</span>
         </div>
       </div>
-      <div class="snum" id="score-a">0</div>
+      <div class="snum" id="score-a" onclick="snumTap('a')">0</div>
       <div class="sc-btns">
         <button class="sc-btn minus" onclick="addScore('a',-1)">−</button>
         <button class="sc-btn plus"  onclick="addScore('a',1)">+</button>
@@ -761,7 +751,7 @@ select, input { font-family: inherit; }
           <span class="pos-badge pos-badge-2" id="pos-b-bot">Ô2</span>
         </div>
       </div>
-      <div class="snum" id="score-b">0</div>
+      <div class="snum" id="score-b" onclick="snumTap('b')">0</div>
       <div class="sc-btns">
         <button class="sc-btn minus" onclick="addScore('b',-1)">−</button>
         <button class="sc-btn plus"  onclick="addScore('b',1)">+</button>
@@ -2331,11 +2321,11 @@ function _renderScoreAnnounce() {
 }
 function _updateScoreBtnLock() {
   if (!matchStarted) {
-    document.querySelectorAll('.sc-btn').forEach(b => b.classList.remove('locked'));
+    document.querySelectorAll('.snum').forEach(b => b.classList.remove('locked'));
     return;
   }
-  document.querySelectorAll('#card-a .sc-btn').forEach(b => b.classList.toggle('locked', S.server !== 'a'));
-  document.querySelectorAll('#card-b .sc-btn').forEach(b => b.classList.toggle('locked', S.server !== 'b'));
+  document.getElementById('score-a').classList.toggle('locked', S.server !== 'a');
+  document.getElementById('score-b').classList.toggle('locked', S.server !== 'b');
 }
 function _renderServeBadgeCenter() {
   const dots = document.getElementById('serve-dots-center');
@@ -2766,6 +2756,15 @@ function sn(name) {
   if (!name) return '–';
   const m=name.match(/^(.+?)\s*[\(（]/);
   return m?m[1].trim():name;
+}
+
+// Chạm vào ô điểm số để cộng điểm
+function snumTap(side) {
+  if (!matchStarted) { toast('⚠️ Nhấn Bắt đầu trước!'); return; }
+  // Flash animation
+  var el = document.getElementById('score-' + side);
+  if (el) { el.classList.remove('tap-flash'); void el.offsetWidth; el.classList.add('tap-flash'); }
+  addScore(side, 1);
 }
 
 function addScore(side, delta) {
