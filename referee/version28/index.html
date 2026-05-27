@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v28.5 Da Nang Referee v17 – Pickleball</title>
+<title>v28.6 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -237,20 +237,24 @@ select, input { font-family: inherit; }
 }
 .player-name {
   font-size: 13px; font-weight: 700; color: #1e3a5f;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  line-height: 1.3; width: 100%;
-  /* auto-shrink font nếu tên dài */
+  white-space: normal; overflow: hidden;
+  word-break: break-word;
+  line-height: 1.25; width: 100%;
   display: block;
+  /* clamp to 2 lines max inside fixed-height box */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .player-row.is-server .player-name { color: #1e3a5f; font-weight: 700; }
 .team-card.winner .player-row.is-server .player-name { color: var(--amber-dk); }
 
 .btn-note {
-  background: none; border: none; padding: 0;
-  font-size: 14px; line-height: 1; cursor: pointer; flex-shrink: 0;
-  opacity: 0.75; transition: opacity .15s;
+  background: none; border: none; padding: 1px;
+  line-height: 1; cursor: pointer; flex-shrink: 0;
+  opacity: 0.45; transition: opacity .15s;
+  display: flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
 }
-.btn-note:hover { opacity: 1; }
+.btn-note:hover { opacity: 0.9; }
 
 .player-note-text {
   font-size: 9px; color: var(--g400); font-style: italic;
@@ -845,7 +849,7 @@ select, input { font-family: inherit; }
           <div class="player-row" id="player-a-top">
             <div class="player-name-wrap">
               <span class="player-name" id="pname-a-top">VĐV 1</span>
-              <button class="btn-note" onclick="togglePlayerNote('a','top')" title="Ghi chú">✏️</button>
+              <button class="btn-note" onclick="togglePlayerNote('a','top')" title="Ghi chú"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5a2.121 2.121 0 013 3L5 14H2v-3L11.5 1.5z" stroke="#64748b" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
             </div>
             <span class="player-note-text" id="note-text-a-top"></span>
             <input class="player-note-input" id="note-input-a-top" placeholder="Nhập ghi chú…" maxlength="60"
@@ -861,7 +865,7 @@ select, input { font-family: inherit; }
           <div class="player-row" id="player-a-bot">
             <div class="player-name-wrap">
               <span class="player-name" id="pname-a-bot">VĐV 2</span>
-              <button class="btn-note" onclick="togglePlayerNote('a','bot')" title="Ghi chú">✏️</button>
+              <button class="btn-note" onclick="togglePlayerNote('a','bot')" title="Ghi chú"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5a2.121 2.121 0 013 3L5 14H2v-3L11.5 1.5z" stroke="#64748b" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
             </div>
             <span class="player-note-text" id="note-text-a-bot"></span>
             <input class="player-note-input" id="note-input-a-bot" placeholder="Nhập ghi chú…" maxlength="60"
@@ -889,7 +893,7 @@ select, input { font-family: inherit; }
           <div class="player-row" id="player-b-top">
             <div class="player-name-wrap">
               <span class="player-name" id="pname-b-top">VĐV 1</span>
-              <button class="btn-note" onclick="togglePlayerNote('b','top')" title="Ghi chú">✏️</button>
+              <button class="btn-note" onclick="togglePlayerNote('b','top')" title="Ghi chú"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5a2.121 2.121 0 013 3L5 14H2v-3L11.5 1.5z" stroke="#64748b" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
             </div>
             <span class="player-note-text" id="note-text-b-top"></span>
             <input class="player-note-input" id="note-input-b-top" placeholder="Nhập ghi chú…" maxlength="60"
@@ -905,7 +909,7 @@ select, input { font-family: inherit; }
           <div class="player-row" id="player-b-bot">
             <div class="player-name-wrap">
               <span class="player-name" id="pname-b-bot">VĐV 2</span>
-              <button class="btn-note" onclick="togglePlayerNote('b','bot')" title="Ghi chú">✏️</button>
+              <button class="btn-note" onclick="togglePlayerNote('b','bot')" title="Ghi chú"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.5 1.5a2.121 2.121 0 013 3L5 14H2v-3L11.5 1.5z" stroke="#64748b" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
             </div>
             <span class="player-note-text" id="note-text-b-bot"></span>
             <input class="player-note-input" id="note-input-b-bot" placeholder="Nhập ghi chú…" maxlength="60"
@@ -2465,14 +2469,16 @@ function _renderPlayerRows() {
   _updateScoreBtnLock();
   _renderScoreAnnounce();
 }
-/* Tự động co font để tên vừa 1 hàng trong khung */
+/* Tự động co font để tên hiển thị đầy đủ trong khung cố định, cho phép xuống hàng */
 function fitPlayerName(el) {
   if (!el) return;
-  el.style.fontSize = '';
-  const maxW = el.parentElement ? el.parentElement.offsetWidth - 4 : 999;
+  const row = el.closest('.player-row');
+  const maxH = row ? row.clientHeight || 40 : 40;
   let size = 13;
   el.style.fontSize = size + 'px';
-  while (el.scrollWidth > maxW && size > 7) {
+  el.style.webkitLineClamp = '2';
+  // shrink font until text fits within fixed height box
+  while ((el.scrollHeight > maxH || el.scrollWidth > el.clientWidth) && size > 7) {
     size -= 0.5;
     el.style.fontSize = size + 'px';
   }
