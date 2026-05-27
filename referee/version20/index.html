@@ -4,7 +4,7 @@
 <!-- Pickleball v8.1 | FIX: Park priority in renderMatchCard — tỉ số tím đúng khi switch trận | 2026-05-23 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>v20.2 Da Nang Referee v17 – Pickleball</title>
+<title>v20.3 Da Nang Referee v17 – Pickleball</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -784,14 +784,12 @@ select, input { font-family: inherit; }
   <!-- Nút ĐỔI GIAO nằm 1 hàng căn giữa -->
 
 </div>
-<!-- ── ĐỔI GIAO + CONTROLS dùng chung grid 5 cột ── -->
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:0;">
-  <!-- Hàng 1: ĐỔI GIAO span col 2→4 -->
-  <div style="grid-column:1/1"></div>
-  <button id="btn-transfer-serve" onclick="transferServe()"
-    style="grid-column:2/5;margin:0;">⇄ ĐỔI GIAO</button>
-  <div style="grid-column:5/6"></div>
-  <!-- Hàng 2: 5 nút điều khiển -->
+<!-- ── ĐỔI GIAO ROW ── -->
+<div style="display:flex;justify-content:center;margin-bottom:6px;">
+  <button id="btn-transfer-serve" onclick="transferServe()" style="width:50%;">⇄ ĐỔI GIAO</button>
+</div>
+<!-- ── CONTROLS ── -->
+<div class="ctrl-row" style="grid-template-columns:repeat(5,1fr)">
   <button class="ctrl-btn start" id="btn-start" onclick="startMatch()">▶ Bắt đầu</button>
   <button class="ctrl-btn undo"  onclick="undo()">↩ Undo</button>
   <button class="ctrl-btn save"  onclick="saveResult()">💾 Lưu</button>
